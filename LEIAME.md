@@ -1,0 +1,88 @@
+# URA · Suporte B2C (v1.0.0)
+
+PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
+Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
+
+## Como os dados chegam
+- O app lê o arquivo **`pulse.json`** na raiz do site, ao lado do `index.html`.
+  - Para testar outro nome: abra com `?arquivo=nome.json` no fim do endereço.
+- **Quando o app confere o arquivo:**
+  - a cada 1 minuto (a coleta é de 5 em 5);
+  - quando a tela volta a ficar visível;
+  - ao tocar em ↻.
+- **Arquivo novo com problema** (JSON cortado, métrica obrigatória faltando, sem leituras):
+  - o app **mantém os últimos dados válidos**;
+  - mostra uma faixa vermelha com o motivo.
+- **Sem conexão ou arquivo não encontrado:** usa a última cópia válida guardada no aparelho e avisa.
+- **Botão de pasta** (topo): abre um JSON do próprio aparelho, para testes.
+  - Nesse modo a atualização automática fica pausada.
+  - ↻ volta para os dados do site.
+
+## Formato do JSON (gerado pela coleta)
+```
+{ "dia": "2026-10-30",
+  "metricas": [ {"id":"Current_Calls","label":"Chamadas em Espera","formato":"integer"}, … ],
+  "skills":   { "VQ_…@SW_SIPS_VQ": { "SKILL_GRUPO": "…", "DIRECIONAMENTO": "CO", … } },
+  "leituras": [ { "horario":"08:15", "coletado_em":"2026-10-30 08:13:05", "origem":"auto",
+                  "valores": { "VQ_…@SW_SIPS_VQ": [n, n, …] } } ] }
+```
+- **Ordem dos valores:** os valores de cada skill seguem a ordem de `metricas`. O app procura cada métrica **pelo `id`**: se a ordem mudar, nada quebra.
+- **Métricas obrigatórias:**
+  - `Current_Calls`, `Curr_Max_Wait_Time`, `Current_Logged_In`, `Current_Ready`;
+  - `Distinct_Entered`, `Answered`, `Average_Handle_Time`, `Average_Wait_Time`;
+  - `Answered_less_300s`, `Abandoned`.
+- **Tempos** em segundos inteiros. **EWT `10000`** = "sem agente".
+- **`horario`** é o slot agendado e o eixo X.
+  - `coletado_em` só desempata quando o mesmo slot vem repetido: fica a coleta mais perto do horário do slot.
+- **Skill sem tradução:** aparece como "SEM TRADUÇÃO", com aviso no fim da página, e não entra no CO nem na TEL.
+- **Skill que some de uma leitura:** repete o valor anterior, com aviso. Contador acumulado não pode voltar.
+
+## Contas
+- **Contadores acumulados do dia:** o volume de um intervalo é o valor do fim menos o do início. A soma dos intervalos dá o total do dia.
+- **NS do dia** = atendidas em até 300s ÷ oferecidas, a mesma regra do Pulse.
+- **NS e abandono de um intervalo:** ÷ chamadas **finalizadas** no intervalo (atendidas + abandonadas).
+  - Uma chamada pode entrar num intervalo e ser atendida no seguinte.
+  - Dividir pelas oferecidas do intervalo passaria de 100%.
+- **TMA/TME de grupo:** média ponderada pelas atendidas. No intervalo, são reconstruídos pela diferença dos totais.
+- **Agentes nunca são somados**, porque são compartilhados entre skills. O app usa o maior valor de uma skill.
+- **Meta do NS:** 90%, igual ao painel de Nível de Serviço do B2C.
+  - **Meta atingida:** NS igual ou acima da meta.
+  - **Em atenção:** de 70% até a meta.
+  - **Crítico:** abaixo de 70%.
+  - Para mudar, altere `META_NS` e `LIM_ATENCAO` no `app.js`.
+- **1ª coluna do dia:** se não houver leitura das 08:00, ela inclui o que entrou antes da primeira coleta, e o app avisa.
+
+## Telas
+1. **Agora:**
+   - NS do CO em destaque, com a situação;
+   - oferecidas, abandonadas, fila agora, TME/TMA, últimos 15 min e agentes disponíveis;
+   - lista das **filas com chamadas em espera**: a mais antiga primeiro, com cor por tempo (até 2 min, 2 a 5 min, acima de 5 min);
+   - **hora atual de 5 em 5 min** (CO + TEL);
+   - tabelas por grupo do CO e da TEL. Tocar num grupo abre a Evolução já filtrada.
+2. **Evolução:**
+   - **CO / TEL / Total URA**;
+   - eixo em **Auto, 15 min, 30 min, 1 h ou 2 h**. O Auto escolhe o menor intervalo que cabe na tela sem poluir, e a escolha fica salva no aparelho;
+   - filtro por grupo;
+   - gráficos de oferecidas (com a parte abandonada), NS por intervalo (com meta e NS acumulado), abandono e TME;
+   - tabela de intervalos.
+   - **Seleção:** tocar numa coluna ou linha seleciona o intervalo nos gráficos, nos cards e na tabela.
+3. **Skills:**
+   - CO ou TEL, agrupadas pelo **nome simplificado da tradutora**, com busca;
+   - o detalhe mostra os números do dia, o gráfico, as skills do Pulse que formam o grupo e os campos da tradutora.
+
+## Arquivos
+| Arquivo | Papel |
+|---|---|
+| `index.html` | estrutura e estilos (paleta, modo escuro), CSP |
+| `dados.js` | leitura, validação e contas (roda no Node para os testes) |
+| `graf.js` | gráfico de colunas em SVG |
+| `app.js` | telas, atualização automática, cópia no aparelho |
+| `sw.js` | cache offline só deste app (caches `ura-b2c-v…`); o `.json` de dados nunca passa pelo cache |
+| `manifest.webmanifest`, `icons/` | instalação no celular |
+| `tests/` | `dados.test.js` (contas), `tela.js` e `robustez.js` (Playwright) |
+
+## Antes de publicar
+1. **Mesma versão** em `APP_VERSION` (`app.js`), `VERSION` (`sw.js`) e nos `?v=` do `index.html`. O teste confere.
+2. `node --check` em todos os `.js` e `node tests/dados.test.js`.
+3. Testes de tela em ~390 px, claro e escuro. Sirva a pasta com um `pulse.json` e rode `node tests/tela.js` e `node tests/robustez.js`.
+4. Os testes usam `tests/amostra.json`, que é o JSON da coleta de 30/10/2026. Ele tem números reais, por isso **não vai para o repositório** (está no `.gitignore`): copie o arquivo para essa pasta antes de rodar os testes.

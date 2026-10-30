@@ -1,0 +1,17 @@
+{
+  "name": "URA · Suporte B2C",
+  "short_name": "URA B2C",
+  "description": "Filas do Suporte B2C na URA (CO e TEL), ao vivo de 5 em 5 minutos.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#642A90",
+  "theme_color": "#642A90",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
