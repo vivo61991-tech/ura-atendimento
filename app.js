@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.1.1';
+  const APP_VERSION = '1.2.0';
   const D = window.Dados, G = window.Graf;
 
   // ---------------------------------------------------------------- configuração
@@ -144,6 +144,24 @@
     const w = (el && el.clientWidth) || Math.min(760, window.innerWidth) - 56;
     return Math.max(8, Math.min(24, Math.floor(w / 27)));
   }
+  // cartão de gráfico: legenda e explicações ficam escondidas atrás do botão (i), no canto inferior direito.
+  // Só um aberto por vez (abrir outro fecha o anterior); o aberto continua aberto quando a tela se redesenha.
+  let infoAberto = null;
+  const ICONE_INFO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6"/><path d="M12 7.4h.01" stroke-width="2.8"/></svg>';
+  function cartaoGraf(id, titulo, svg, info, fixo) {
+    const ab = infoAberto === id;
+    return `<div class="card chart" data-ch="${id}"><h2>${titulo}</h2>${svg}
+      <div class="ch-pe">${fixo || ''}<button class="info" data-info="${id}" aria-expanded="${ab}" aria-controls="inf-${id}" aria-label="${ab ? 'Esconder' : 'Mostrar'} a explicação do gráfico" title="Explicação do gráfico">${ICONE_INFO}</button></div>
+      <div class="ch-info" id="inf-${id}"${ab ? '' : ' hidden'}>${info}</div></div>`;
+  }
+  function alternarInfo(id) {
+    infoAberto = infoAberto === id ? null : id;
+    document.querySelectorAll('button.info[data-info]').forEach(b => {
+      const ab = b.dataset.info === infoAberto;
+      b.setAttribute('aria-expanded', ab); b.setAttribute('aria-label', (ab ? 'Esconder' : 'Mostrar') + ' a explicação do gráfico');
+      const p = document.getElementById('inf-' + b.dataset.info); if (p) p.hidden = !ab;
+    });
+  }
   const kpi = (l, v, s, cls) => `<div class="kpi${cls ? ' ' + cls : ''}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s || '&nbsp;'}</div></div>`;
   const nsTx = (ns, cls) => ns == null ? '—' : `<span class="${cls === false ? '' : 'c-' + situacao(ns)}">${fP(ns)}</span>`;
 
@@ -236,9 +254,9 @@
       else if (c && c.semColeta) cols.push({ rot: (m - desde) % 15 === 0 ? D.hhmm(m) : '', sd: true });
       else cols.push({ rot: (m - desde) % 15 === 0 ? D.hhmm(m) : '', segs: [] });
     }
-    return `<div class="card chart"><h2>${tit}</h2>${G.barras({ cols, maxRot: 12, rotulos: true, aria: 'Chamadas oferecidas na hora atual' })}
-      <div class="legend"><span><i style="background:var(--sCO)"></i>CO</span><span><i style="background:var(--sTEL)"></i>TEL</span><span><i class="and"></i>intervalo em andamento</span></div>
-      <div class="cap">Chamadas oferecidas em cada intervalo. As horas anteriores ficam guardadas de 15 em 15 min (aba Evolução).</div></div>`;
+    return cartaoGraf('agora-hora', tit, G.barras({ cols, maxRot: 12, rotulos: true, aria: 'Chamadas oferecidas na hora atual' }),
+      '<div class="legend"><span><i style="background:var(--sCO)"></i>CO</span><span><i style="background:var(--sTEL)"></i>TEL</span><span><i class="and"></i>intervalo em andamento</span></div>' +
+      '<div class="cap">Chamadas oferecidas em cada intervalo. As horas anteriores ficam guardadas de 15 em 15 min (aba Evolução).</div>');
   }
 
   function grupos(d, skills, L) {
@@ -300,8 +318,11 @@
     if (ivC.some(i => i.semColeta)) notas.push('<span><i class="sd"></i>sem coleta (volume no intervalo seguinte)</span>');
     const capPadrao = ivC.length && ivC[0].incluiAntes ? `A 1ª coluna (${rot(ivC[0])}) inclui o que entrou antes da primeira coleta do dia.` : 'Toque numa coluna para selecionar · toque de novo para limpar.';
     const capSel = iSel >= 0 ? capIntervalo(ivC[iSel], ivT[iSel], dir) : capPadrao;
-    const cap = `<div class="cap${iSel >= 0 ? ' capsel' : ''}">${capSel}</div>`;
-    const graf = (titulo, svg, leg) => `<div class="card chart"><h2>${titulo}</h2>${svg}<div class="legend">${leg}${notas.join('')}</div>${cap}</div>`;
+    // o resumo do intervalo selecionado fica sempre à vista; legenda e explicações ficam no botão (i)
+    const selTx = iSel >= 0 ? `<div class="cap capsel">${capSel}</div>` : '';
+    const dica = `<div class="cap">${capPadrao}${ivC.length && ivC[0].incluiAntes ? ' Toque numa coluna para selecionar · toque de novo para limpar.' : ''}</div>`;
+    let nGraf = 0;
+    const graf = (titulo, svg, leg) => cartaoGraf('evo-' + (++nGraf), titulo, svg, `<div class="legend">${leg}${notas.join('')}</div>${dica}`, selTx);
 
     let html = graf('Chamadas oferecidas por intervalo', G.barras({ cols: colsOf, sel: iSel, aria: 'Chamadas oferecidas por intervalo' }), legOf);
     if (temCO) {
@@ -459,24 +480,25 @@
     sh.innerHTML = `<button class="fechar" data-act="fechar" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
       <h3>${esc(nome)}</h3><div class="sub">${esc(dirSk)} · ${esc(t.SKILL_GRUPO)}${ss.length > 1 ? ' · ' + ss.length + ' skills do Pulse' : ' · ' + esc(ss[0])}</div>
       <div class="kpis2">${kp}</div>
-      <div class="card chart"><h2>Oferecidas por intervalo <small>· ${PASSO_NOME[passo]}</small></h2>${G.barras({ cols, aria: 'Oferecidas por intervalo da skill' })}
-        <div class="legend">${isCO ? '<span><i style="background:var(--sCO)"></i>oferecidas</span><span><i style="background:var(--sAb)"></i>parte abandonada</span>' : '<span><i style="background:var(--sTEL)"></i>oferecidas</span>'}</div>
-        <div class="cap">Coleta das ${esc(L.horario)}.</div></div>
+      ${cartaoGraf('sk-of', `Oferecidas por intervalo <small>· ${PASSO_NOME[passo]}</small>`, G.barras({ cols, aria: 'Oferecidas por intervalo da skill' }),
+        `<div class="legend">${isCO ? '<span><i style="background:var(--sCO)"></i>oferecidas</span><span><i style="background:var(--sAb)"></i>parte abandonada</span>' : '<span><i style="background:var(--sTEL)"></i>oferecidas</span>'}</div>` +
+        `<div class="cap">Coleta das ${esc(L.horario)}.</div>`)}
       ${ss.length > 1 ? tabSk : ''}
       <div class="card"><h2>Tradutora</h2><dl class="kv">${kv}</dl></div>`;
     sh.scrollTop = 0;
     sh.classList.add('show'); $('#sheetBg').classList.add('show');
   }
-  function fecharSheet() { $('#sheet').classList.remove('show'); $('#sheetBg').classList.remove('show'); }
+  function fecharSheet() { $('#sheet').classList.remove('show'); $('#sheetBg').classList.remove('show'); if (infoAberto && infoAberto.startsWith('sk-')) infoAberto = null; }
 
   // ---------------------------------------------------------------- eventos
-  function irPara(p) { pagina = p; fecharSheet(); render(); window.scrollTo(0, 0); }
+  function irPara(p) { pagina = p; infoAberto = null; fecharSheet(); render(); window.scrollTo(0, 0); }
   document.addEventListener('click', e => {
     const b = e.target.closest('button, tr[data-grupo], tr[data-i], rect.hit');
     if (!b) { if (e.target.id === 'sheetBg') fecharSheet(); return; }
     if (b.closest('nav.tabs')) return irPara(b.dataset.v);
     if (b.id === 'btRefresh') { if (origem === 'arquivo') { origem = 'site'; } return carregar(true); }
     if (b.id === 'btArq' || b.dataset.act === 'arq') return $('#arq').click();
+    if (b.dataset.info) return alternarInfo(b.dataset.info);
     if (b.dataset.act === 'fechar') return fecharSheet();
     if (b.dataset.act === 'limpar') { evo.sel = null; return redesenhar(); }
     if (b.dataset.act === 'zeros') { sk.zeros = true; return render(); }
