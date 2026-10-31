@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.5.0';
+  const APP_VERSION = '1.5.1';
   const D = window.Dados, G = window.Graf;
 
   // ---------------------------------------------------------------- configuração
@@ -270,7 +270,11 @@
   function renderEvo() {
     const d = dados, L = ultima();
     const filtroDir = dir => D.filtro(d, { dir, grupo: evo.grupo });
-    const grpsDisp = [...new Set(D.filtro(d, { dir: evo.dir }).map(s => d.trad[s].SKILL_GRUPO))].sort();
+    // grupos do atendimento escolhido, com as oferecidas do dia (prévia do volume): maior volume primeiro, zerados no fim
+    const volGrp = new Map();
+    D.filtro(d, { dir: evo.dir }).forEach(s => { const g = d.trad[s].SKILL_GRUPO; volGrp.set(g, (volGrp.get(g) || 0) + ((L.v[s] && L.v[s].Distinct_Entered) || 0)); });
+    const grpsDisp = [...volGrp.keys()].sort((a, b) => volGrp.get(b) - volGrp.get(a) || a.localeCompare(b));
+    const volTodos = [...volGrp.values()].reduce((a, b) => a + b, 0);
     if (evo.grupo && !grpsDisp.includes(evo.grupo)) evo.grupo = null;
     const co = filtroDir('CO'), tel = filtroDir('TEL');
     const el = $('#pgEvo');
@@ -396,7 +400,10 @@
         <div class="meta-line"><span>${acum ? 'Acumulado · a cada ' + PASSO_NOME[passo] : 'Intervalos de ' + PASSO_NOME[passo]}${evo.passo === 'auto' ? ' (auto)' : ''}</span><span>08:00–${esc(L.horario)}</span></div>
         ${iSel >= 0 ? `<button class="selchip" data-act="limpar"><span>Selecionado: <b>${tit(ivC[iSel])}</b> · toque para limpar</span><span aria-hidden="true">✕</span></button>` : ''}
       </div>
-      <div class="chips" role="group" aria-label="Grupo">${[null, ...grpsDisp].map(g => `<button class="chip" data-grp="${esc(g || '')}" aria-pressed="${evo.grupo === g}">${esc(g || 'Todos os grupos')}</button>`).join('')}</div>
+      <div class="chips" role="group" aria-label="Grupo (oferecidas no dia)">${[null, ...grpsDisp].map(g => {
+        const v = g == null ? volTodos : volGrp.get(g);
+        return `<button class="chip${v ? '' : ' zero'}" data-grp="${esc(g || '')}" aria-pressed="${evo.grupo === g}" title="${fI(v)} oferecidas no dia">${esc(g || 'Todos os grupos')}<span class="qt num">${fI(v)}</span></button>`;
+      }).join('')}</div>
       <div class="kpis2">${k}</div>
       ${html}`;
   }
