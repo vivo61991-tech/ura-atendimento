@@ -1,5 +1,7 @@
 // Modo Por intervalo × Acumulado na aba Evolução.
 const { chromium } = require('/home/claude/.npm-global/lib/node_modules/playwright');
+// controles da Evolução começam recolhidos: abre antes de usar
+const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()) await p.click('#pgEvo .ctl-seta'); };
 const URL = process.env.URL || 'http://localhost:8765/ura/';
 const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1; } else console.log('ok  ', m); };
 (async () => {
@@ -10,12 +12,12 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await p.goto(URL);
   await p.waitForFunction(() => window.__ura.estado().dados);
   await p.click('nav.tabs button[data-v="evo"]');
-  ok(await p.locator('#pgEvo button[data-modo="int"]').getAttribute('class') === 'on', 'abre em "Por intervalo"');
-  await p.click('#pgEvo button[data-passo="60"]');
+  ok(await (await abrir(p), p).locator('#pgEvo button[data-modo="int"]').getAttribute('class') === 'on', 'abre em "Por intervalo"');
+  await abrir(p); await p.click('#pgEvo button[data-passo="60"]');
   const rotX = () => p.$$eval('#pgEvo .chart svg', s => [...s[0].querySelectorAll('text')].filter(t => +t.getAttribute('y') > 160).map(t => t.textContent));
   const xInt = await rotX();
-  await p.click('#pgEvo button[data-modo="acum"]');
-  ok(await p.locator('#pgEvo button[data-modo="acum"]').getAttribute('class') === 'on', 'troca para "Acumulado"');
+  await abrir(p); await p.click('#pgEvo button[data-modo="acum"]');
+  ok(await (await abrir(p), p).locator('#pgEvo button[data-modo="acum"]').getAttribute('class') === 'on', 'troca para "Acumulado"');
   const xAc = await rotX();
   ok(xInt[0] === '08h' && xAc[0] === '09h', `no acumulado a coluna leva o horário do fim (${xInt[0]} → ${xAc[0]})`);
   const tits = await p.$$eval('#pgEvo .chart h2', h => h.map(x => x.innerText));
@@ -42,7 +44,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   // volta e recarrega: sempre começa em "Por intervalo"
   await p.reload(); await p.waitForFunction(() => window.__ura.estado().dados);
   await p.click('nav.tabs button[data-v="evo"]');
-  ok(await p.locator('#pgEvo button[data-modo="int"]').getAttribute('class') === 'on', 'ao reabrir o app, volta para "Por intervalo"');
+  ok(await (await abrir(p), p).locator('#pgEvo button[data-modo="int"]').getAttribute('class') === 'on', 'ao reabrir o app, volta para "Por intervalo"');
   const w = await p.evaluate(() => document.documentElement.scrollWidth);
   ok(w <= 390, `sem estouro lateral (${w}px)`);
   ok(erros.length === 0, 'sem erros de JavaScript' + (erros.length ? ': ' + erros.join(' | ') : ''));

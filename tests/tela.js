@@ -1,5 +1,7 @@
 // Teste de tela: abre o app com Playwright (390 px, claro e escuro), percorre as 3 abas e tira prints.
 const { chromium } = require('/home/claude/.npm-global/lib/node_modules/playwright');
+// controles da Evolução começam recolhidos: abre antes de usar
+const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()) await p.click('#pgEvo .ctl-seta'); };
 const URL = process.env.URL || 'http://localhost:8765/ura/';
 const OUT = process.env.OUT || '/tmp/claude-0/shots';
 require('fs').mkdirSync(OUT, { recursive: true });
@@ -21,9 +23,9 @@ require('fs').mkdirSync(OUT, { recursive: true });
     // seleciona uma coluna
     await p.locator('#pgEvo .chart').first().locator('rect.hit').nth(3).click(); await p.waitForTimeout(200);
     await p.screenshot({ path: `${OUT}/${tema}-3-evo-sel.png`, fullPage: true });
-    await p.click('#pgEvo button[data-dir="TODOS"]'); await p.click('#pgEvo button[data-passo="15"]'); await p.waitForTimeout(200);
+    await abrir(p); await p.click('#pgEvo button[data-dir="TODOS"]'); await abrir(p); await p.click('#pgEvo button[data-passo="15"]'); await p.waitForTimeout(200);
     await p.screenshot({ path: `${OUT}/${tema}-4-evo-total15.png`, fullPage: true });
-    await p.click('#pgEvo button[data-passo="auto"]');
+    await abrir(p); await p.click('#pgEvo button[data-passo="auto"]');
     await p.click('nav.tabs button[data-v="skills"]'); await p.waitForTimeout(200);
     await p.screenshot({ path: `${OUT}/${tema}-5-skills.png`, fullPage: true });
     await p.locator('#pgSkills .fi').first().click(); await p.waitForTimeout(400);

@@ -1,5 +1,7 @@
 // Seleção de coluna: cada gráfico mostra o período e só os valores dele, centralizados.
 const { chromium } = require('/home/claude/.npm-global/lib/node_modules/playwright');
+// controles da Evolução começam recolhidos: abre antes de usar
+const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()) await p.click('#pgEvo .ctl-seta'); };
 const URL = process.env.URL || 'http://localhost:8765/ura/';
 const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1; } else console.log('ok  ', m); };
 (async () => {
@@ -10,7 +12,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await p.goto(URL);
   await p.waitForFunction(() => window.__ura.estado().dados);
   await p.click('nav.tabs button[data-v="evo"]');
-  await p.click('#pgEvo button[data-passo="60"]');
+  await abrir(p); await p.click('#pgEvo button[data-passo="60"]');
   ok(await p.locator('.csel').count() === 0, 'sem seleção: nenhum resumo');
   // coluna das 11h (4ª) no gráfico de técnicos em espera
   await p.locator('#pgEvo .chart').nth(1).locator('rect.hit').nth(3).click();
@@ -34,7 +36,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   const cen = await p.$eval('#pgEvo .chart', c => { const r = c.getBoundingClientRect(), t = c.querySelector('.csel b').getBoundingClientRect(); return Math.abs((r.left + r.width / 2) - (t.left + t.width / 2)); });
   ok(cen < 6, `período centralizado no cartão (desvio ${cen.toFixed(1)} px)`);
   // Total URA: oferecidas mostra CO e TEL
-  await p.click('#pgEvo button[data-dir="TODOS"]');
+  await abrir(p); await p.click('#pgEvo button[data-dir="TODOS"]');
   await p.locator('#pgEvo .chart').first().locator('rect.hit').nth(3).click();
   const c0 = await p.$eval('#pgEvo .chart .csel', e => e.innerText.replace(/\s+/g, ' '));
   ok(/· CO 187 · TEL \d+/.test(c0), 'Total URA: oferecidas com CO e TEL (' + c0.trim() + ')');
