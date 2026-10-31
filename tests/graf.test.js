@@ -84,4 +84,15 @@ t('rótulo comprido diminui para caber na coluna (sem encostar no vizinho)', () 
   });
 });
 
+t('rótulo em duas linhas: % em cima (maior) e quantidade embaixo (menor), acima da coluna', () => {
+  const svg = G.barras({ cols: [{ rot: 'a', segs: [{ v: 50, cor: 'x' }], lab: '41%', lab2: '1.234' }], max: 100 });
+  const tx = [...svg.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*font-size:([\d.]+)px;font-weight:(\d+)[^>]*>([^<]+)</g)].map(m => ({ y: +m[1], fs: +m[2], w: m[3], t: m[4] }));
+  const p = tx.find(x => x.t === '41%'), q = tx.find(x => x.t === '1.234');
+  assert.ok(p && q, 'dois textos');
+  assert.ok(p.y < q.y, '% acima da quantidade');
+  assert.ok(q.fs < p.fs, 'quantidade com fonte menor');
+  const topo = 26 + 142 * 0.5;   // topo da coluna de 50%
+  assert.ok(q.y < topo, 'quantidade acima da coluna');
+});
+
 console.log(`\n${ok} teste(s) ok${process.exitCode ? ' — HÁ FALHAS' : ''}`);

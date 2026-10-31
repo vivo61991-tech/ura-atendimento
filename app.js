@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.4.0';
+  const APP_VERSION = '1.5.0';
   const D = window.Dados, G = window.Graf;
 
   // ---------------------------------------------------------------- configuração
@@ -344,10 +344,15 @@
         (acum ? '<span>maior número de técnicos esperando ao mesmo tempo, do início do dia até o horário da coluna (a fila é um retrato: não se soma ao longo do tempo)</span>'
           : `<span>maior número de técnicos esperando ao mesmo tempo nas coletas do intervalo (${passo < 15 ? 'de 5 em 5 min' : 'horas fechadas: uma coleta a cada 15 min'})</span>`), 'esp');
       // atendidos direto (em até 1 min)
+      // por intervalo: altura = %; acumulado: altura = QUANTIDADE (o volume cresce ao longo do dia; o % seria uma média)
+      // rótulo: % em cima (maior) e a quantidade embaixo (menor)
       const colsDir = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
-        rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: c.v.dir60 == null ? 0 : c.v.dir60, cor: 'var(--sCO)' }], lab: c.v.dir60 == null ? '' : Math.round(c.v.dir60) + '%' });
-      html += graf('Técnicos atendidos direto' + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsDir, max: 100, sel: iSel, aria: 'Atendidos em até 1 minuto' }),
-        `<span><i style="background:var(--sCO)"></i>% das atendidas ${acum ? 'no dia até o horário' : 'no intervalo'} que esperaram até 1 min</span>`, 'dir');
+        rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: acum ? c.v.a60 : (c.v.dir60 == null ? 0 : c.v.dir60), cor: 'var(--sCO)' }],
+        lab: c.v.dir60 == null ? '' : Math.round(c.v.dir60) + '%', lab2: c.v.dir60 == null ? '' : fI(c.v.a60) });
+      html += graf('Técnicos atendidos direto' + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsDir, max: acum ? null : 100, sel: iSel, aria: 'Atendidos em até 1 minuto' }),
+        (acum ? '<span><i style="background:var(--sCO)"></i>altura: técnicos atendidos em até 1 min, somados do início do dia até o horário</span>'
+          : '<span><i style="background:var(--sCO)"></i>altura: % das atendidas no intervalo que esperaram até 1 min</span>') +
+        `<span>rótulo: % das atendidas ${acum ? 'no dia até o horário' : 'no intervalo'} (em cima) e quantidade de técnicos atendidos direto (embaixo)</span>`, 'dir');
       // 2) NS do intervalo + NS acumulado do dia
       // linha do NS acumulado: só no modo por intervalo (no acumulado as próprias colunas já são o acumulado)
       const linhaNS = [];
@@ -363,14 +368,21 @@
         'ns', { acum: iSel >= 0 && !acum ? linhaNS[iSel] : null });
       // 3) abandono
       const colsAb = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
-        rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: c.v.abandPct || 0, cor: 'var(--sAb)' }], lab: c.v.abandPct == null ? '' : Math.round(c.v.abandPct) + '%' });
+        rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: acum ? c.v.aband : (c.v.abandPct || 0), cor: 'var(--sAb)' }],
+        lab: c.v.abandPct == null ? '' : Math.round(c.v.abandPct) + '%', lab2: c.v.abandPct == null ? '' : fI(c.v.aband) });
       html += graf((acum ? 'Abandono' : 'Abandono por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsAb, sel: iSel, aria: 'Abandono' }),
-        acum ? '<span><i style="background:var(--sAb)"></i>abandonadas ÷ oferecidas do dia até o horário</span>' : '<span><i style="background:var(--sAb)"></i>abandonadas ÷ chamadas finalizadas no intervalo</span>', 'ab');
+        (acum ? '<span><i style="background:var(--sAb)"></i>altura: chamadas abandonadas, somadas do início do dia até o horário</span><span>rótulo: abandonadas ÷ oferecidas do dia (em cima) e quantidade (embaixo)</span>'
+          : '<span><i style="background:var(--sAb)"></i>altura: abandonadas ÷ chamadas finalizadas no intervalo</span><span>rótulo: % (em cima) e quantidade de abandonadas (embaixo)</span>'), 'ab');
       // 4) TME
       const colsT = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
         rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: c.v.tme || 0, cor: 'var(--sTme)' }], lab: c.v.tme == null ? '' : minCurto(c.v.tme) });
       html += graf((acum ? 'Tempo médio de espera (TME)' : 'Tempo médio de espera (TME) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsT, sel: iSel, aria: 'TME' }),
-        `<span><i style="background:var(--sTme)"></i>TME das chamadas atendidas ${acum ? 'no dia até o horário' : 'no intervalo'}</span>`, 'tme');
+        `<span><i style="background:var(--sTme)"></i>TME das chamadas atendidas ${acum ? 'no dia até o horário' : 'no intervalo'}: tempo que o técnico esperou até ser atendido</span>`, 'tme');
+      // 5) TMA (média: no acumulado é a média do dia até ali, não soma)
+      const colsTma = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
+        rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: c.v.tma || 0, cor: 'var(--sTma)' }], lab: c.v.tma == null ? '' : minCurto(c.v.tma) });
+      html += graf((acum ? 'Tempo médio de atendimento (TMA)' : 'Tempo médio de atendimento (TMA) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsTma, sel: iSel, aria: 'TMA' }),
+        `<span><i style="background:var(--sTma)"></i>TMA das chamadas atendidas ${acum ? 'no dia até o horário' : 'no intervalo'}: duração do atendimento (média ponderada pelas atendidas)</span>`, 'tma');
     } else {
       html += `<div class="card"><p class="nota">A TEL é atendida em outro sistema: a URA registra só o volume encaminhado. Por isso não há NS, abandono nem tempos para a TEL.</p></div>`;
     }
@@ -432,6 +444,7 @@
     }
     if (tipo === 'ab') return caixa(v.abandPct == null ? (ac ? 'sem chamadas oferecidas' : 'sem chamadas finalizadas')
       : `<b>${fP(v.abandPct)}</b> de abandono · ${fI(v.aband)} de ${fI(ac ? v.ofer : v.fin)} ${ac ? 'oferecidas' : 'finalizadas'}`, nota);
+    if (tipo === 'tma') return caixa(v.tma == null ? 'sem chamadas atendidas' : `TMA <b>${fS(v.tma)}</b> · TME ${fS(v.tme)} · ${pl(v.atend, 'atendida', 'atendidas')}`, nota);
     if (tipo === 'tme') return caixa(v.tme == null ? 'sem chamadas atendidas' : `TME <b>${fS(v.tme)}</b> · TMA ${fS(v.tma)} · ${pl(v.atend, 'atendida', 'atendidas')}`, nota);
     return caixa('');
   }

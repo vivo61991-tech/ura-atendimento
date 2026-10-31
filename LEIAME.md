@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.4.0)
+# URA · Suporte B2C (v1.5.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -77,6 +77,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
    - o detalhe mostra os números do dia, o gráfico, as skills do Pulse que formam o grupo e os campos da tradutora.
 
 ## Versões
+- **1.5.0:** atendidos direto e abandono mostram o % (maior) e a quantidade (menor, embaixo); no Acumulado a altura dessas colunas passa a ser a QUANTIDADE somada no dia (cresce ao longo do dia), com o % no rótulo. NS e TME continuam médias. Novo gráfico de TMA (tempo médio de atendimento), por intervalo e acumulado.
 - **1.4.0:** modo **Acumulado** na Evolução (botões Por intervalo / Acumulado; sempre abre em Por intervalo). No acumulado cada coluna mostra o total do dia até o horário dela (NS e abandono ÷ oferecidas, como no Pulse; técnicos em espera = maior fila do dia até ali); tabela "Acumulado do dia". Rótulos das colunas diminuem quando o texto não cabe.
 - **1.3.1:** menos espaço em branco embaixo dos gráficos (eixo mais baixo, botão (i) menor e rodapé mais justo); linha do NS acumulado suave (curva monotônica, sem picos inventados) em roxo escuro da empresa.
 - **1.3.0:** ao selecionar uma coluna, cada gráfico mostra, centralizado, o período e só os valores dele (oferecidas: volumes; técnicos em espera: pico e espera mais longa; atendidos direto: % até 1 min; NS: NS do intervalo e acumulado do dia; abandono: %; TME: tempos).

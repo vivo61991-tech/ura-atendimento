@@ -16,7 +16,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await p.locator('#pgEvo .chart').nth(1).locator('rect.hit').nth(3).click();
   const caps = await p.$$eval('#pgEvo .chart .csel', els => els.map(e => e.innerText.replace(/\s+/g, ' ').trim()));
   console.log(caps.map((c, i) => '   ' + i + ': ' + c).join('\n'));
-  ok(caps.length === 6, 'um resumo em cada um dos 6 gráficos');
+  ok(caps.length === 7, 'um resumo em cada um dos 7 gráficos');
   ok(caps.every(c => c.startsWith('11:00–12:00')), 'todos começam pelo período selecionado');
   ok(/187 oferecidas · 107 atendidas · 77 abandonadas/.test(caps[0]) && !/NS|TME|técnico/.test(caps[0]), 'oferecidas: só volumes');
   ok(/pico de 50 técnicos em espera às 12:00/.test(caps[1]) && !/oferecidas|NS/.test(caps[1]), 'técnicos em espera: só a fila');
@@ -24,6 +24,10 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   ok(/NS 1,6% · 3 de 184 finalizadas/.test(caps[3]) && /acumulado do dia/.test(caps[3]) && !/TME/.test(caps[3]), 'NS: só o NS (com o acumulado)');
   ok(/41,8% de abandono · 77 de 184 finalizadas/.test(caps[4]), 'abandono: só o abandono');
   ok(/TME 17min 33s · TMA 18min 31s/.test(caps[5]) && !/NS|abandono/.test(caps[5]), 'TME: só os tempos');
+  ok(/TMA 18min 31s · TME 17min 33s · 107 atendidas/.test(caps[6]) && !/NS|abandono/.test(caps[6]), 'TMA: só os tempos, TMA em destaque');
+  // rótulos com % em cima e quantidade embaixo (atendidos direto e abandono)
+  const dois = await p.$$eval('#pgEvo .chart', cs => [2, 4].map(i => [...cs[i].querySelectorAll('svg text')].filter(t => /font-weight:650/.test(t.getAttribute('style')) && +t.getAttribute('y') < 165).length));
+  ok(dois[0] > 5 && dois[1] > 5, `quantidade embaixo do % em atendidos direto (${dois[0]}) e abandono (${dois[1]})`);
   const al = await p.$eval('#pgEvo .chart .csel', e => getComputedStyle(e).textAlign);
   ok(al === 'center', 'texto centralizado');
   // centro do texto ≈ centro do cartão
