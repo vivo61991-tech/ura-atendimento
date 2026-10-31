@@ -88,6 +88,13 @@ nav.tabs button.on svg .in{stroke:var(--nav)}
 .banner.info{background:var(--p100);color:var(--p800)}
 @media (prefers-color-scheme: dark){.banner.info{background:#2a1c3d;color:#e6d8f5}}
 .banner .lnk{color:inherit;text-decoration:underline;padding:0 2px}
+/* aviso que fecha: texto à esquerda, X no canto direito */
+.banner.bx{display:flex;align-items:flex-start;gap:10px;padding-right:6px}
+.banner.bx > span{flex:1;min-width:0;padding-top:1px}
+.bx-x{flex:none;width:26px;height:26px;margin:-3px 0 -3px auto;border:0;border-radius:50%;padding:0;background:transparent;color:inherit;display:grid;place-items:center;cursor:pointer;opacity:.85}
+.bx-x svg{width:15px;height:15px}
+.bx-x:active{background:rgba(0,0,0,.08)}
+.bx-x:focus-visible{outline:2px solid currentColor;outline-offset:1px}
 
 /* seções */
 h2.sec{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink2);margin:22px 4px 8px;display:flex;align-items:center;gap:8px}
@@ -211,6 +218,8 @@ h2.sec .rt{white-space:nowrap;font-size:12.5px;text-transform:none;letter-spacin
 .legend i.and{background:repeating-linear-gradient(45deg,var(--p300) 0 3px,transparent 3px 6px)}
 .legend i.sd{background:repeating-linear-gradient(135deg,var(--sdA) 0 2px,var(--sdB) 2px 4px);outline:1px solid var(--line)}
 .nota{font-size:12.5px;color:var(--ink2);margin:0}
+/* unidade abreviada ("5 min") fica em minúsculas mesmo em títulos em caixa alta */
+.un{text-transform:none}
 /* rodapé do gráfico: resumo da seleção à esquerda, botão (i) no canto inferior direito; explicações escondidas */
 .ch-pe{display:flex;align-items:flex-end;gap:10px;margin-top:2px}
 .card.chart{padding-bottom:10px}
@@ -350,8 +359,8 @@ table.tsel tbody tr.sel td:last-child{border-right-color:var(--selln)}
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Detalhe"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="dados.js?v=1.8.0"></script>
-<script src="graf.js?v=1.8.0"></script>
-<script src="app.js?v=1.8.0"></script>
+<script src="dados.js?v=1.8.1"></script>
+<script src="graf.js?v=1.8.1"></script>
+<script src="app.js?v=1.8.1"></script>
 </body>
 </html>

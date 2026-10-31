@@ -33,7 +33,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   ok(/TEL ·/.test(await p.$eval('#sheet .sub', x => x.textContent)), 'detalhe de skill TEL abre como TEL');
   await p.click('#sheet .fechar'); await p.waitForTimeout(300);
   await p.locator('#pgSkills .fi:has(.dtag.d-CO)').first().click(); await p.waitForTimeout(300);
-  ok(/CO ·/.test(await p.$eval('#sheet .sub', x => x.textContent)) && await p.locator('#sheet .kpi:has-text("NS 300s")').count() === 1, 'detalhe de skill CO abre como CO (com NS)');
+  ok(/CO ·/.test(await p.$eval('#sheet .sub', x => x.textContent)) && await p.locator('#sheet .kpi:has-text("NS 5 min")').count() === 1, 'detalhe de skill CO abre como CO (com NS)');
   await p.click('#sheet .fechar'); await p.waitForTimeout(300);
   // representatividade e rank no detalhe (conferidos com os números da lista)
   const lista = await p.$$eval('#pgSkills .fi', fs => fs.map(f => ({ nome: f.querySelector('.nm').textContent, dir: f.dataset.skd, ofer: +f.querySelector('.nv b').textContent.replace(/\./g, '') })));

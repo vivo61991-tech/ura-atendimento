@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.8.0';
+  const APP_VERSION = '1.8.1';
   const D = window.Dados, G = window.Graf;
 
   // ---------------------------------------------------------------- configuração
@@ -113,15 +113,21 @@
     tx.textContent = t;
     dot.className = 'dot ' + (origem === 'arquivo' ? 'off' : erroFonte || erroDados ? 'err' : !hoje || atrasado() ? 'off' : 'live');
   }
+  // Avisos laranja do topo podem ser fechados no X. Fica fechado enquanto o motivo for o mesmo
+  // (mesmo dia dos dados, mesma última coleta, mesmo erro); se o motivo mudar, o aviso volta.
+  // Vale até o app ser fechado. O aviso vermelho (arquivo com problema) não fecha.
+  const avisosFechados = new Set();
+  const aviso = (chave, html) => avisosFechados.has(chave) ? '' :
+    `<div class="banner warn bx"><span>${html}</span><button class="bx-x" data-fecha-aviso="${esc(chave)}" aria-label="Fechar aviso" title="Fechar aviso"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>`;
   function renderBanners() {
     const b = [];
     if (erroDados) b.push(`<div class="banner bad"><b>O arquivo recebido tem problema:</b> ${esc(erroDados)}. ${dados ? 'Continuo mostrando os últimos dados válidos (coleta das ' + esc(ultima().horario) + ').' : ''}</div>`);
-    if (erroFonte && origem !== 'arquivo') b.push(`<div class="banner warn">Não consegui ler os dados do site (${esc(erroFonte)}).${dados ? ' Mostrando a última cópia guardada no aparelho.' : ''}</div>`);
+    if (erroFonte && origem !== 'arquivo') b.push(aviso('fonte:' + erroFonte, `Não consegui ler os dados do site (${esc(erroFonte)}).${dados ? ' Mostrando a última cópia guardada no aparelho.' : ''}`));
     if (origem === 'arquivo') b.push(`<div class="banner info">Mostrando o arquivo <b>${esc(nomeArq)}</b> aberto do aparelho. A atualização automática fica pausada; toque em ↻ para voltar aos dados do site.</div>`);
-    if (dados && dados.dia !== hojeISO()) b.push(`<div class="banner warn">Estes dados são de <b>${ddmmaaaa(dados.dia)}</b>, não de hoje.</div>`);
+    if (dados && dados.dia !== hojeISO()) b.push(aviso('dia:' + dados.dia, `Estes dados são de <b>${ddmmaaaa(dados.dia)}</b>, não de hoje.`));
     const at = atrasado();
-    if (at && origem !== 'arquivo') b.push(`<div class="banner warn">Sem coleta nova há ${at} min. Os números podem estar desatualizados.</div>`);
-    $('#banners').innerHTML = b.join('');
+    if (at && origem !== 'arquivo') b.push(aviso('atraso:' + dados.dia + ultima().horario, `Sem coleta nova há ${at} min. Os números podem estar desatualizados.`));
+    $('#banners').innerHTML = b.filter(Boolean).join('');
     $('#avisos').innerHTML = dados && dados.avisos.length ? `<div class="banner warn"><b>Avisos do arquivo</b><br>${dados.avisos.map(esc).join('<br>')}</div>` : '';
     $('#footDia').textContent = dados ? ' · dados de ' + ddmmaaaa(dados.dia) : '';
   }
@@ -213,11 +219,11 @@
 
     const hero = `<div class="card">
       <div class="hero">
-        <div><div class="lbl">NS 300s · CO</div><div class="big num c-${sit || 'x'}">${a.ns == null ? '—' : fP(a.ns)}</div></div>
+        <div><div class="lbl">NS <span class="un">5 min</span> · CO</div><div class="big num c-${sit || 'x'}">${a.ns == null ? '—' : fP(a.ns)}</div></div>
         <div class="dir">
           <div>${sit ? `<span class="pill st-${sit}">${STATUS[sit]}</span>` : '<span class="pill" style="background:var(--grid)">Sem chamadas</span>'}</div>
           <div class="prog" aria-hidden="true"><i style="width:${pctBar}%;background:${corSit(sit)}"></i><b style="left:calc(${META_NS}% - 1px)"></b></div>
-          <div class="meta">meta ${META_NS}% · ${fI(a.a300)} de ${fI(a.ofer)} oferecidas atendidas em até 5 min</div>
+          <div class="meta">meta ${META_NS}% · ${fI(a.a300)} de ${fI(a.ofer)} oferecidas atendidas em até 5&nbsp;min</div>
         </div>
       </div></div>`;
 
@@ -363,10 +369,10 @@
     if (iSel >= 0 && ivC[iSel].semColeta) k = `<div class="banner warn">${rot(ivC[iSel])}: sem coleta neste horário${acum ? '.' : ' — o volume entra no intervalo seguinte.'}</div>`;
     else if (dir === 'CO') {
       const eD = iSel >= 0 ? ivC[iSel].esp : D.espera(d.leituras, -1, L.m, co);
-      k = kpi('Oferecidas', fI(aC.ofer), `atendidas ${fI(aC.atend)} ${onde}`, kc) + kpi('NS 300s', nsTx(aC.ns), `meta ${META_NS}%`, kc) +
+      k = kpi('Oferecidas', fI(aC.ofer), `atendidas ${fI(aC.atend)} ${onde}`, kc) + kpi('NS 5 min', nsTx(aC.ns), `meta ${META_NS}%`, kc) +
         kpi('Abandonadas', fI(aC.aband), aC.abandPct == null ? '' : fP(aC.abandPct) + (iSel >= 0 && !acum ? ' das finalizadas' : ' das oferecidas'), kc) + kpi('TME', fS(aC.tme), 'TMA ' + fS(aC.tma), kc) +
         kpi('Pico em espera', eD ? fI(eD.pico) + (eD.pico === 1 ? ' técnico' : ' técnicos') : '—', eD && eD.pico ? 'às ' + D.hhmm(eD.picoM) + ' · até ' + minCurto(eD.espMax) : 'sem fila nas coletas', kc) +
-        kpi('Atendidos direto', aC.dir60 == null ? '—' : fP(aC.dir60), 'em até 1 min ' + onde, kc);
+        kpi('Atendidos direto', aC.dir60 == null ? '—' : fP(aC.dir60), 'em até 1&nbsp;min ' + onde, kc);
     }
     else if (dir === 'TEL') k = kpi('Oferecidas TEL', fI(aT.ofer), onde, kc) + kpi('Média por intervalo', fI(media(ivT)), `${n} intervalo(s) de ${PASSO_NOME[passo]}`, kc);
     else k = kpi('Oferecidas URA', fI((aC ? aC.ofer : 0) + (aT ? aT.ofer : 0)), onde, kc) + kpi('CO', fI(aC.ofer), `NS ${aC.ns == null ? '—' : fP(aC.ns)}`, kc) +
@@ -415,8 +421,8 @@
         rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: acum ? c.v.a60 : (c.v.dir60 == null ? 0 : c.v.dir60), cor: 'var(--sCO)' }],
         lab: c.v.dir60 == null ? '' : Math.round(c.v.dir60) + '%', lab2: c.v.dir60 == null ? '' : fI(c.v.a60) });
       html += graf('Técnicos atendidos direto' + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsDir, max: acum ? null : 100, sel: iSel, aria: 'Atendidos em até 1 minuto' }),
-        (acum ? '<span><i style="background:var(--sCO)"></i>altura: técnicos atendidos em até 1 min, somados do início do dia até o horário</span>'
-          : '<span><i style="background:var(--sCO)"></i>altura: % das atendidas no intervalo que esperaram até 1 min</span>') +
+        (acum ? '<span><i style="background:var(--sCO)"></i>altura: técnicos atendidos em até 1&nbsp;min, somados do início do dia até o horário</span>'
+          : '<span><i style="background:var(--sCO)"></i>altura: % das atendidas no intervalo que esperaram até 1&nbsp;min</span>') +
         `<span>rótulo: % das atendidas ${acum ? 'no dia até o horário' : 'no intervalo'} (em cima) e quantidade de técnicos atendidos direto (embaixo)</span>`, 'dir');
       // 2) NS do intervalo + NS acumulado do dia
       // linha do NS acumulado: só no modo por intervalo (no acumulado as próprias colunas já são o acumulado)
@@ -426,10 +432,10 @@
         rot: rot(c), and: c.andamento, titulo: tit(c),
         segs: [{ v: c.v.ns == null ? 0 : c.v.ns, cor: corSit(situacao(c.v.ns)) }],
         lab: c.v.ns == null ? '' : Math.round(c.v.ns) + '%' });
-      html += graf((acum ? 'Nível de serviço (300s)' : 'Nível de serviço (300s) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf,
+      html += graf((acum ? 'Nível de serviço (<span class="un">5 min</span>)' : 'Nível de serviço (<span class="un">5 min</span>) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf,
         G.barras({ cols: colsNS, max: 100, meta: META_NS, metaTx: META_NS + '%', linha: acum ? null : linhaNS, sel: iSel, aria: 'Nível de serviço' }),
         `<span><i style="background:var(--verdeS)"></i>Meta atingida</span><span><i style="background:var(--amareloS)"></i>Em atenção</span><span><i style="background:var(--vermelhoS)"></i>Crítico</span>${acum ? '' : '<span><i class="ln"></i>NS acumulado do dia (÷ oferecidas, como no Pulse)</span>'}<span><i class="dash"></i>meta ${META_NS}%</span>` +
-        (acum ? '<span>colunas: NS do dia até o horário — atendidas em até 5 min ÷ oferecidas, como no Pulse</span>' : '<span>colunas: atendidas em até 5 min ÷ chamadas finalizadas no intervalo (atendidas + abandonadas)</span>'),
+        (acum ? '<span>colunas: NS do dia até o horário — atendidas em até 5&nbsp;min ÷ oferecidas, como no Pulse</span>' : '<span>colunas: atendidas em até 5&nbsp;min ÷ chamadas finalizadas no intervalo (atendidas + abandonadas)</span>'),
         'ns', { acum: iSel >= 0 && !acum ? linhaNS[iSel] : null });
       // 3) abandono
       const colsAb = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
@@ -617,7 +623,7 @@
       rot: rotPasso(c.ini, passo), and: c.andamento, segs: isCO ? [{ v: c.v.ofer - Math.min(c.v.aband, c.v.ofer), cor: 'var(--sCO)' }, { v: Math.min(c.v.aband, c.v.ofer), cor: 'var(--sAb)' }] : [{ v: c.v.ofer, cor: 'var(--sTEL)' }],
       lab: fI(c.v.ofer) });
     const kp = isCO
-      ? kpi('Oferecidas', fI(a.ofer), 'atendidas ' + fI(a.atend)) + kpi('NS 300s', nsTx(a.ns), `meta ${META_NS}%`) +
+      ? kpi('Oferecidas', fI(a.ofer), 'atendidas ' + fI(a.atend)) + kpi('NS 5 min', nsTx(a.ns), `meta ${META_NS}%`) +
         kpi('Abandonadas', fI(a.aband), a.abandPct == null ? '' : fP(a.abandPct)) + kpi('TME', fS(a.tme), 'TMA ' + fS(a.tma)) +
         kpi('Em espera agora', fI(a.fila), a.fila ? 'mais antiga ' + fS(a.espMax) : 'nenhuma') + kpi('Agentes logados', fI(a.agMax), fI(a.dispMax) + ' disponíveis')
       : kpi('Oferecidas', fI(a.ofer), 'no dia') + kpi('EWT', ewtTx(ewt.length ? Math.min(...ewt) : null), 'espera estimada');
@@ -652,6 +658,7 @@
     if (b.closest('nav.tabs')) return irPara(b.dataset.v);
     if (b.id === 'btRefresh') { if (origem === 'arquivo') { origem = 'site'; } return carregar(true); }
     if (b.id === 'btArq' || b.dataset.act === 'arq') return $('#arq').click();
+    if (b.dataset.fechaAviso != null) { avisosFechados.add(b.dataset.fechaAviso); return renderBanners(); }
     if (b.dataset.info) return alternarInfo(b.dataset.info);
     if (b.dataset.act === 'fechar') return fecharSheet();
     if (b.dataset.act === 'ctl') { evo.ctl = !evo.ctl; return redesenhar(); }
