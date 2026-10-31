@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.6.1';
+  const APP_VERSION = '1.7.0';
   const D = window.Dados, G = window.Graf;
 
   // ---------------------------------------------------------------- configuração
@@ -24,7 +24,8 @@
   let pagina = 'agora';
   // modo: 'int' = por intervalo (padrão, sempre ao abrir) | 'acum' = acumulado do dia
   // ctl: controles da Evolução abertos (começam sempre recolhidos)
-  const evo = { dir: 'CO', passo: lerPref('passo', 'auto'), grupo: null, sel: null, modo: 'int', ctl: false };
+  // fixo: controles + faixa de grupos presos no topo ao rolar (escolha lembrada no aparelho; só se troca com os controles abertos)
+  const evo = { dir: 'CO', passo: lerPref('passo', 'auto'), grupo: null, sel: null, modo: 'int', ctl: false, fixo: lerPref('fixo', false) === true };
   const sk = { dir: 'CO', q: '', zeros: false };
 
   const $ = s => document.querySelector(s);
@@ -127,7 +128,7 @@
 
   // ---------------------------------------------------------------- render geral
   function render() {
-    renderSync(); renderBanners();
+    renderSync(); renderBanners(); medirTopo();
     ['agora', 'evo', 'skills'].forEach(p => { $('#pg' + p[0].toUpperCase() + p.slice(1)).hidden = p !== pagina; });
     document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === pagina));
     if (!dados) { $('#pg' + pagina[0].toUpperCase() + pagina.slice(1)).innerHTML = vazio(); return; }
@@ -148,6 +149,11 @@
 
   // seta de recolher/abrir os controles da Evolução (canto inferior direito do cartão)
   const setaCtl = aberto => `<button class="ctl-seta" data-act="ctl" aria-expanded="${aberto}" aria-label="${aberto ? 'Recolher' : 'Mostrar'} os controles" title="${aberto ? 'Recolher' : 'Mostrar'} os controles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${aberto ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'}"/></svg></button>`;
+
+  // alfinete de fixar os controles (só aparece com os controles abertos), à esquerda da seta
+  const pinoCtl = () => `<button class="ctl-pino${evo.fixo ? ' on' : ''}" data-act="fixar" aria-pressed="${evo.fixo}" aria-label="${evo.fixo ? 'Soltar' : 'Fixar'} os controles no topo" title="${evo.fixo ? 'Soltar' : 'Fixar'} os controles no topo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="pc" d="M9 3h6l-1 6 3 3v2H7v-2l3-3z"/><path d="M12 14v7"/></svg></button>`;
+  // altura do topo roxo: os controles fixados ficam presos logo abaixo dele
+  function medirTopo() { const h = document.querySelector('header.top'); if (h) document.documentElement.style.setProperty('--topo', h.offsetHeight + 'px'); }
 
   // Faixa de grupos da Evolução: o grupo selecionado corre para a esquerda e fica como o primeiro visível;
   // sem grupo, volta para o início ("Todos os grupos"). Se o grupo estiver no fim da faixa, um respiro à direita
@@ -432,11 +438,12 @@
     html += tabelaIntervalos(ivC, ivT, dir, passo, iSel, acum);
 
     el.innerHTML = `
+      <div class="evo-ctl${evo.fixo ? ' fixo' : ''}">
       <div class="card topbar ${evo.ctl ? 'aberto' : 'fechado'}">
         ${evo.ctl ? `<div class="seg" role="tablist" aria-label="Atendimento">${[['CO', 'CO'], ['TEL', 'TEL'], ['TODOS', 'Total URA']].map(([v, t]) => `<button data-dir="${v}" class="${dir === v ? 'on' : ''}">${t}</button>`).join('')}</div>
         <div class="seg sm" role="tablist" aria-label="Modo">${[['int', 'Por intervalo'], ['acum', 'Acumulado']].map(([v, t]) => `<button data-modo="${v}" class="${evo.modo === v ? 'on' : ''}" aria-pressed="${evo.modo === v}">${t}</button>`).join('')}</div>
         <div class="seg sm" role="tablist" aria-label="Intervalo do eixo">${['auto', 15, 30, 60, 120].map(p => `<button data-passo="${p}" class="${String(evo.passo) === String(p) ? 'on' : ''}">${PASSO_NOME[p]}</button>`).join('')}</div>
-        <div class="ctl-pe"><div class="meta-line"><span>${acum ? 'Acumulado · a cada ' + PASSO_NOME[passo] : 'Intervalos de ' + PASSO_NOME[passo]}${evo.passo === 'auto' ? ' (auto)' : ''}</span><span>08:00–${esc(L.horario)}</span></div>${setaCtl(true)}</div>`
+        <div class="ctl-pe"><div class="meta-line"><span>${acum ? 'Acumulado · a cada ' + PASSO_NOME[passo] : 'Intervalos de ' + PASSO_NOME[passo]}${evo.passo === 'auto' ? ' (auto)' : ''}</span><span>08:00–${esc(L.horario)}</span></div>${pinoCtl()}${setaCtl(true)}</div>`
         : `<div class="ctl-pe"><button class="ctl-res" data-act="ctl" aria-label="Mostrar os controles: ${esc(resumoCtl.join(', '))}">${resumoCtl.map(t => `<span class="ctl-p">${esc(t)}</span>`).join('')}</button>${setaCtl(false)}</div>`}
         ${iSel >= 0 ? `<button class="selchip" data-act="limpar"><span>Selecionado: <b>${tit(ivC[iSel])}</b> · toque para limpar</span><span aria-hidden="true">✕</span></button>` : ''}
       </div>
@@ -444,6 +451,7 @@
         const v = g == null ? volTodos : volGrp.get(g);
         return `<button class="chip${v ? '' : ' zero'}" data-grp="${esc(g || '')}" aria-pressed="${evo.grupo === g}" title="${fI(v)} oferecidas no dia">${esc(g || 'Todos os grupos')}<span class="qt num">${fI(v)}</span></button>`;
       }).join('')}</div>
+      </div>
       <div class="kpis2">${k}</div>
       ${html}`;
   }
@@ -597,6 +605,7 @@
     if (b.dataset.info) return alternarInfo(b.dataset.info);
     if (b.dataset.act === 'fechar') return fecharSheet();
     if (b.dataset.act === 'ctl') { evo.ctl = !evo.ctl; return redesenhar(); }
+    if (b.dataset.act === 'fixar') { evo.fixo = !evo.fixo; gravarPref('fixo', evo.fixo); toast(evo.fixo ? 'Controles fixados no topo.' : 'Controles soltos.'); return redesenhar(); }
     if (b.dataset.act === 'limpar') { evo.sel = null; return redesenhar(); }
     if (b.dataset.act === 'zeros') { sk.zeros = true; return render(); }
     if (b.dataset.sk) return abrirSkill(b.dataset.sk, b.dataset.skd);
@@ -636,7 +645,8 @@
   });
   $('#arq').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) abrirArquivo(f); e.target.value = ''; });
   let largAnt = window.innerWidth;
-  window.addEventListener('resize', () => { if (Math.abs(window.innerWidth - largAnt) > 40 && dados && pagina === 'evo') { largAnt = window.innerWidth; redesenhar(); } });
+  window.addEventListener('resize', () => {
+    medirTopo(); if (Math.abs(window.innerWidth - largAnt) > 40 && dados && pagina === 'evo') { largAnt = window.innerWidth; redesenhar(); } });
 
   // atualização automática: a cada 1 min (a coleta é de 5 em 5) e ao voltar para o app
   setInterval(() => { if (origem !== 'arquivo' && !document.hidden) carregar(false); }, 60000);

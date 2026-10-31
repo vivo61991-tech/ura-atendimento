@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.6.1)
+# URA · Suporte B2C (v1.7.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -77,6 +77,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
    - o detalhe mostra os números do dia, o gráfico, as skills do Pulse que formam o grupo e os campos da tradutora.
 
 ## Versões
+- **1.7.0:** alfinete para **fixar** os controles da Evolução (só aparece com os controles abertos, à esquerda da seta). Fixados, os controles e a faixa de grupos ficam presos logo abaixo do topo ao rolar, abertos ou recolhidos; a escolha fica lembrada no aparelho.
 - **1.6.1:** controles recolhidos com a mesma cara do botão marcado aberto (retângulo de canto arredondado, roxo) e dividindo toda a largura do cartão até a seta.
 - **1.6.0:** controles da Evolução (CO/TEL/Total, Por intervalo/Acumulado, eixo) recolhíveis: começam sempre recolhidos numa linha fina com só o que está escolhido; a seta no canto inferior direito (ou um toque na linha) abre e recolhe. A seleção de coluna continua visível com os controles recolhidos.
 - **1.5.3:** na faixa de grupos da Evolução, o grupo selecionado corre (com animação) para a esquerda e fica lá, mesmo quando a tela se redesenha ou os dados atualizam; tocar no grupo selecionado desmarca e volta para "Todos os grupos".
@@ -100,7 +101,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 | `app.js` | telas, atualização automática, cópia no aparelho |
 | `sw.js` | cache offline só deste app (caches `ura-b2c-v…`); o `.json` de dados nunca passa pelo cache |
 | `manifest.webmanifest`, `icons/` | instalação no celular |
-| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `grupos.js` e `controles.js` (Playwright) |
+| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `grupos.js`, `controles.js` e `fixar.js` (Playwright) |
 
 ## Antes de publicar
 1. **Mesma versão** em `APP_VERSION` (`app.js`), `VERSION` (`sw.js`) e nos `?v=` do `index.html`. O teste confere.

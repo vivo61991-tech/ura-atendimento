@@ -166,6 +166,20 @@ h2.sec .rt{white-space:nowrap;font-size:12.5px;text-transform:none;letter-spacin
 @media (prefers-color-scheme: dark){.ctl-seta{background:#2a1c3d;color:#d3b5f0}.ctl-seta[aria-expanded="true"]{background:#8549b5;color:#fff}}
 .topbar.fechado .selchip{margin-top:8px}
 @media (max-width:370px){.ctl-p{font-size:12.5px;padding:8px 5px}}
+/* fixar: controles + faixa de grupos presos logo abaixo do topo roxo ao rolar */
+.evo-ctl.fixo{position:sticky;top:var(--topo,62px);z-index:20;margin:-12px -12px 12px;padding:12px 12px 2px;background:color-mix(in srgb,var(--bg) 94%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 8px 16px -12px rgba(58,22,88,.35)}
+.evo-ctl.fixo .topbar{margin-bottom:10px}
+.evo-ctl.fixo .chips{margin-bottom:8px}
+@media (prefers-color-scheme: dark){.evo-ctl.fixo{box-shadow:0 8px 16px -12px rgba(0,0,0,.7)}}
+.ctl-pino{flex:none;width:26px;height:26px;border-radius:50%;border:0;padding:0;background:var(--p50);color:var(--ink3);display:grid;place-items:center;cursor:pointer;margin-left:auto}
+.ctl-pino svg{width:15px;height:15px;transform:rotate(40deg);transition:transform .2s}
+.ctl-pino .pc{fill:none}
+.ctl-pino.on{background:var(--p700);color:#fff}
+.ctl-pino.on svg{transform:none}
+.ctl-pino.on .pc{fill:currentColor}
+.ctl-pino:focus-visible{outline:2px solid var(--p300);outline-offset:2px}
+.ctl-pino + .ctl-seta{margin-left:0}
+@media (prefers-color-scheme: dark){.ctl-pino{background:#2a1c3d;color:#bdb1cc}.ctl-pino.on{background:#8549b5;color:#fff}}
 .chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 4px;margin:0 0 12px}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;color:var(--ink2)}
@@ -318,8 +332,8 @@ table.tsel tbody tr.sel td:last-child{border-right-color:var(--selln)}
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Detalhe"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="dados.js?v=1.6.1"></script>
-<script src="graf.js?v=1.6.1"></script>
-<script src="app.js?v=1.6.1"></script>
+<script src="dados.js?v=1.7.0"></script>
+<script src="graf.js?v=1.7.0"></script>
+<script src="app.js?v=1.7.0"></script>
 </body>
 </html>
