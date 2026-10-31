@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.7.1';
+  const APP_VERSION = '1.7.2';
   const D = window.Dados, G = window.Graf;
 
   // ---------------------------------------------------------------- configuração
@@ -542,26 +542,34 @@
     const lista = [...porSimpl(d, sk.dir).entries()].filter(([nome, ss]) => {
       if (!q) return true;
       return ss.some(s => { const t = d.trad[s]; return [s, nome, t.SKILL_GRUPO, t.SKILL_SUBGRUPO, t.SKILL_TIPO_ATENDIMENTO, t.SKILL_PRODUTO].some(x => String(x || '').toLowerCase().includes(q)); });
-    }).map(([nome, ss]) => ({ nome, ss, a: D.agregar(L, ss), t: d.trad[ss[0]] }));
+    }).map(([nome, ss]) => {
+      // atendimento do item: o das suas skills (no Total URA, um nome pode juntar CO e TEL: "MISTO")
+      const ds = [...new Set(ss.map(s => d.trad[s].DIRECIONAMENTO))];
+      return { nome, ss, a: D.agregar(L, ss), t: d.trad[ss[0]], dir: ds.length === 1 ? ds[0] : 'TODOS' };
+    });
     const totDir = D.agregar(L, D.filtro(d, { dir: sk.dir })).ofer;
+    const nomeTot = { CO: 'do CO', TEL: 'da TEL', TODOS: 'da URA' }[sk.dir];
     lista.sort((x, y) => y.a.ofer - x.a.ofer || x.nome.localeCompare(y.nome));
     const com = lista.filter(x => x.a.ofer > 0 || x.a.fila > 0), sem = lista.filter(x => !(x.a.ofer > 0 || x.a.fila > 0));
     const item = x => {
       const sit = situacao(x.a.ns);
-      const cor = sk.dir === 'CO' ? corSit(sit) : 'var(--sTEL)';
-      const dir = sk.dir === 'CO'
+      // CO mostra o NS (com as oferecidas embaixo); TEL só tem volume
+      const eCO = x.dir === 'CO';
+      const cor = eCO ? corSit(sit) : 'var(--sTEL)';
+      const dir = eCO
         ? `<b class="c-${sit || 'x'}">${x.a.ns == null ? '—' : fP(x.a.ns)}</b><small>${fI(x.a.ofer)} ofer.${x.a.fila ? ' · ' + fI(x.a.fila) + ' na fila' : ''}</small>`
-        : `<b>${fI(x.a.ofer)}</b><small>${totDir ? fP(x.a.ofer / totDir * 100) : '—'} da TEL</small>`;
-      return `<button class="fi" data-sk="${esc(x.nome)}" data-skd="${sk.dir}"><span class="bar" style="background:${x.a.ofer ? cor : 'var(--line)'}"></span>
-        <span class="tx"><div class="nm">${esc(x.nome)}</div><div class="sb">${esc(x.t.SKILL_GRUPO)}${x.t.SKILL_TIPO_ATENDIMENTO ? ' · ' + esc(x.t.SKILL_TIPO_ATENDIMENTO) : ''}${x.ss.length > 1 ? ' · ' + x.ss.length + ' skills' : ''}</div></span>
+        : `<b>${fI(x.a.ofer)}</b><small>${totDir ? fP(x.a.ofer / totDir * 100) : '—'} ${nomeTot}</small>`;
+      const tag = sk.dir === 'TODOS' ? `<span class="dtag d-${x.dir}">${x.dir === 'TODOS' ? 'CO+TEL' : x.dir}</span>` : '';
+      return `<button class="fi" data-sk="${esc(x.nome)}" data-skd="${x.dir}"><span class="bar" style="background:${x.a.ofer ? cor : 'var(--line)'}"></span>
+        <span class="tx"><div class="nm">${esc(x.nome)}</div><div class="sb">${tag}${esc(x.t.SKILL_GRUPO)}${x.t.SKILL_TIPO_ATENDIMENTO ? ' · ' + esc(x.t.SKILL_TIPO_ATENDIMENTO) : ''}${x.ss.length > 1 ? ' · ' + x.ss.length + ' skills' : ''}</div></span>
         <span class="nv">${dir}</span></button>`;
     };
     $('#pgSkills').innerHTML = `
       <div class="tools">
-        <div class="seg" role="tablist" aria-label="Atendimento">${['CO', 'TEL'].map(v => `<button data-skdir="${v}" class="${sk.dir === v ? 'on' : ''}">${v}</button>`).join('')}</div>
+        <div class="seg" role="tablist" aria-label="Atendimento">${[['CO', 'CO'], ['TEL', 'TEL'], ['TODOS', 'Total URA']].map(([v, t]) => `<button data-skdir="${v}" class="${sk.dir === v ? 'on' : ''}">${t}</button>`).join('')}</div>
         <label class="srch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="search" id="skQ" type="search" placeholder="Buscar skill, grupo, rede…" autocomplete="off" value="${esc(sk.q)}" aria-label="Buscar skill"></label>
       </div>
-      <h2 class="sec">Com chamadas hoje <span class="ct num">${com.length}</span><span class="sp"></span><span class="rt">${sk.dir === 'CO' ? 'NS · oferecidas' : 'oferecidas'}</span></h2>
+      <h2 class="sec">Com chamadas hoje <span class="ct num">${com.length}</span><span class="sp"></span><span class="rt">${sk.dir === 'CO' ? 'NS · oferecidas' : sk.dir === 'TEL' ? 'oferecidas' : 'NS · oferecidas'}</span></h2>
       <div class="fl">${com.length ? com.map(item).join('') : '<p class="nota" style="padding:4px">Nenhuma skill com chamadas.</p>'}</div>
       ${sem.length ? (sk.zeros ? `<h2 class="sec">Sem chamadas hoje <span class="ct num">${sem.length}</span></h2><div class="fl">${sem.map(item).join('')}</div>`
         : `<button class="zeros" data-act="zeros">Mostrar ${sem.length} skill(s) sem chamadas hoje</button>`) : ''}`;

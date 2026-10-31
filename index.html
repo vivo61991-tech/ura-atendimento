@@ -272,6 +272,11 @@ table.tsel tbody tr.sel td:last-child{border-right-color:var(--selln)}
 .srch svg{position:absolute;left:12px;top:50%;width:19px;height:19px;transform:translateY(-50%);color:var(--ink3);pointer-events:none}
 .search{width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:10px 12px 10px 40px;font:inherit;font-size:16px}
 .search:focus{outline:2px solid var(--p300);outline-offset:0}
+.fi .sb .dtag{display:inline-block;font-size:10.5px;font-weight:800;border-radius:5px;padding:0 5px;margin-right:6px;vertical-align:1px;letter-spacing:.2px}
+.dtag.d-CO{background:var(--p100);color:var(--p800)}
+.dtag.d-TEL{background:color-mix(in srgb,var(--sTEL) 16%,var(--card));color:var(--sTEL)}
+.dtag.d-TODOS{background:var(--grid);color:var(--ink2)}
+@media (prefers-color-scheme: dark){.dtag.d-CO{background:#3a2356;color:#e6d8f5}}
 .zeros{width:100%;border:1px dashed var(--line);background:none;border-radius:14px;padding:10px;color:var(--ink2);font-weight:600;font-size:13px;cursor:pointer;margin-top:2px}
 
 /* janela de baixo (detalhe) */
@@ -335,8 +340,8 @@ table.tsel tbody tr.sel td:last-child{border-right-color:var(--selln)}
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Detalhe"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="dados.js?v=1.7.1"></script>
-<script src="graf.js?v=1.7.1"></script>
-<script src="app.js?v=1.7.1"></script>
+<script src="dados.js?v=1.7.2"></script>
+<script src="graf.js?v=1.7.2"></script>
+<script src="app.js?v=1.7.2"></script>
 </body>
 </html>
