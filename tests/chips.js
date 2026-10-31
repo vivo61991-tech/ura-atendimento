@@ -33,6 +33,30 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
     const cor = await p.$eval(`#pgEvo .chip[data-grp="${z.g}"]`, e => getComputedStyle(e).color);
     ok(cor === 'rgb(255, 255, 255)', 'grupo zerado selecionado: texto branco legível');
   }
+  // grupo selecionado corre para a esquerda e fica lá; tocar de novo desmarca
+  await p.click('#pgEvo button[data-dir="CO"]');
+  const pos = g => p.$eval('#pgEvo .chips', (fx, g) => {
+    const c = g ? fx.querySelector(`.chip[data-grp="${g}"]`) : fx.querySelector('.chip[data-grp=""]');
+    return { dx: Math.round(c.getBoundingClientRect().left - fx.getBoundingClientRect().left), on: c.getAttribute('aria-pressed'), sl: Math.round(fx.scrollLeft) };
+  }, g);
+  for (const g of ['SUPORTE MULTIPLAS LINHAS', 'CERTIFICACAO', 'MANOBRA']) {
+    await p.locator(`#pgEvo .chip[data-grp="${g}"]`).scrollIntoViewIfNeeded();
+    await p.click(`#pgEvo .chip[data-grp="${g}"]`);
+    await p.waitForTimeout(700);
+    const r = await pos(g);
+    ok(r.on === 'true' && Math.abs(r.dx) <= 1, `${g}: selecionado e encostado à esquerda (deslocamento ${r.dx}px)`);
+  }
+  // redesenhar (seleção de coluna e atualização) não tira o grupo da esquerda
+  await p.locator('#pgEvo .chart').first().locator('rect.hit').nth(2).click(); await p.waitForTimeout(300);
+  let r = await pos('MANOBRA');
+  ok(Math.abs(r.dx) <= 1, `continua à esquerda depois de redesenhar (${r.dx}px)`);
+  await p.click('#btRefresh'); await p.waitForTimeout(800);
+  r = await pos('MANOBRA');
+  ok(Math.abs(r.dx) <= 1, `continua à esquerda depois de atualizar os dados (${r.dx}px)`);
+  // tocar de novo no selecionado: volta para "Todos os grupos", no início da faixa
+  await p.click('#pgEvo .chip[data-grp="MANOBRA"]'); await p.waitForTimeout(700);
+  const t = await pos(null), grp = await p.evaluate(() => window.__ura.estado().evo.grupo);
+  ok(grp === null && t.on === 'true' && t.sl === 0, `tocar no selecionado desmarca: Todos os grupos marcado e faixa no início (grupo=${grp}, rolagem=${t.sl})`);
   ok(erros.length === 0, 'sem erros de JavaScript' + (erros.length ? ': ' + erros.join(' | ') : ''));
   await b.close();
 })();

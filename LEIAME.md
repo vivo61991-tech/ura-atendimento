@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.5.2)
+# URA · Suporte B2C (v1.5.3)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -77,6 +77,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
    - o detalhe mostra os números do dia, o gráfico, as skills do Pulse que formam o grupo e os campos da tradutora.
 
 ## Versões
+- **1.5.3:** na faixa de grupos da Evolução, o grupo selecionado corre (com animação) para a esquerda e fica lá, mesmo quando a tela se redesenha ou os dados atualizam; tocar no grupo selecionado desmarca e volta para "Todos os grupos".
 - **1.5.2:** tabelas "CO por grupo" e "TEL por grupo" responsivas: na tela larga, uma linha por grupo; até 540 px, todas as linhas em duas (nome em cima, sem quebrar; números embaixo, alinhados ao cabeçalho), todas da mesma altura.
 - **1.5.1:** botões de grupo da Evolução mostram as oferecidas do dia à direita do nome ("Todos os grupos" = total do atendimento escolhido), ordenados do maior volume para o menor; grupos zerados em cinza.
 - **1.5.0:** atendidos direto e abandono mostram o % (maior) e a quantidade (menor, embaixo); no Acumulado a altura dessas colunas passa a ser a QUANTIDADE somada no dia (cresce ao longo do dia), com o % no rótulo. NS e TME continuam médias. Novo gráfico de TMA (tempo médio de atendimento), por intervalo e acumulado.

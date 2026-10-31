@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.5.2';
+  const APP_VERSION = '1.5.3';
   const D = window.Dados, G = window.Graf;
 
   // ---------------------------------------------------------------- configuração
@@ -131,13 +131,37 @@
     document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === pagina));
     if (!dados) { $('#pg' + pagina[0].toUpperCase() + pagina.slice(1)).innerHTML = vazio(); return; }
     if (pagina === 'agora') renderAgora();
-    else if (pagina === 'evo') renderEvo();
+    else if (pagina === 'evo') {
+      // a faixa de grupos é redesenhada a cada atualização: guarda a rolagem para não "pular" para o início
+      const fx = $('#pgEvo .chips'), antes = fx ? fx.scrollLeft : 0;
+      renderEvo();
+      posicionarGrupos(antes, chipAnimar); chipAnimar = false;
+    }
     else renderSkills();
   }
   function vazio() {
     return `<div class="card vazio"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="var(--p300)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-8l-2-3H4a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1z"/></svg>
       <p>${carregando ? 'Carregando os dados…' : 'Ainda não há dados para mostrar.<br>O app procura o arquivo <b>' + esc(FONTE) + '</b> no site; para testar, abra um arquivo JSON da coleta.'}</p>
       <button class="bt" data-act="arq">Abrir arquivo JSON</button></div>`;
+  }
+
+  // Faixa de grupos da Evolução: o grupo selecionado corre para a esquerda e fica como o primeiro visível;
+  // sem grupo, volta para o início ("Todos os grupos"). Se o grupo estiver no fim da faixa, um respiro à direita
+  // deixa ele chegar até a esquerda.
+  let chipAnimar = false;
+  function posicionarGrupos(de, animar) {
+    const fx = $('#pgEvo .chips'); if (!fx) return;
+    fx.style.paddingRight = '';
+    fx.scrollLeft = de || 0;
+    const sel = evo.grupo ? fx.querySelector('.chip[aria-pressed="true"]') : null;
+    let alvo = 0;
+    if (sel) {
+      alvo = Math.max(0, fx.scrollLeft + sel.getBoundingClientRect().left - fx.getBoundingClientRect().left);
+      const max = fx.scrollWidth - fx.clientWidth;
+      if (alvo > max) fx.style.paddingRight = Math.ceil(alvo - max) + 'px';
+    }
+    const suave = animar && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    fx.scrollTo({ left: alvo, behavior: suave ? 'smooth' : 'auto' });
   }
 
   // larguras: quantas colunas cabem sem poluir
@@ -571,7 +595,12 @@
     if (b.dataset.dir && b.closest('#pgEvo')) { evo.dir = b.dataset.dir; evo.grupo = null; evo.sel = null; return redesenhar(); }
     if (b.dataset.modo) { evo.modo = b.dataset.modo; return redesenhar(); }
     if (b.dataset.passo) { evo.passo = b.dataset.passo === 'auto' ? 'auto' : +b.dataset.passo; gravarPref('passo', evo.passo); evo.sel = null; return redesenhar(); }
-    if (b.dataset.grp != null && b.classList.contains('chip')) { evo.grupo = b.dataset.grp || null; evo.sel = null; return redesenhar(); }
+    if (b.dataset.grp != null && b.classList.contains('chip')) {
+      // tocar no grupo já selecionado desmarca e volta para "Todos os grupos"
+      const g = b.dataset.grp || null;
+      evo.grupo = g && g === evo.grupo ? null : g; evo.sel = null; chipAnimar = true;
+      return redesenhar();
+    }
     if (b.dataset.skdir) { sk.dir = b.dataset.skdir; sk.zeros = false; return render(); }
     if (b.matches('[data-grupo]')) { evo.dir = b.dataset.dir; evo.grupo = b.dataset.grupo; evo.sel = null; return irPara('evo'); }
     if (b.matches('rect.hit') && b.closest('#pgEvo') || b.matches('#tIv tr[data-i]')) {
