@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.0.0)
+# URA · Suporte B2C (v1.1.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -63,12 +63,22 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
    - **CO / TEL / Total URA**;
    - eixo em **Auto, 15 min, 30 min, 1 h ou 2 h**. O Auto escolhe o menor intervalo que cabe na tela sem poluir, e a escolha fica salva no aparelho;
    - filtro por grupo;
-   - gráficos de oferecidas (com a parte abandonada), NS por intervalo (com meta e NS acumulado), abandono e TME;
+   - gráficos de oferecidas (com a parte abandonada), **técnicos em espera**, **técnicos atendidos direto**, NS por intervalo (com meta e NS acumulado), abandono e TME;
+   - **técnicos em espera:** o **pico** do intervalo, ou seja, o maior número de técnicos de campo esperando ao mesmo tempo nas coletas do intervalo.
+     - Numa coleta, as chamadas em espera **somam** entre as skills, porque cada chamada fica numa fila só.
+     - Ao longo do tempo **não somam**: a fila é um retrato, e por isso vale o maior valor.
+     - A cor mostra a espera mais longa: até 2 min, de 2 a 5 min, ou acima de 5 min. A bolinha verde indica intervalo sem fila.
+     - Horas fechadas têm uma coleta a cada 15 min; a hora atual, uma a cada 5. Um pico entre duas coletas não aparece.
+   - **atendidos direto:** atendidas em até 1 min ÷ atendidas no intervalo;
    - tabela de intervalos.
    - **Seleção:** tocar numa coluna ou linha seleciona o intervalo nos gráficos, nos cards e na tabela.
 3. **Skills:**
    - CO ou TEL, agrupadas pelo **nome simplificado da tradutora**, com busca;
    - o detalhe mostra os números do dia, o gráfico, as skills do Pulse que formam o grupo e os campos da tradutora.
+
+## Versões
+- **1.1.0:** técnicos em espera por intervalo (pico, com cor pela espera mais longa) e técnicos atendidos direto (até 1 min); KPIs e coluna "Fila" na tabela de intervalos.
+- **1.0.0:** primeira versão: abas Agora, Evolução e Skills.
 
 ## Arquivos
 | Arquivo | Papel |

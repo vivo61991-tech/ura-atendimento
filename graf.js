@@ -58,6 +58,12 @@
           acc += g.v; topoY = y1 - h;
         });
         if (c.and && acc > 0) corpo += `<rect x="${cx - w / 2}" y="${topoY}" width="${w}" height="${H - B - topoY}" rx="3" style="fill:url(#${id}an)"/>`;
+        // coluna "sem fila": bolinha verde com check, como no Problemas Sistêmicos
+        if (c.ok && acc === 0) {
+          const r = Math.max(4, Math.min(8.5, bw * 0.36)), cy = H - B - r - 3;
+          corpo += `<g aria-hidden="true"><circle cx="${cx}" cy="${cy}" r="${r}" style="fill:var(--okc)"/><path d="M${cx - r * 0.47} ${cy + r * 0.02}l${r * 0.32} ${r * 0.32} ${r * 0.62}-${r * 0.66}" style="fill:none;stroke:#fff;stroke-width:${r > 6 ? 2.2 : 1.6};stroke-linecap:round;stroke-linejoin:round"/></g>`;
+          topoY = cy - r;
+        }
       }
       if (c.lab != null && c.lab !== '' && (mostra || i === sel)) {
         labs += `<text x="${cx}" y="${Math.max(11, topoY - 5)}" text-anchor="middle" style="fill:${c.labCor || 'var(--ink)'};font-size:${n > 16 ? 8.5 : 10}px;font-weight:800;${halo}">${esc(c.lab)}</text>`;

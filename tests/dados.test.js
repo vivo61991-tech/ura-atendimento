@@ -107,6 +107,31 @@ t('skill fora da tradutora vira "SEM TRADUÇÃO" com aviso', () => {
   assert.strictEqual(D.filtro(d, { dir: 'CO' }).includes('VQ_COE_NOVA_FILA@SW_SIPS_VQ'), false, 'não entra no CO');
 });
 
+t('técnicos em espera: pico por intervalo (soma das skills na coleta, maior entre as coletas)', () => {
+  const d = D.normalizar(amostra());
+  const co = D.filtro(d, { dir: 'CO' });
+  const iv = D.intervalos(d, 60, co);
+  const p = h => iv.find(i => i.rot === h).esp;
+  // conferido em Python: 10h → coletas 10:15 a 11:00 = 5, 26, 49, 47; 11h → 49, 29, 36, 50
+  assert.deepStrictEqual([p('10:00').pico, p('10:00').n, p('10:00').espMax], [49, 4, 1431]);
+  assert.deepStrictEqual([p('11:00').pico, d.leituras.find(l => l.m === p('11:00').picoM).horario, p('11:00').espMax], [50, '12:00', 1959]);
+  assert.deepStrictEqual([p('13:00').pico, p('14:00').pico], [0, 0]);
+  // em 15 min, cada intervalo tem só a coleta do fim
+  const q = D.intervalos(d, 15, co).find(i => i.rot === '10:30').esp;
+  assert.deepStrictEqual([q.pico, q.n], [49, 1]);
+  const dia = D.espera(d.leituras, -1, d.leituras[d.leituras.length - 1].m, co);
+  assert.deepStrictEqual([dia.pico, dia.espMax], [50, 1959]);
+});
+
+t('atendidos direto (até 1 min) ÷ atendidas, nunca acima de 100%', () => {
+  const d = D.normalizar(amostra());
+  const co = D.filtro(d, { dir: 'CO' });
+  const a = D.agregar(d.leituras[d.leituras.length - 1], co);
+  assert.ok(a.dir60 > 0 && a.dir60 <= 100);
+  assert.strictEqual(a.dir60, a.a60 / a.atend * 100);
+  [15, 60].forEach(p => D.intervalos(d, p, co).forEach(i => { if (i.v && i.v.dir60 != null) assert.ok(i.v.dir60 >= 0 && i.v.dir60 <= 100); }));
+});
+
 t('formatação pt-BR', () => {
   assert.strictEqual(D.fmtInt(1562), '1.562');
   assert.strictEqual(D.fmtPct(61.2), '61,2%');

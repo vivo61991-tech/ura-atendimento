@@ -154,6 +154,8 @@
     a.abandPct = a.ofer > 0 ? a.aband / a.ofer * 100 : null;
     a.tma = a.atend > 0 ? Math.max(0, a.tmaS / a.atend) : null;
     a.tme = a.atend > 0 ? Math.max(0, a.tmeS / a.atend) : null;
+    // atendidos "direto": em até 1 min, entre as atendidas (sem métrica de 60s no arquivo: null)
+    a.dir60 = a.atend > 0 && a.temA60 ? Math.min(100, a.a60 / a.atend * 100) : null;
     return a;
   }
   // diferença entre dois acumulados (fim − início); os instantâneos (fila, espera máx., agentes) são os do fim
@@ -194,6 +196,7 @@
       let fimL = porM.get(e), andamento = false;
       if (!fimL && e > ate) { fimL = ultima; andamento = true; }
       const it = { ini: s, fim: e, rot: hhmm(s), andamento, ateM: fimL ? fimL.m : null };
+      it.esp = esperaNoIntervalo(ls, s, fimL ? fimL.m : e, skills);
       if (!fimL) { it.semColeta = true; out.push(it); continue; }
       const fimA = agregar(fimL, skills);
       it.v = delta(fimA, base);
@@ -205,6 +208,25 @@
     }
     return out;
   }
+  // Técnicos em espera (fila) num intervalo. A fila é um RETRATO de cada coleta, não um contador: as chamadas em
+  // espera podem ser somadas entre as skills (cada chamada está numa fila só), mas não ao longo do tempo.
+  // Por intervalo vale o PICO: o maior número de técnicos esperando ao mesmo tempo nas coletas do intervalo
+  // (de ini, exclusive, até fim, inclusive — o retrato do fim do intervalo pertence a ele).
+  // Horas fechadas têm uma coleta a cada 15 min; a hora atual, uma a cada 5.
+  function esperaNoIntervalo(ls, ini, fim, skills) {
+    const r = { n: 0, pico: 0, picoM: null, espMax: 0, espMaxM: null, comFila: 0 };
+    ls.forEach(l => {
+      if (l.m <= ini || l.m > fim) return;
+      let fila = 0, mx = 0;
+      skills.forEach(k => { const v = l.v[k]; if (!v) return; fila += v.Current_Calls || 0; mx = Math.max(mx, v.Curr_Max_Wait_Time || 0); });
+      r.n++;
+      if (fila > 0) r.comFila++;
+      if (fila > r.pico || r.picoM == null) { r.pico = fila; r.picoM = l.m; }
+      if (mx > r.espMax || r.espMaxM == null) { r.espMax = mx; r.espMaxM = l.m; }
+    });
+    return r.n ? r : null;
+  }
+
   // modo automático: o menor passo cujo número de colunas cabe na tela
   function passoAuto(d, maxCol) {
     const ate = d.leituras[d.leituras.length - 1].m;
@@ -227,7 +249,7 @@
   const fmtRel = s => s == null ? '—' : pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s % 3600 / 60)) + ':' + pad(Math.round(s % 60));
 
   const api = { OBRIGATORIAS, EWT_SEM_AGENTE, INICIO, FIM, PASSOS, normalizar, filtro, agregar, delta, intervalos,
-    passoAuto, curto, minDe, hhmm, msDe, fmtInt, fmtPct, fmtSeg, fmtRel };
+    passoAuto, espera: esperaNoIntervalo, curto, minDe, hhmm, msDe, fmtInt, fmtPct, fmtSeg, fmtRel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Dados = api;
 })(typeof self !== 'undefined' ? self : this);

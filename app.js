@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.0.0';
+  const APP_VERSION = '1.1.0';
   const D = window.Dados, G = window.Graf;
 
   // ---------------------------------------------------------------- configuração
@@ -270,8 +270,13 @@
     const onde = iSel >= 0 ? 'no intervalo' : 'no dia';
     let k = '';
     if (iSel >= 0 && ivC[iSel].semColeta) k = `<div class="banner warn">${ivC[iSel].rot}: sem coleta neste horário — o volume entra no intervalo seguinte.</div>`;
-    else if (dir === 'CO') k = kpi('Oferecidas', fI(aC.ofer), `atendidas ${fI(aC.atend)} ${onde}`, kc) + kpi('NS 300s', nsTx(aC.ns), `meta ${META_NS}%`, kc) +
-      kpi('Abandonadas', fI(aC.aband), aC.abandPct == null ? '' : fP(aC.abandPct) + (iSel >= 0 ? ' das finalizadas' : ' das oferecidas'), kc) + kpi('TME', fS(aC.tme), 'TMA ' + fS(aC.tma), kc);
+    else if (dir === 'CO') {
+      const eD = iSel >= 0 ? ivC[iSel].esp : D.espera(d.leituras, -1, L.m, co);
+      k = kpi('Oferecidas', fI(aC.ofer), `atendidas ${fI(aC.atend)} ${onde}`, kc) + kpi('NS 300s', nsTx(aC.ns), `meta ${META_NS}%`, kc) +
+        kpi('Abandonadas', fI(aC.aband), aC.abandPct == null ? '' : fP(aC.abandPct) + (iSel >= 0 ? ' das finalizadas' : ' das oferecidas'), kc) + kpi('TME', fS(aC.tme), 'TMA ' + fS(aC.tma), kc) +
+        kpi('Pico em espera', eD ? fI(eD.pico) + (eD.pico === 1 ? ' técnico' : ' técnicos') : '—', eD && eD.pico ? 'às ' + D.hhmm(eD.picoM) + ' · até ' + minCurto(eD.espMax) : 'sem fila nas coletas', kc) +
+        kpi('Atendidos direto', aC.dir60 == null ? '—' : fP(aC.dir60), 'em até 1 min ' + onde, kc);
+    }
     else if (dir === 'TEL') k = kpi('Oferecidas TEL', fI(aT.ofer), onde, kc) + kpi('Média por intervalo', fI(media(ivT)), `${n} intervalo(s) de ${PASSO_NOME[passo]}`, kc);
     else k = kpi('Oferecidas URA', fI((aC ? aC.ofer : 0) + (aT ? aT.ofer : 0)), onde, kc) + kpi('CO', fI(aC.ofer), `NS ${aC.ns == null ? '—' : fP(aC.ns)}`, kc) +
       kpi('TEL', fI(aT.ofer), (aC.ofer + aT.ofer) ? fP(aT.ofer / (aC.ofer + aT.ofer) * 100) + ' do volume' : '', kc) + kpi('Abandonadas CO', fI(aC.aband), aC.abandPct == null ? '' : fP(aC.abandPct), kc);
@@ -300,6 +305,21 @@
 
     let html = graf('Chamadas oferecidas por intervalo', G.barras({ cols: colsOf, sel: iSel, aria: 'Chamadas oferecidas por intervalo' }), legOf);
     if (temCO) {
+      // técnicos em espera: pico do intervalo (retrato das coletas), cor pela espera mais longa
+      const colsEsp = ivC.map(c => {
+        const base = { rot: rot(c), and: c.andamento, titulo: tit(c) };
+        if (!c.esp) return Object.assign(base, { sd: true });
+        return Object.assign(base, { segs: [{ v: c.esp.pico, cor: corEspera(c.esp.espMax) }], lab: c.esp.pico ? fI(c.esp.pico) : '', ok: c.esp.pico === 0 });
+      });
+      html += graf('Técnicos em espera' + (dir === 'TODOS' ? ' · CO' : ''),
+        G.barras({ cols: colsEsp, sel: iSel, aria: 'Técnicos em espera por intervalo' }),
+        `<span><i style="background:var(--okc);border-radius:50%"></i>sem fila</span><span><i style="background:var(--p300)"></i>espera mais longa até 2 min</span><span><i style="background:var(--laranja)"></i>2 a 5 min</span><span><i style="background:var(--rosa)"></i>acima de 5 min</span>` +
+        `<span>maior número de técnicos esperando ao mesmo tempo nas coletas do intervalo (${passo < 15 ? 'de 5 em 5 min' : 'horas fechadas: uma coleta a cada 15 min'})</span>`);
+      // atendidos direto (em até 1 min)
+      const colsDir = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
+        rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: c.v.dir60 == null ? 0 : c.v.dir60, cor: 'var(--sCO)' }], lab: c.v.dir60 == null ? '' : Math.round(c.v.dir60) + '%' });
+      html += graf('Técnicos atendidos direto' + (dir === 'TODOS' ? ' · CO' : ''), G.barras({ cols: colsDir, max: 100, sel: iSel, aria: 'Atendidos em até 1 minuto' }),
+        '<span><i style="background:var(--sCO)"></i>% das atendidas no intervalo que esperaram até 1 min</span>');
       // 2) NS do intervalo + NS acumulado do dia
       const acum = [];
       ivC.forEach(c => { const l = c.v ? d.leituras.find(x => x.m === c.ateM) : null; acum.push(l ? D.agregar(l, co).ns : null); });
@@ -337,6 +357,8 @@
       <div class="kpis2">${k}</div>
       ${html}`;
   }
+  // cor da fila pela espera mais longa (mesma régua da lista "Fila agora")
+  const corEspera = s => s >= 300 ? 'var(--rosa)' : s >= 120 ? 'var(--laranja)' : 'var(--p300)';
   const media = iv => { const v = iv.filter(i => i.v && !i.andamento); return v.length ? v.reduce((s, i) => s + i.v.ofer, 0) / v.length : null; };
   // rótulo curto de tempo para as colunas: "45s", "4m49", "1h02"
   const minCurto = s => { s = Math.round(s); return s < 60 ? s + 's' : s < 3600 ? Math.floor(s / 60) + 'm' + String(s % 60).padStart(2, '0') : Math.floor(s / 3600) + 'h' + String(Math.floor(s % 3600 / 60)).padStart(2, '0'); };
@@ -353,7 +375,8 @@
     if (c.semColeta) return `${p} — sem coleta neste horário.`;
     const extra = c.juntaAnterior ? ` · inclui o volume desde ${D.hhmm(c.baseM)} (horário sem coleta)` : c.incluiAntes ? ' · inclui o que entrou antes da primeira coleta' : '';
     if (dir === 'TEL') return `${p} — ${fI(t && t.v ? t.v.ofer : 0)} oferecidas TEL${extra}`;
-    const co = `${fI(c.v.ofer)} oferecidas · ${fI(c.v.atend)} atendidas · ${fI(c.v.aband)} abandonadas · NS ${c.v.ns == null ? '—' : fP(c.v.ns)} · TME ${fS(c.v.tme)}`;
+    const fila = c.esp ? (c.esp.pico ? ` · pico de ${fI(c.esp.pico)} técnico(s) em espera às ${D.hhmm(c.esp.picoM)} (mais longa ${fS(c.esp.espMax)})` : ' · sem técnicos em espera nas coletas') : '';
+    const co = `${fI(c.v.ofer)} oferecidas · ${fI(c.v.atend)} atendidas · ${fI(c.v.aband)} abandonadas · NS ${c.v.ns == null ? '—' : fP(c.v.ns)} · TME ${fS(c.v.tme)}${fila}`;
     return `${p} — ${dir === 'TODOS' ? 'CO: ' : ''}${co}${dir === 'TODOS' ? ` · TEL: ${fI(t && t.v ? t.v.ofer : 0)} oferecidas` : ''}${extra}`;
   }
 
@@ -361,12 +384,12 @@
     const linhas = ivC.map((c, i) => {
       const t = ivT[i], r = `${D.hhmm(c.ini)}${c.andamento ? '*' : ''}`;
       const cls = i === iSel ? ' class="sel"' : '';
-      if (c.semColeta) return `<tr data-i="${i}"${cls}><td>${r}</td><td class="nd" colspan="${dir === 'TEL' ? 1 : dir === 'CO' ? 5 : 4}">sem coleta</td></tr>`;
+      if (c.semColeta) return `<tr data-i="${i}"${cls}><td>${r}</td><td class="nd" colspan="${dir === 'TEL' ? 1 : dir === 'CO' ? 6 : 4}">sem coleta</td></tr>`;
       if (dir === 'TEL') return `<tr data-i="${i}"${cls}><td>${r}</td><td>${fI(t && t.v ? t.v.ofer : 0)}</td></tr>`;
-      if (dir === 'CO') return `<tr data-i="${i}"${cls}><td>${r}</td><td>${fI(c.v.ofer)}</td><td>${fI(c.v.atend)}</td><td>${fI(c.v.aband)}</td><td>${nsTx(c.v.ns)}</td><td>${fS(c.v.tme)}</td></tr>`;
+      if (dir === 'CO') return `<tr data-i="${i}"${cls}><td>${r}</td><td>${fI(c.v.ofer)}</td><td>${fI(c.v.atend)}</td><td>${fI(c.v.aband)}</td><td>${nsTx(c.v.ns)}</td><td>${c.esp ? fI(c.esp.pico) : '—'}</td><td>${c.v.tme == null ? '—' : minCurto(c.v.tme)}</td></tr>`;
       return `<tr data-i="${i}"${cls}><td>${r}</td><td>${fI(c.v.ofer)}</td><td>${fI(t && t.v ? t.v.ofer : 0)}</td><td>${nsTx(c.v.ns)}</td><td>${fI(c.v.aband)}</td></tr>`;
     }).reverse().join('');
-    const head = dir === 'TEL' ? '<th>Início</th><th>Oferecidas</th>' : dir === 'CO' ? '<th>Início</th><th>Ofer.</th><th>Atend.</th><th>Aband.</th><th>NS</th><th>TME</th>'
+    const head = dir === 'TEL' ? '<th>Início</th><th>Oferecidas</th>' : dir === 'CO' ? '<th>Início</th><th>Ofer.</th><th>Atend.</th><th>Aband.</th><th>NS</th><th title="pico de técnicos em espera">Fila</th><th>TME</th>'
       : '<th>Início</th><th>CO</th><th>TEL</th><th>NS CO</th><th>Aband. CO</th>';
     return `<div class="card"><h2>Intervalos de ${PASSO_NOME[passo]} <small>· mais recente primeiro</small></h2><div class="tw"><table class="conf tsel" id="tIv"><thead><tr>${head}</tr></thead><tbody>${linhas}</tbody></table></div></div>`;
   }
