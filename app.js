@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.5.1';
+  const APP_VERSION = '1.5.2';
   const D = window.Dados, G = window.Graf;
 
   // ---------------------------------------------------------------- configuração
@@ -213,10 +213,9 @@
 
     // grupos CO
     const gCO = grupos(d, co, L);
-    const tabCO = `<div class="card"><h2>CO por grupo <small>· toque para ver a evolução</small></h2><div class="tw"><table class="conf tsel"><thead><tr><th>Grupo</th><th>Ofer.</th><th>NS</th><th>Aband.</th><th>TME</th></tr></thead><tbody>
-      ${gCO.map(g => `<tr data-grupo="${esc(g.nome)}" data-dir="CO"><td>${esc(g.nome)}</td><td>${fI(g.a.ofer)}</td><td>${nsTx(g.a.ns)}</td><td>${g.a.abandPct == null ? '—' : fP(g.a.abandPct)}</td><td>${fS(g.a.tme)}</td></tr>`).join('')}
-      <tr class="tot"><td>Total CO</td><td>${fI(a.ofer)}</td><td>${nsTx(a.ns)}</td><td>${a.abandPct == null ? '—' : fP(a.abandPct)}</td><td>${fS(a.tme)}</td></tr>
-      </tbody></table></div></div>`;
+    const tabCO = `<div class="card"><h2>CO por grupo <small>· toque para ver a evolução</small></h2>${tabGrupos(['Ofer.', 'NS', 'Aband.', 'TME'],
+      gCO.map(g => ({ nome: g.nome, dir: 'CO', v: [fI(g.a.ofer), nsTx(g.a.ns), g.a.abandPct == null ? '—' : fP(g.a.abandPct), fS(g.a.tme)] })),
+      { nome: 'Total CO', v: [fI(a.ofer), nsTx(a.ns), a.abandPct == null ? '—' : fP(a.abandPct), fS(a.tme)] })}</div>`;
 
     // TEL
     const gTEL = grupos(d, tel, L);
@@ -224,9 +223,9 @@
       ${kpi('Oferecidas TEL', fI(t.ofer), totURA ? fP(t.ofer / totURA * 100) + ' do volume da URA' : '')}
       ${kpi('Últimos 15 min', u15t ? fI(u15t.v.ofer) : '—', u15t ? `${u15t.rot}–${D.hhmm(u15t.ateM)}` : '')}
     </div>`;
-    const tabTEL = `<div class="card"><h2>TEL por grupo <small>· toque para ver a evolução</small></h2><div class="tw"><table class="conf tsel"><thead><tr><th>Grupo</th><th>Ofer.</th><th>% TEL</th></tr></thead><tbody>
-      ${gTEL.map(g => `<tr data-grupo="${esc(g.nome)}" data-dir="TEL"><td>${esc(g.nome)}</td><td>${fI(g.a.ofer)}</td><td>${t.ofer ? fP(g.a.ofer / t.ofer * 100) : '—'}</td></tr>`).join('')}
-      <tr class="tot"><td>Total TEL</td><td>${fI(t.ofer)}</td><td>${t.ofer ? '100,0%' : '—'}</td></tr></tbody></table></div>
+    const tabTEL = `<div class="card"><h2>TEL por grupo <small>· toque para ver a evolução</small></h2>${tabGrupos(['Ofer.', '% TEL'],
+      gTEL.map(g => ({ nome: g.nome, dir: 'TEL', v: [fI(g.a.ofer), t.ofer ? fP(g.a.ofer / t.ofer * 100) : '—'] })),
+      { nome: 'Total TEL', v: [fI(t.ofer), t.ofer ? '100,0%' : '—'] })}
       <p class="nota" style="margin-top:8px">A TEL é atendida em outro sistema: aqui aparece só o volume que a URA encaminhou (sem atendidas, abandono ou NS).</p></div>`;
 
     $('#pgAgora').innerHTML = `
@@ -238,6 +237,16 @@
       ${tabCO}
       <h2 class="sec">TEL · Parceira<span class="sp"></span><span class="rt">acumulado do dia</span></h2>
       ${kt}${tabTEL}`;
+  }
+
+  // Tabela de grupos responsiva (grade, não <table>): na tela larga, uma linha por grupo; na estreita,
+  // TODAS as linhas viram duas — nome em cima (sem quebrar) e os números embaixo, nas mesmas colunas do cabeçalho.
+  function tabGrupos(cab, linhas, total) {
+    const lin = (r, cls, attrs) => `<div class="tg-r${cls}"${attrs}><span class="nm">${esc(r.nome)}</span>${r.v.map(x => `<span class="v">${x}</span>`).join('')}</div>`;
+    return `<div class="tg" style="--n:${cab.length}" role="table">
+      <div class="tg-r tg-h" role="row"><span class="nm">Grupo</span>${cab.map(c => `<span class="v">${c}</span>`).join('')}</div>
+      ${linhas.map(r => lin(r, ' tg-a', ` role="button" tabindex="0" data-grupo="${esc(r.nome)}" data-dir="${r.dir}"`)).join('')}
+      ${lin(total, ' tot', '')}</div>`;
   }
 
   function horaAtual(d, co, tel) {
@@ -549,7 +558,7 @@
   // ---------------------------------------------------------------- eventos
   function irPara(p) { pagina = p; infoAberto = null; fecharSheet(); render(); window.scrollTo(0, 0); }
   document.addEventListener('click', e => {
-    const b = e.target.closest('button, tr[data-grupo], tr[data-i], rect.hit');
+    const b = e.target.closest('button, [data-grupo], tr[data-i], rect.hit');
     if (!b) { if (e.target.id === 'sheetBg') fecharSheet(); return; }
     if (b.closest('nav.tabs')) return irPara(b.dataset.v);
     if (b.id === 'btRefresh') { if (origem === 'arquivo') { origem = 'site'; } return carregar(true); }
@@ -564,7 +573,7 @@
     if (b.dataset.passo) { evo.passo = b.dataset.passo === 'auto' ? 'auto' : +b.dataset.passo; gravarPref('passo', evo.passo); evo.sel = null; return redesenhar(); }
     if (b.dataset.grp != null && b.classList.contains('chip')) { evo.grupo = b.dataset.grp || null; evo.sel = null; return redesenhar(); }
     if (b.dataset.skdir) { sk.dir = b.dataset.skdir; sk.zeros = false; return render(); }
-    if (b.matches('tr[data-grupo]')) { evo.dir = b.dataset.dir; evo.grupo = b.dataset.grupo; evo.sel = null; return irPara('evo'); }
+    if (b.matches('[data-grupo]')) { evo.dir = b.dataset.dir; evo.grupo = b.dataset.grupo; evo.sel = null; return irPara('evo'); }
     if (b.matches('rect.hit') && b.closest('#pgEvo') || b.matches('#tIv tr[data-i]')) {
       const iv = ivAtuais(); const i = +b.dataset.i; const c = iv[i];
       if (c) { evo.sel = evo.sel === c.ini ? null : c.ini; redesenhar(); }
@@ -584,7 +593,10 @@
       const q = $('#skQ'); q.focus(); try { q.setSelectionRange(pos, pos); } catch (er) { /* type=search em alguns navegadores */ }
     }
   });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharSheet(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') fecharSheet();
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.tg-a[data-grupo]')) { e.preventDefault(); e.target.click(); }
+  });
   $('#arq').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) abrirArquivo(f); e.target.value = ''; });
   let largAnt = window.innerWidth;
   window.addEventListener('resize', () => { if (Math.abs(window.innerWidth - largAnt) > 40 && dados && pagina === 'evo') { largAnt = window.innerWidth; redesenhar(); } });

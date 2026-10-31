@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.5.1)
+# URA · Suporte B2C (v1.5.2)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -77,6 +77,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
    - o detalhe mostra os números do dia, o gráfico, as skills do Pulse que formam o grupo e os campos da tradutora.
 
 ## Versões
+- **1.5.2:** tabelas "CO por grupo" e "TEL por grupo" responsivas: na tela larga, uma linha por grupo; até 540 px, todas as linhas em duas (nome em cima, sem quebrar; números embaixo, alinhados ao cabeçalho), todas da mesma altura.
 - **1.5.1:** botões de grupo da Evolução mostram as oferecidas do dia à direita do nome ("Todos os grupos" = total do atendimento escolhido), ordenados do maior volume para o menor; grupos zerados em cinza.
 - **1.5.0:** atendidos direto e abandono mostram o % (maior) e a quantidade (menor, embaixo); no Acumulado a altura dessas colunas passa a ser a QUANTIDADE somada no dia (cresce ao longo do dia), com o % no rótulo. NS e TME continuam médias. Novo gráfico de TMA (tempo médio de atendimento), por intervalo e acumulado.
 - **1.4.0:** modo **Acumulado** na Evolução (botões Por intervalo / Acumulado; sempre abre em Por intervalo). No acumulado cada coluna mostra o total do dia até o horário dela (NS e abandono ÷ oferecidas, como no Pulse; técnicos em espera = maior fila do dia até ali); tabela "Acumulado do dia". Rótulos das colunas diminuem quando o texto não cabe.
@@ -96,7 +97,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 | `app.js` | telas, atualização automática, cópia no aparelho |
 | `sw.js` | cache offline só deste app (caches `ura-b2c-v…`); o `.json` de dados nunca passa pelo cache |
 | `manifest.webmanifest`, `icons/` | instalação no celular |
-| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js` e `chips.js` (Playwright) |
+| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js` e `grupos.js` (Playwright) |
 
 ## Antes de publicar
 1. **Mesma versão** em `APP_VERSION` (`app.js`), `VERSION` (`sw.js`) e nos `?v=` do `index.html`. O teste confere.
