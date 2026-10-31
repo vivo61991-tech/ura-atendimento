@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.7.3';
+  const APP_VERSION = '1.8.0';
   const D = window.Dados, G = window.Graf;
 
   // ---------------------------------------------------------------- configuração
@@ -575,6 +575,31 @@
         : `<button class="zeros" data-act="zeros">Mostrar ${sem.length} skill(s) sem chamadas hoje</button>`) : ''}`;
   }
 
+  // Peso da skill no dia: representatividade (% das oferecidas da URA, CO + TEL) e rank entre as mais acionadas.
+  // O rank usa a mesma lista da aba Skills em "Total URA" (nomes simplificados); empate divide a posição (1º, 2º, 2º, 4º).
+  function rankEntre(mapa, nome) {
+    const L = ultima(), vol = [...mapa.entries()].map(([n, ss]) => ({ n, v: D.agregar(L, ss).ofer }));
+    const meu = vol.find(x => x.n === nome);
+    if (!meu) return null;
+    return { pos: 1 + vol.filter(x => x.v > meu.v).length, de: vol.length, empate: vol.filter(x => x.v === meu.v).length > 1 };
+  }
+  function cartaoPeso(nome, ss, a, dirSk) {
+    const d = dados, L = ultima();
+    const tot = D.agregar(L, D.filtro(d, { dir: 'TODOS' })).ofer;
+    const rep = tot ? a.ofer / tot * 100 : null;
+    const rk = rankEntre(porSimpl(d, 'TODOS'), nome);
+    const nDir = dirSk === 'CO' || dirSk === 'TEL' ? dirSk : null;
+    const totDir = nDir ? D.agregar(L, D.filtro(d, { dir: nDir })).ofer : null;
+    const rkDir = nDir ? rankEntre(porSimpl(d, nDir), nome) : null;
+    const pos = r => r ? `${r.pos}º` : '—';
+    return `<div class="card peso"><h2>No volume da URA <small>· ${ddmmaaaa(d.dia).slice(0, 5)}</small></h2><div class="peso-g">
+      <div><div class="l">Representatividade</div><div class="v num">${rep == null ? '—' : fP(rep)}</div>
+        <div class="s">${fI(a.ofer)} de ${fI(tot)} oferecidas${nDir && totDir ? ` · ${fP(a.ofer / totDir * 100)} ${nDir === 'CO' ? 'do CO' : 'da TEL'}` : ''}</div></div>
+      <div><div class="l">Rank</div><div class="v num">${pos(rk)}<small> de ${rk ? rk.de : '—'}</small></div>
+        <div class="s">${a.ofer ? 'mais acionadas da URA' : 'sem chamadas hoje'}${rk && rk.empate ? ' (empate)' : ''}${rkDir && a.ofer ? ` · ${pos(rkDir)} ${nDir === 'CO' ? 'no CO' : 'na TEL'}` : ''}</div></div>
+    </div></div>`;
+  }
+
   // detalhe de uma skill simplificada (janela de baixo): soma das skills do Pulse que têm esse nome na tradutora
   function abrirSkill(nome, dirSk) {
     const d = dados, L = ultima();
@@ -607,6 +632,7 @@
     const tabSk = `<div class="card"><h2>Skills no Pulse <small>· ${ss.length}</small></h2><div class="tw"><table class="conf"><thead><tr><th>Skill</th><th>Ofer.</th>${isCO ? '<th>NS</th><th>Fila</th>' : ''}</tr></thead><tbody>${linhas}</tbody></table></div></div>`;
     sh.innerHTML = `<button class="fechar" data-act="fechar" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
       <h3>${esc(nome)}</h3><div class="sub">${esc(dirSk)} · ${esc(t.SKILL_GRUPO)}${ss.length > 1 ? ' · ' + ss.length + ' skills do Pulse' : ' · ' + esc(ss[0])}</div>
+      ${cartaoPeso(nome, ss, a, dirSk)}
       <div class="kpis2">${kp}</div>
       ${cartaoGraf('sk-of', `Oferecidas por intervalo <small>· ${PASSO_NOME[passo]}</small>`, G.barras({ cols, aria: 'Oferecidas por intervalo da skill' }),
         `<div class="legend">${isCO ? '<span><i style="background:var(--sCO)"></i>oferecidas</span><span><i style="background:var(--sAb)"></i>parte abandonada</span>' : '<span><i style="background:var(--sTEL)"></i>oferecidas</span>'}</div>` +

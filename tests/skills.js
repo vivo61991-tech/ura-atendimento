@@ -35,6 +35,20 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await p.locator('#pgSkills .fi:has(.dtag.d-CO)').first().click(); await p.waitForTimeout(300);
   ok(/CO ·/.test(await p.$eval('#sheet .sub', x => x.textContent)) && await p.locator('#sheet .kpi:has-text("NS 300s")').count() === 1, 'detalhe de skill CO abre como CO (com NS)');
   await p.click('#sheet .fechar'); await p.waitForTimeout(300);
+  // representatividade e rank no detalhe (conferidos com os números da lista)
+  const lista = await p.$$eval('#pgSkills .fi', fs => fs.map(f => ({ nome: f.querySelector('.nm').textContent, dir: f.dataset.skd, ofer: +f.querySelector('.nv b').textContent.replace(/\./g, '') })));
+  const totURA = 4370;   // 1.562 CO + 2.808 TEL
+  for (const k of [0, 3]) {
+    const it = lista[k];
+    await p.locator('#pgSkills .fi').nth(k).click(); await p.waitForTimeout(300);
+    const pz = await p.$eval('#sheet .peso', x => x.innerText.replace(/\s+/g, ' '));
+    const rep = (it.ofer / totURA * 100).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+    const pos = 1 + lista.filter(x => x.ofer > it.ofer).length;
+    const posDir = 1 + lista.filter(x => x.dir === it.dir && x.ofer > it.ofer).length;
+    ok(pz.includes('Representatividade ' + rep) && pz.includes(`${it.ofer.toLocaleString('pt-BR')} de 4.370 oferecidas`), `${it.nome}: representatividade ${rep} (${it.ofer} de 4.370)`);
+    ok(pz.includes(`Rank ${pos}º de 45`) && pz.includes(`${posDir}º ${it.dir === 'CO' ? 'no CO' : 'na TEL'}`), `${it.nome}: rank ${pos}º de 45 na URA e ${posDir}º ${it.dir === 'CO' ? 'no CO' : 'na TEL'}`);
+    await p.click('#sheet .fechar'); await p.waitForTimeout(300);
+  }
   // busca funciona no Total URA
   await p.fill('#skQ', 'manobra'); await p.waitForTimeout(150);
   const tags = await p.$$eval('#pgSkills .fi .dtag', x => [...new Set(x.map(t => t.textContent))]);

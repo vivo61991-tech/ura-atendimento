@@ -267,6 +267,15 @@ table.tsel tbody tr.sel td:last-child{border-right-color:var(--selln)}
   .tg-r .nm{grid-column:1 / -1}
   .tg-h{row-gap:0}
 }
+/* detalhe da skill: representatividade e rank */
+.peso-g{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.peso-g > div{min-width:0}
+.peso-g > div + div{border-left:1px solid var(--line);padding-left:12px}
+.peso .l{font-size:12px;color:var(--ink2)}
+.peso .v{font-size:24px;font-weight:800;color:var(--p700);line-height:1.15;margin-top:2px}
+.peso .v small{font-size:13px;font-weight:650;color:var(--ink2)}
+.peso .s{font-size:12px;color:var(--ink3);margin-top:3px}
+@media (prefers-color-scheme: dark){.peso .v{color:#d3b5f0}}
 /* skills */
 .tools{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
 .srch{position:relative;display:block}
@@ -341,8 +350,8 @@ table.tsel tbody tr.sel td:last-child{border-right-color:var(--selln)}
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Detalhe"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="dados.js?v=1.7.3"></script>
-<script src="graf.js?v=1.7.3"></script>
-<script src="app.js?v=1.7.3"></script>
+<script src="dados.js?v=1.8.0"></script>
+<script src="graf.js?v=1.8.0"></script>
+<script src="app.js?v=1.8.0"></script>
 </body>
 </html>
