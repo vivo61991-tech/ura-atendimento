@@ -30,6 +30,15 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   // rótulos com % em cima e quantidade embaixo (atendidos direto e abandono)
   const dois = await p.$$eval('#pgEvo .chart', cs => [2, 4].map(i => [...cs[i].querySelectorAll('svg text')].filter(t => /font-weight:650/.test(t.getAttribute('style')) && +t.getAttribute('y') < 165).length));
   ok(dois[0] > 5 && dois[1] > 5, `quantidade embaixo do % em atendidos direto (${dois[0]}) e abandono (${dois[1]})`);
+  // atendidos direto: altura das colunas = quantidade (não o %)
+  const alt = await p.$$eval('#pgEvo .chart', cs => { const svg = cs[2].querySelector('svg');
+    const barras = [...svg.querySelectorAll('path[style*="sCO"]')].map(b => b.getBBox().height);
+    const qt = [...svg.querySelectorAll('text')].filter(t => /font-weight:650/.test(t.getAttribute('style')) && +t.getAttribute('y') < 165).map(t => +t.textContent.replace(/\./g, ''));
+    return { barras, qt }; });
+  const qs = alt.qt.filter(q => q > 0);   // coluna com 0 não desenha barra
+  const pares = qs.map((q, i) => [q, alt.barras[i]]);
+  ok(qs.length === alt.barras.length, `uma barra para cada coluna com técnicos (${alt.barras.length})`);
+  ok(pares.length > 5 && pares.every(([q, h], i) => pares.every(([q2, h2]) => (q > q2) === (h > h2 + 0.5) || q === q2 || Math.abs(h - h2) < 0.6)), 'atendidos direto: a coluna mais alta é a de mais técnicos (' + alt.qt.join(',') + ')');
   const al = await p.$eval('#pgEvo .chart .csel', e => getComputedStyle(e).textAlign);
   ok(al === 'center', 'texto centralizado');
   // centro do texto ≈ centro do cartão

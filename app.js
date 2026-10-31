@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.8.3';
+  const APP_VERSION = '1.8.4';
   const D = window.Dados, G = window.Graf;
 
   // ---------------------------------------------------------------- configuração
@@ -425,14 +425,14 @@
         (acum ? '<span>maior número de técnicos esperando ao mesmo tempo, do início do dia até o horário da coluna (a fila é um retrato: não se soma ao longo do tempo)</span>'
           : `<span>maior número de técnicos esperando ao mesmo tempo nas coletas do intervalo (${passo < 15 ? 'de 5 em 5 min' : 'horas fechadas: uma coleta a cada 15 min'})</span>`), 'esp');
       // atendidos direto (em até 1 min)
-      // por intervalo: altura = %; acumulado: altura = QUANTIDADE (o volume cresce ao longo do dia; o % seria uma média)
-      // rótulo: % em cima (maior) e a quantidade embaixo (menor)
+      // altura = QUANTIDADE de técnicos atendidos em até 1 min (no intervalo, ou somada no dia no Acumulado);
+      // rótulo: % das atendidas em cima (maior) e a quantidade embaixo (menor)
       const colsDir = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
-        rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: acum ? c.v.a60 : (c.v.dir60 == null ? 0 : c.v.dir60), cor: 'var(--sCO)' }],
+        rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: c.v.a60 || 0, cor: 'var(--sCO)' }],
         lab: c.v.dir60 == null ? '' : Math.round(c.v.dir60) + '%', lab2: c.v.dir60 == null ? '' : fI(c.v.a60) });
-      html += graf('Técnicos atendidos direto' + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsDir, max: acum ? null : 100, sel: iSel, aria: 'Atendidos em até 1 minuto' }),
+      html += graf('Técnicos atendidos direto' + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsDir, sel: iSel, aria: 'Atendidos em até 1 minuto' }),
         (acum ? '<span><i style="background:var(--sCO)"></i>altura: técnicos atendidos em até 1&nbsp;min, somados do início do dia até o horário</span>'
-          : '<span><i style="background:var(--sCO)"></i>altura: % das atendidas no intervalo que esperaram até 1&nbsp;min</span>') +
+          : '<span><i style="background:var(--sCO)"></i>altura: técnicos atendidos em até 1&nbsp;min no intervalo</span>') +
         `<span>rótulo: % das atendidas ${acum ? 'no dia até o horário' : 'no intervalo'} (em cima) e quantidade de técnicos atendidos direto (embaixo)</span>`, 'dir');
       // 2) NS do intervalo + NS acumulado do dia
       // linha do NS acumulado: só no modo por intervalo (no acumulado as próprias colunas já são o acumulado)

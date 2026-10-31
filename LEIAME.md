@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.8.3)
+# URA · Suporte B2C (v1.8.4)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -77,6 +77,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
    - o detalhe mostra os números do dia, o gráfico, as skills do Pulse que formam o grupo e os campos da tradutora.
 
 ## Versões
+- **1.8.4:** técnicos atendidos direto: a altura das colunas passa a ser a QUANTIDADE de técnicos atendidos em até 1 min também no modo Por intervalo (antes era o %); o rótulo continua com o % em cima e a quantidade embaixo.
 - **1.8.3:** texto do filtro no rodapé dos gráficos centralizado no cartão; o (i) continua no canto direito.
 - **1.8.2:** rodapé dos gráficos da Evolução mostra, discreto e na linha do (i), o filtro aplicado: "CO"/"TEL", "CO – GRUPO"; no Total URA nada, ou só o grupo (com "CO –"/"TEL –" quando o grupo só existe num dos atendimentos). Com coluna selecionada, o resumo fica em cima e essa linha embaixo.
 - **1.8.1:** nível de serviço passa a ser lido como **5 min** (antes "300s") em todos os rótulos; avisos laranja do topo (dados de outro dia, sem coleta nova, falha ao ler o site) ganham um X para fechar — ficam fechados enquanto o motivo for o mesmo e voltam ao reabrir o app. O aviso vermelho de arquivo com problema não fecha.
