@@ -1,5 +1,5 @@
 /* URA · Suporte B2C — service worker (cache só deste app) */
-const VERSION = '1.3.1';
+const VERSION = '1.4.0';
 const PREFIXO = 'ura-b2c-v';
 const CACHE = PREFIXO + VERSION;
 const CORE = ['./', 'index.html', 'dados.js', 'graf.js', 'app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];

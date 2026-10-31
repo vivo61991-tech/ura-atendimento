@@ -132,6 +132,31 @@ t('atendidos direto (até 1 min) ÷ atendidas, nunca acima de 100%', () => {
   [15, 60].forEach(p => D.intervalos(d, p, co).forEach(i => { if (i.v && i.v.dir60 != null) assert.ok(i.v.dir60 >= 0 && i.v.dir60 <= 100); }));
 });
 
+t('modo acumulado: cada coluna = total do dia até o fim dela; fila = maior do dia até ali', () => {
+  const d = D.normalizar(amostra());
+  const co = D.filtro(d, { dir: 'CO' });
+  [15, 60].forEach(p => {
+    const iv = D.intervalos(d, p, co), ac = D.acumulados(d, iv, co);
+    let soma = 0, maior = 0;
+    iv.forEach((c, i) => {
+      soma += c.v.ofer; maior = Math.max(maior, c.esp ? c.esp.pico : 0);
+      assert.strictEqual(ac[i].v.ofer, soma, `${p} min ${c.rot}: acumulado = soma dos intervalos`);
+      assert.strictEqual(ac[i].esp.pico, maior, `${p} min ${c.rot}: maior fila até ali`);
+      assert.ok(ac[i].acum && !ac[i].incluiAntes && !ac[i].juntaAnterior);
+    });
+    const ult = ac[ac.length - 1].v, dia = D.agregar(d.leituras[d.leituras.length - 1], co);
+    assert.deepStrictEqual([ult.ofer, ult.atend, ult.aband, ult.a300, ult.ns], [dia.ofer, dia.atend, dia.aband, dia.a300, dia.ns]);
+  });
+  // conferido em Python: até 12:00 → NS (a300 ÷ ofer) e maior fila 50 às 12:00
+  const ac = D.acumulados(d, D.intervalos(d, 60, co), co);
+  const c = ac.find(x => x.fim === 12 * 60);
+  assert.strictEqual(c.v.ns.toFixed(1), (c.v.a300 / c.v.ofer * 100).toFixed(1));
+  assert.deepStrictEqual([c.esp.pico, D.hhmm(c.esp.picoM)], [50, '12:00']);
+  // intervalos originais não são alterados
+  const iv = D.intervalos(d, 60, co); D.acumulados(d, iv, co);
+  assert.ok(!iv[0].acum && iv[0].incluiAntes);
+});
+
 t('formatação pt-BR', () => {
   assert.strictEqual(D.fmtInt(1562), '1.562');
   assert.strictEqual(D.fmtPct(61.2), '61,2%');

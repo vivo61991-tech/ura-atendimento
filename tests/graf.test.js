@@ -74,4 +74,14 @@ t('altura menor embaixo do eixo (sem 2ª linha de rótulo)', () => {
   assert.ok(/viewBox="0 0 360 200"/.test(svg2));
 });
 
+t('rótulo comprido diminui para caber na coluna (sem encostar no vizinho)', () => {
+  const cols = Array.from({ length: 12 }, (_, i) => ({ rot: String(i), segs: [{ v: 50, cor: 'x' }], lab: i % 2 ? '9m59' : '1.441' }));
+  const svg = G.barras({ cols, max: 100 });
+  const bw = (360 - 8) / 12;
+  [...svg.matchAll(/font-size:([\d.]+)px;font-weight:800;[^>]*>([^<]+)</g)].forEach(m => {
+    const larg = +m[1] * 0.72 * m[2].length;
+    assert.ok(larg <= bw * 0.82 + 0.01 || +m[1] === 7, `${m[2]} com ${m[1]}px ocupa ${larg.toFixed(1)} de ${bw.toFixed(1)}`);
+  });
+});
+
 console.log(`\n${ok} teste(s) ok${process.exitCode ? ' — HÁ FALHAS' : ''}`);

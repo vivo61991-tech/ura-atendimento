@@ -227,6 +227,30 @@
     return r.n ? r : null;
   }
 
+  // Modo ACUMULADO: mesmas colunas dos intervalos, mas cada uma com o total do dia até o FIM dela
+  // (a leitura de ateM, agregada: NS e abandono ÷ oferecidas, como no Pulse). Para a fila, que é retrato,
+  // o acumulado é a MAIOR fila do dia até ali. Coluna sem coleta continua sem coleta.
+  function acumulados(d, iv, skills) {
+    const porM = new Map(d.leituras.map(l => [l.m, l]));
+    let pico = null;
+    return iv.map(c => {
+      const o = Object.assign({}, c, { acum: true, juntaAnterior: false, incluiAntes: false });
+      if (c.esp) {
+        if (!pico) pico = Object.assign({}, c.esp);
+        else {
+          const p = Object.assign({}, pico);
+          p.n += c.esp.n; p.comFila += c.esp.comFila;
+          if (c.esp.pico > p.pico) { p.pico = c.esp.pico; p.picoM = c.esp.picoM; }
+          if (c.esp.espMax > p.espMax) { p.espMax = c.esp.espMax; p.espMaxM = c.esp.espMaxM; }
+          pico = p;
+        }
+      }
+      o.esp = pico ? Object.assign({}, pico) : null;
+      if (c.v) { const l = porM.get(c.ateM); o.v = l ? agregar(l, skills) : null; if (!o.v) o.semColeta = true; }
+      return o;
+    });
+  }
+
   // modo automático: o menor passo cujo número de colunas cabe na tela
   function passoAuto(d, maxCol) {
     const ate = d.leituras[d.leituras.length - 1].m;
@@ -249,7 +273,7 @@
   const fmtRel = s => s == null ? '—' : pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s % 3600 / 60)) + ':' + pad(Math.round(s % 60));
 
   const api = { OBRIGATORIAS, EWT_SEM_AGENTE, INICIO, FIM, PASSOS, normalizar, filtro, agregar, delta, intervalos,
-    passoAuto, espera: esperaNoIntervalo, curto, minDe, hhmm, msDe, fmtInt, fmtPct, fmtSeg, fmtRel };
+    passoAuto, acumulados, espera: esperaNoIntervalo, curto, minDe, hhmm, msDe, fmtInt, fmtPct, fmtSeg, fmtRel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Dados = api;
 })(typeof self !== 'undefined' ? self : this);

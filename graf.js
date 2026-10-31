@@ -104,7 +104,9 @@
         }
       }
       if (c.lab != null && c.lab !== '' && (mostra || i === sel)) {
-        labs += `<text x="${cx}" y="${Math.max(11, topoY - 5)}" text-anchor="middle" style="fill:${c.labCor || 'var(--ink)'};font-size:${n > 16 ? 8.5 : 10}px;font-weight:800;${halo}">${esc(c.lab)}</text>`;
+        // rótulo cabe na largura da coluna: texto comprido ("9m59", "1.441") diminui para não encostar no vizinho
+        const fs = Math.max(7, Math.min(n > 16 ? 8.5 : 10, bw * 0.82 / (String(c.lab).length * 0.72)));
+        labs += `<text x="${cx}" y="${Math.max(11, topoY - 5)}" text-anchor="middle" style="fill:${c.labCor || 'var(--ink)'};font-size:${Math.floor(fs * 10) / 10}px;font-weight:800;${halo}">${esc(c.lab)}</text>`;
       }
       if (i % passoRot === 0 || i === sel || i === n - 1 && n - 1 - (Math.floor((n - 1) / passoRot) * passoRot) >= passoRot * 0.6) {
         const on = i === sel;
