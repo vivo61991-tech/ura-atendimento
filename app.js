@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.7.2';
+  const APP_VERSION = '1.7.3';
   const D = window.Dados, G = window.Graf;
 
   // ---------------------------------------------------------------- configuração
@@ -553,11 +553,11 @@
     const com = lista.filter(x => x.a.ofer > 0 || x.a.fila > 0), sem = lista.filter(x => !(x.a.ofer > 0 || x.a.fila > 0));
     const item = x => {
       const sit = situacao(x.a.ns);
-      // CO mostra o NS (com as oferecidas embaixo); TEL só tem volume
+      // padrão único: oferecidas em destaque; embaixo, menor, o NS colorido (CO) ou a participação no volume (TEL)
       const eCO = x.dir === 'CO';
       const cor = eCO ? corSit(sit) : 'var(--sTEL)';
       const dir = eCO
-        ? `<b class="c-${sit || 'x'}">${x.a.ns == null ? '—' : fP(x.a.ns)}</b><small>${fI(x.a.ofer)} ofer.${x.a.fila ? ' · ' + fI(x.a.fila) + ' na fila' : ''}</small>`
+        ? `<b>${fI(x.a.ofer)}</b><small>NS <span class="nsc c-${sit || 'x'}">${x.a.ns == null ? '—' : fP(x.a.ns)}</span>${x.a.fila ? ' · ' + fI(x.a.fila) + ' na fila' : ''}</small>`
         : `<b>${fI(x.a.ofer)}</b><small>${totDir ? fP(x.a.ofer / totDir * 100) : '—'} ${nomeTot}</small>`;
       const tag = sk.dir === 'TODOS' ? `<span class="dtag d-${x.dir}">${x.dir === 'TODOS' ? 'CO+TEL' : x.dir}</span>` : '';
       return `<button class="fi" data-sk="${esc(x.nome)}" data-skd="${x.dir}"><span class="bar" style="background:${x.a.ofer ? cor : 'var(--line)'}"></span>
@@ -569,7 +569,7 @@
         <div class="seg" role="tablist" aria-label="Atendimento">${[['CO', 'CO'], ['TEL', 'TEL'], ['TODOS', 'Total URA']].map(([v, t]) => `<button data-skdir="${v}" class="${sk.dir === v ? 'on' : ''}">${t}</button>`).join('')}</div>
         <label class="srch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="search" id="skQ" type="search" placeholder="Buscar skill, grupo, rede…" autocomplete="off" value="${esc(sk.q)}" aria-label="Buscar skill"></label>
       </div>
-      <h2 class="sec">Com chamadas hoje <span class="ct num">${com.length}</span><span class="sp"></span><span class="rt">${sk.dir === 'CO' ? 'NS · oferecidas' : sk.dir === 'TEL' ? 'oferecidas' : 'NS · oferecidas'}</span></h2>
+      <h2 class="sec">Com chamadas hoje <span class="ct num">${com.length}</span><span class="sp"></span><span class="rt">oferecidas</span></h2>
       <div class="fl">${com.length ? com.map(item).join('') : '<p class="nota" style="padding:4px">Nenhuma skill com chamadas.</p>'}</div>
       ${sem.length ? (sk.zeros ? `<h2 class="sec">Sem chamadas hoje <span class="ct num">${sem.length}</span></h2><div class="fl">${sem.map(item).join('')}</div>`
         : `<button class="zeros" data-act="zeros">Mostrar ${sem.length} skill(s) sem chamadas hoje</button>`) : ''}`;

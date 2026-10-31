@@ -24,7 +24,10 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   const itens = await p.$$eval('#pgSkills .fi', fs => fs.map(f => ({ tag: f.querySelector('.dtag') && f.querySelector('.dtag').textContent, ofer: +(f.querySelector('.nv small').textContent.match(/^[\d.]+/) || [f.querySelector('.nv b').textContent])[0].replace(/\./g, ''), v: f.querySelector('.nv').innerText.replace(/\s+/g, ' ') })));
   ok(itens.every(i => i.tag === 'CO' || i.tag === 'TEL' || i.tag === 'CO+TEL'), 'cada skill com a etiqueta do atendimento');
   ok(itens.some(i => i.tag === 'CO') && itens.some(i => i.tag === 'TEL'), 'lista mistura CO e TEL');
-  ok(itens.filter(i => i.tag === 'CO').every(i => /%/.test(i.v.split(' ')[0])) && itens.filter(i => i.tag === 'TEL').every(i => /da URA/.test(i.v)), 'CO mostra o NS; TEL mostra o volume e o % da URA');
+  ok(itens.every(i => /^[\d.]+ /.test(i.v)), 'todas com as oferecidas em destaque (em cima)');
+  ok(itens.filter(i => i.tag === 'CO').every(i => /^[\d.]+ NS [\d,]+%/.test(i.v)) && itens.filter(i => i.tag === 'TEL').every(i => /da URA/.test(i.v)), 'embaixo: NS no CO; % da URA na TEL');
+  const ns = await p.$$eval('#pgSkills .fi .nv small .nsc', x => x.map(e => ({ c: e.className, fs: parseFloat(getComputedStyle(e).fontSize), big: parseFloat(getComputedStyle(e.closest('.nv').querySelector('b')).fontSize) })));
+  ok(ns.length > 0 && ns.every(x => /c-(VERDE|AMARELO|VERMELHO)/.test(x.c) && x.fs < x.big), 'NS colorido pela situação e com letra menor que as oferecidas');
   // detalhe de uma skill TEL e de uma CO a partir do Total URA
   await p.locator('#pgSkills .fi:has(.dtag.d-TEL)').first().click(); await p.waitForTimeout(300);
   ok(/TEL ·/.test(await p.$eval('#sheet .sub', x => x.textContent)), 'detalhe de skill TEL abre como TEL');

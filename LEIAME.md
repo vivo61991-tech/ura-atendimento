@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.7.2)
+# URA · Suporte B2C (v1.7.3)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -77,6 +77,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
    - o detalhe mostra os números do dia, o gráfico, as skills do Pulse que formam o grupo e os campos da tradutora.
 
 ## Versões
+- **1.7.3:** lista de Skills padronizada: oferecidas em destaque em todas; embaixo, menor, o NS colorido pela situação (CO) ou o % do volume (TEL).
 - **1.7.2:** aba Skills com a opção **Total URA** (todas as skills, CO e TEL juntas, do maior volume para o menor), cada uma com a etiqueta CO ou TEL; CO mostra o NS e TEL o volume e o % da URA; o detalhe abre no formato do atendimento da skill.
 - **1.7.1:** com uma coluna selecionada, os botões de grupo mostram as oferecidas daquela coluna (no intervalo, ou acumuladas até ela no Acumulado), em laranja de seleção; trocar de grupo não tira mais a seleção — os gráficos mudam de grupo mantendo o mesmo horário. A ordem dos botões continua pelo volume do dia.
 - **1.7.0:** alfinete para **fixar** os controles da Evolução (só aparece com os controles abertos, à esquerda da seta). Fixados, os controles e a faixa de grupos ficam presos logo abaixo do topo ao rolar, abertos ou recolhidos; a escolha fica lembrada no aparelho.
