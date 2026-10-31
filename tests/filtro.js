@@ -30,7 +30,12 @@ const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()
   const st = await p.$eval('#pgEvo .chart .ch-filtro', f => { const cs = getComputedStyle(f), i = f.parentElement.querySelector('.info'); const a = f.getBoundingClientRect(), r = i.getBoundingClientRect();
     return { w: +cs.fontWeight, fs: parseFloat(cs.fontSize), mesmaLinha: Math.abs((a.top + a.height / 2) - (r.top + r.height / 2)) < 3, antes: a.right <= r.left }; });
   ok(st.w < 600 && st.fs <= 12, `sem negrito e letra pequena (peso ${st.w}, ${st.fs}px)`);
-  ok(st.mesmaLinha && st.antes, 'na mesma linha do (i), à esquerda');
+  ok(st.mesmaLinha && st.antes, 'na mesma linha do (i)');
+  const cen = await p.$$eval('#pgEvo .chart', cs => cs.map(c => { const f = c.querySelector('.ch-filtro'), r = document.createRange(); r.selectNodeContents(f);
+    const t = r.getBoundingClientRect(), k = c.getBoundingClientRect(); return Math.abs((t.left + t.width / 2) - (k.left + k.width / 2)); }));
+  ok(cen.every(x => x < 2), `texto centralizado no cartão (desvio máx. ${Math.max(...cen).toFixed(1)}px)`);
+  const iPos = await p.$eval('#pgEvo .chart', c => { const i = c.querySelector('.info').getBoundingClientRect(), k = c.getBoundingClientRect(); return Math.round(k.right - i.right); });
+  ok(iPos <= 14, `(i) continua no canto direito (${iPos}px da borda)`);
   // com coluna selecionada: resumo em cima, filtro e (i) embaixo
   await p.locator('#pgEvo .chart').first().locator('rect.hit').nth(3).click(); await p.waitForTimeout(200);
   const ordem = await p.$eval('#pgEvo .chart', c => { const s = c.querySelector('.csel').getBoundingClientRect(), f = c.querySelector('.ch-filtro').getBoundingClientRect(); return f.top >= s.bottom - 1; });
