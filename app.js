@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.7.0';
+  const APP_VERSION = '1.7.1';
   const D = window.Dados, G = window.Graf;
 
   // ---------------------------------------------------------------- configuração
@@ -336,6 +336,22 @@
     // no acumulado, a coluna leva o horário do FIM (total do dia até ali)
     const rot = i => acum ? (i.andamento ? D.hhmm(i.ateM) : rotPasso(i.fim, passo)) : rotPasso(i.ini, passo);
     const tit = i => acum ? `Acumulado até ${D.hhmm(fimDe(i))}${i.andamento ? ' (em andamento)' : ''}` : `${D.hhmm(i.ini)}–${D.hhmm(fimDe(i))}${i.andamento ? ' (em andamento)' : ''}`;
+    // Números dos botões de grupo: sem seleção = oferecidas do dia; com coluna selecionada = oferecidas DAQUELA coluna
+    // (no intervalo, ou acumuladas até ela no modo Acumulado). A ordem dos botões continua pelo volume do dia.
+    const chipVol = new Map();
+    let chipTodos = 0, ondeChip = 'no dia';
+    if (iSel >= 0) {
+      const c = ivC[iSel];
+      ondeChip = acum ? 'até ' + D.hhmm(fimDe(c)) : D.hhmm(c.ini) + '–' + D.hhmm(fimDe(c));
+      const lFim = c.semColeta ? null : d.leituras.find(x => x.m === c.ateM);
+      const lIni = !acum && c.baseM != null ? d.leituras.find(x => x.m === c.baseM) : null;
+      const de = (l, sk) => l && l.v[sk] ? (l.v[sk].Distinct_Entered || 0) : 0;
+      if (!lFim) { chipTodos = null; grpsDisp.forEach(g => chipVol.set(g, null)); }
+      else {
+        D.filtro(d, { dir: evo.dir }).forEach(sk => { const g = d.trad[sk].SKILL_GRUPO; chipVol.set(g, (chipVol.get(g) || 0) + Math.max(0, de(lFim, sk) - de(lIni, sk))); });
+        chipTodos = [...chipVol.values()].reduce((a, b) => a + b, 0);
+      }
+    } else { grpsDisp.forEach(g => chipVol.set(g, volGrp.get(g))); chipTodos = volTodos; }
     // controles recolhidos: só o que está escolhido, numa linha
     const resumoCtl = [{ CO: 'CO', TEL: 'TEL', TODOS: 'Total URA' }[dir], acum ? 'Acumulado' : 'Por intervalo', evo.passo === 'auto' ? 'Auto · ' + PASSO_NOME[passo] : PASSO_NOME[passo]];
     // KPIs: sem seleção = acumulado do dia; com seleção = só o intervalo
@@ -447,9 +463,9 @@
         : `<div class="ctl-pe"><button class="ctl-res" data-act="ctl" aria-label="Mostrar os controles: ${esc(resumoCtl.join(', '))}">${resumoCtl.map(t => `<span class="ctl-p">${esc(t)}</span>`).join('')}</button>${setaCtl(false)}</div>`}
         ${iSel >= 0 ? `<button class="selchip" data-act="limpar"><span>Selecionado: <b>${tit(ivC[iSel])}</b> · toque para limpar</span><span aria-hidden="true">✕</span></button>` : ''}
       </div>
-      <div class="chips" role="group" aria-label="Grupo (oferecidas no dia)">${[null, ...grpsDisp].map(g => {
-        const v = g == null ? volTodos : volGrp.get(g);
-        return `<button class="chip${v ? '' : ' zero'}" data-grp="${esc(g || '')}" aria-pressed="${evo.grupo === g}" title="${fI(v)} oferecidas no dia">${esc(g || 'Todos os grupos')}<span class="qt num">${fI(v)}</span></button>`;
+      <div class="chips${iSel >= 0 ? ' per' : ''}" role="group" aria-label="Grupo (oferecidas ${esc(ondeChip)})">${[null, ...grpsDisp].map(g => {
+        const v = g == null ? chipTodos : chipVol.get(g);
+        return `<button class="chip${v ? '' : ' zero'}" data-grp="${esc(g || '')}" aria-pressed="${evo.grupo === g}" title="${v == null ? 'sem coleta' : fI(v) + ' oferecidas ' + esc(ondeChip)}">${esc(g || 'Todos os grupos')}<span class="qt num">${v == null ? '—' : fI(v)}</span></button>`;
       }).join('')}</div>
       </div>
       <div class="kpis2">${k}</div>
@@ -615,7 +631,8 @@
     if (b.dataset.grp != null && b.classList.contains('chip')) {
       // tocar no grupo já selecionado desmarca e volta para "Todos os grupos"
       const g = b.dataset.grp || null;
-      evo.grupo = g && g === evo.grupo ? null : g; evo.sel = null; chipAnimar = true;
+      // a coluna selecionada continua selecionada: os gráficos trocam de grupo mantendo o mesmo horário
+      evo.grupo = g && g === evo.grupo ? null : g; chipAnimar = true;
       return redesenhar();
     }
     if (b.dataset.skdir) { sk.dir = b.dataset.skdir; sk.zeros = false; return render(); }
