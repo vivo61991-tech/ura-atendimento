@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.8.1';
+  const APP_VERSION = '1.8.2';
   const D = window.Dados, G = window.Graf;
 
   // ---------------------------------------------------------------- configuração
@@ -189,10 +189,11 @@
   // Só um aberto por vez (abrir outro fecha o anterior); o aberto continua aberto quando a tela se redesenha.
   let infoAberto = null;
   const ICONE_INFO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6"/><path d="M12 7.4h.01" stroke-width="2.8"/></svg>';
-  function cartaoGraf(id, titulo, svg, info, fixo) {
+  // filtro: texto discreto à esquerda do (i), na mesma linha (ex.: "CO – MANOBRA"); vazio = nada
+  function cartaoGraf(id, titulo, svg, info, fixo, filtro) {
     const ab = infoAberto === id;
     return `<div class="card chart" data-ch="${id}"><h2>${titulo}</h2>${svg}
-      <div class="ch-pe">${fixo || ''}<button class="info" data-info="${id}" aria-expanded="${ab}" aria-controls="inf-${id}" aria-label="${ab ? 'Esconder' : 'Mostrar'} a explicação do gráfico" title="Explicação do gráfico">${ICONE_INFO}</button></div>
+      <div class="ch-pe">${fixo || ''}<div class="ch-base">${filtro ? `<span class="ch-filtro" title="Filtro aplicado">${esc(filtro)}</span>` : ''}<button class="info" data-info="${id}" aria-expanded="${ab}" aria-controls="inf-${id}" aria-label="${ab ? 'Esconder' : 'Mostrar'} a explicação do gráfico" title="Explicação do gráfico">${ICONE_INFO}</button></div></div>
       <div class="ch-info" id="inf-${id}"${ab ? '' : ' hidden'}>${info}</div></div>`;
   }
   function alternarInfo(id) {
@@ -399,7 +400,16 @@
     const selTx = (tipo, extra) => iSel >= 0 ? capGraf(tipo, ivC[iSel], ivT[iSel], dir, extra) : '';
     const dica = `<div class="cap">${acum ? 'Modo acumulado: cada coluna mostra o total do dia até o horário dela. ' : ''}${capPadrao}${!acum && ivC.length && ivC[0].incluiAntes ? ' Toque numa coluna para selecionar · toque de novo para limpar.' : ''}</div>`;
     let nGraf = 0;
-    const graf = (titulo, svg, leg, tipo, extra) => cartaoGraf('evo-' + (++nGraf), titulo, svg, `<div class="legend">${leg}${notas.join('')}</div>${dica}`, selTx(tipo, extra));
+    // filtro aplicado, mostrado no rodapé de cada gráfico:
+    //   CO ou TEL → "CO"; com grupo → "CO – GRUPO"; Total URA → nada; Total URA com grupo → "GRUPO",
+    //   ou "CO – GRUPO"/"TEL – GRUPO" quando o grupo só existe num dos dois atendimentos
+    let filtroTx = '';
+    if (dir !== 'TODOS') filtroTx = dir + (evo.grupo ? ' – ' + evo.grupo : '');
+    else if (evo.grupo) {
+      const ds = [...new Set(D.filtro(d, { dir: 'TODOS', grupo: evo.grupo }).map(s => d.trad[s].DIRECIONAMENTO))];
+      filtroTx = (ds.length === 1 ? ds[0] + ' – ' : '') + evo.grupo;
+    }
+    const graf = (titulo, svg, leg, tipo, extra) => cartaoGraf('evo-' + (++nGraf), titulo, svg, `<div class="legend">${leg}${notas.join('')}</div>${dica}`, selTx(tipo, extra), filtroTx);
 
     let html = graf((acum ? 'Chamadas oferecidas' : 'Chamadas oferecidas por intervalo') + suf, G.barras({ cols: colsOf, sel: iSel, aria: 'Chamadas oferecidas' }), legOf, 'of');
     if (temCO) {

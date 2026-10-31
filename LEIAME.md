@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.8.1)
+# URA · Suporte B2C (v1.8.2)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -77,6 +77,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
    - o detalhe mostra os números do dia, o gráfico, as skills do Pulse que formam o grupo e os campos da tradutora.
 
 ## Versões
+- **1.8.2:** rodapé dos gráficos da Evolução mostra, discreto e na linha do (i), o filtro aplicado: "CO"/"TEL", "CO – GRUPO"; no Total URA nada, ou só o grupo (com "CO –"/"TEL –" quando o grupo só existe num dos atendimentos). Com coluna selecionada, o resumo fica em cima e essa linha embaixo.
 - **1.8.1:** nível de serviço passa a ser lido como **5 min** (antes "300s") em todos os rótulos; avisos laranja do topo (dados de outro dia, sem coleta nova, falha ao ler o site) ganham um X para fechar — ficam fechados enquanto o motivo for o mesmo e voltam ao reabrir o app. O aviso vermelho de arquivo com problema não fecha.
 - **1.8.0:** detalhe da skill com o cartão "No volume da URA": **representatividade** (% das oferecidas da URA no dia, CO + TEL, e % do próprio atendimento) e **rank** entre as mais acionadas (posição na URA, de N skills, e posição no CO ou na TEL; empate divide a posição).
 - **1.7.3:** lista de Skills padronizada: oferecidas em destaque em todas; embaixo, menor, o NS colorido pela situação (CO) ou o % do volume (TEL).
@@ -106,7 +107,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 | `app.js` | telas, atualização automática, cópia no aparelho |
 | `sw.js` | cache offline só deste app (caches `ura-b2c-v…`); o `.json` de dados nunca passa pelo cache |
 | `manifest.webmanifest`, `icons/` | instalação no celular |
-| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `grupos.js`, `controles.js`, `fixar.js`, `chipsel.js`, `skills.js` e `avisos.js` (Playwright) |
+| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `grupos.js`, `controles.js`, `fixar.js`, `chipsel.js`, `skills.js`, `avisos.js` e `filtro.js` (Playwright) |
 
 ## Antes de publicar
 1. **Mesma versão** em `APP_VERSION` (`app.js`), `VERSION` (`sw.js`) e nos `?v=` do `index.html`. O teste confere.
