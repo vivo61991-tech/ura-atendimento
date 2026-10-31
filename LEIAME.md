@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.3.0)
+# URA · Suporte B2C (v1.3.1)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -77,6 +77,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
    - o detalhe mostra os números do dia, o gráfico, as skills do Pulse que formam o grupo e os campos da tradutora.
 
 ## Versões
+- **1.3.1:** menos espaço em branco embaixo dos gráficos (eixo mais baixo, botão (i) menor e rodapé mais justo); linha do NS acumulado suave (curva monotônica, sem picos inventados) em roxo escuro da empresa.
 - **1.3.0:** ao selecionar uma coluna, cada gráfico mostra, centralizado, o período e só os valores dele (oferecidas: volumes; técnicos em espera: pico e espera mais longa; atendidos direto: % até 1 min; NS: NS do intervalo e acumulado do dia; abandono: %; TME: tempos).
 - **1.2.0:** legenda e explicações de cada gráfico escondidas atrás do botão (i) no canto inferior direito; tocar abre, tocar de novo recolhe; só um aberto por vez (abrir outro fecha o anterior; trocar de aba fecha). O resumo do intervalo selecionado continua à vista.
 - **1.1.1:** colunas empilhadas desenhadas como uma barra só: cantos arredondados apenas na base e no topo da coluna, emenda reta entre as cores.

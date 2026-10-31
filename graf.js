@@ -10,7 +10,8 @@
  */
 (function (root) {
   'use strict';
-  const W = 360, H = 200, T = 26, B = 32, L = 4, R = 4;
+  // área das colunas: 142 de altura; embaixo só o espaço dos rótulos do eixo (20), ou 32 quando há 2ª linha de rótulo
+  const W = 360, T = 26, L = 4, R = 4, AREA = 142;
   const halo = 'paint-order:stroke;stroke:var(--card);stroke-width:3px;stroke-linejoin:round';
   let uid = 0;
 
@@ -31,6 +32,27 @@
       (rb ? `A${rb} ${rb} 0 0 1 ${f(x + w - rb)} ${f(y + h)}` : '') + `H${f(x + rb)}` +
       (rb ? `A${rb} ${rb} 0 0 1 ${f(x)} ${f(y + h - rb)}` : '') + 'Z';
   }
+  // caminho suave por pontos [x,y] (cúbica monotônica de Fritsch–Carlson)
+  function curva(p) {
+    const f = v => +v.toFixed(2), n = p.length;
+    if (n === 1) return `M${f(p[0][0])} ${f(p[0][1])}`;
+    if (n === 2) return `M${f(p[0][0])} ${f(p[0][1])}L${f(p[1][0])} ${f(p[1][1])}`;
+    const dx = [], dl = [], m = [];
+    for (let i = 0; i < n - 1; i++) { dx[i] = p[i + 1][0] - p[i][0]; dl[i] = (p[i + 1][1] - p[i][1]) / dx[i]; }
+    m[0] = dl[0]; m[n - 1] = dl[n - 2];
+    for (let i = 1; i < n - 1; i++) m[i] = dl[i - 1] * dl[i] <= 0 ? 0 : (dl[i - 1] + dl[i]) / 2;
+    for (let i = 0; i < n - 1; i++) {
+      if (dl[i] === 0) { m[i] = 0; m[i + 1] = 0; continue; }
+      const a = m[i] / dl[i], b = m[i + 1] / dl[i], h = a * a + b * b;
+      if (h > 9) { const t = 3 / Math.sqrt(h); m[i] = t * a * dl[i]; m[i + 1] = t * b * dl[i]; }
+    }
+    let d = `M${f(p[0][0])} ${f(p[0][1])}`;
+    for (let i = 0; i < n - 1; i++) {
+      const h = dx[i] / 3;
+      d += `C${f(p[i][0] + h)} ${f(p[i][1] + m[i] * h)} ${f(p[i + 1][0] - h)} ${f(p[i + 1][1] - m[i + 1] * h)} ${f(p[i + 1][0])} ${f(p[i + 1][1])}`;
+    }
+    return d;
+  }
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   function barras(cfg) {
@@ -38,7 +60,8 @@
     const n = cols.length;
     if (!n) return '<p class="nota">Sem intervalos para mostrar ainda.</p>';
     const id = 'g' + (++uid);
-    const bw = (W - L - R) / n, hh = H - B - T;
+    const B = cols.some(c => c.sub) ? 32 : 20, H = T + AREA + B;
+    const bw = (W - L - R) / n, hh = AREA;
     let mx = 0;
     cols.forEach(c => { const s = (c.segs || []).reduce((a, g) => a + (g.v > 0 ? g.v : 0), 0); if (s > mx) mx = s; });
     (cfg.linha || []).forEach(v => { if (v != null && v > mx) mx = v; });
@@ -98,18 +121,24 @@
     }
     let linha = '';
     if (cfg.linha) {
-      const pts = [];
-      cfg.linha.forEach((v, i) => { if (v != null) pts.push([L + i * bw + bw / 2, Y(v)]); });
-      if (pts.length) {
-        linha = `<polyline points="${pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ')}" style="fill:none;stroke:var(--sAcum);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;opacity:.9"/>` +
-          pts.map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${n > 20 ? 1.6 : 2.4}" style="fill:var(--sAcum);stroke:var(--card);stroke-width:1"/>`).join('');
+      // linha suave (curva monotônica: passa por todos os pontos sem "inventar" picos ou vales entre eles);
+      // um valor vazio interrompe a linha
+      const trechos = [[]], todos = [];
+      cfg.linha.forEach((v, i) => {
+        if (v == null) { if (trechos[trechos.length - 1].length) trechos.push([]); return; }
+        const pt = [L + i * bw + bw / 2, Y(v)]; trechos[trechos.length - 1].push(pt); todos.push(pt);
+      });
+      const d = trechos.filter(t => t.length).map(curva).join('');
+      if (d) {
+        linha = `<path d="${d}" style="fill:none;stroke:var(--sAcum);stroke-width:2.4;stroke-linejoin:round;stroke-linecap:round"/>` +
+          todos.map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${n > 20 ? 1.5 : 2.2}" style="fill:var(--sAcum);stroke:var(--card);stroke-width:1"/>`).join('');
       }
     }
     const base = `<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" style="stroke:var(--line);stroke-width:1"/>`;
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(cfg.aria || 'gráfico')}">${defs}${band}${base}${corpo}${meta}${linha}${labs}${xs}${hit}</svg>`;
   }
 
-  const api = { barras, topo, W, H };
+  const api = { barras, topo, curva, W };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Graf = api;
 })(typeof self !== 'undefined' ? self : this);

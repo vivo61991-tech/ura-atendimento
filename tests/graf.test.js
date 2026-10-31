@@ -45,4 +45,33 @@ t('as partes se encostam: o topo de uma é a base da outra (sem fresta)', () => 
   const baseCima = +/V([\d.]+)/.exec(p[1].d)[1];
   assert.ok(topoBaixo <= baseCima, `parte de baixo (${topoBaixo}) deve subir até a de cima (${baseCima})`);
 });
+t('linha do NS: curva suave (C) que não passa do maior nem do menor ponto de cada trecho', () => {
+  const pts = [[10, 100], [40, 20], [70, 30], [100, 30], [130, 90]];
+  const d = G.curva(pts);
+  assert.ok(/^M10 100C/.test(d) && (d.match(/C/g) || []).length === 4, 'quatro trechos curvos');
+  const nums = d.slice(1).split(/[MC ]/).filter(Boolean).map(Number);
+  const ctl = []; for (let i = 2; i < nums.length; i += 6) ctl.push([nums[i + 1], nums[i + 3]]);
+  ctl.forEach(([y1, y2], i) => {
+    const lo = Math.min(pts[i][1], pts[i + 1][1]), hi = Math.max(pts[i][1], pts[i + 1][1]);
+    assert.ok(y1 >= lo - 1e-9 && y1 <= hi + 1e-9 && y2 >= lo - 1e-9 && y2 <= hi + 1e-9, 'trecho ' + i + ' sem pico inventado');
+  });
+  // trecho plano continua plano
+  assert.ok(ctl[2][0] === 30 && ctl[2][1] === 30);
+});
+
+t('linha no gráfico: caminho suave, sem polyline; valor vazio interrompe', () => {
+  const cols = [1, 2, 3, 4].map(i => ({ rot: String(i), segs: [{ v: 50, cor: 'var(--sCO)' }] }));
+  const svg = G.barras({ cols, max: 100, linha: [80, 60, null, 70] });
+  assert.ok(!/polyline/.test(svg));
+  const d = /<path d="(M[^"]+)" style="fill:none;stroke:var\(--sAcum\)/.exec(svg)[1];
+  assert.strictEqual((d.match(/M/g) || []).length, 2, 'dois trechos (antes e depois do vazio)');
+});
+
+t('altura menor embaixo do eixo (sem 2ª linha de rótulo)', () => {
+  const svg = G.barras({ cols: [{ rot: 'a', segs: [{ v: 1, cor: 'x' }] }] });
+  assert.ok(/viewBox="0 0 360 188"/.test(svg), svg.slice(0, 60));
+  const svg2 = G.barras({ cols: [{ rot: 'a', sub: 'seg', segs: [{ v: 1, cor: 'x' }] }] });
+  assert.ok(/viewBox="0 0 360 200"/.test(svg2));
+});
+
 console.log(`\n${ok} teste(s) ok${process.exitCode ? ' — HÁ FALHAS' : ''}`);
