@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.1.0)
+# URA · Suporte B2C (v1.1.1)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -77,6 +77,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
    - o detalhe mostra os números do dia, o gráfico, as skills do Pulse que formam o grupo e os campos da tradutora.
 
 ## Versões
+- **1.1.1:** colunas empilhadas desenhadas como uma barra só: cantos arredondados apenas na base e no topo da coluna, emenda reta entre as cores.
 - **1.1.0:** técnicos em espera por intervalo (pico, com cor pela espera mais longa) e técnicos atendidos direto (até 1 min); KPIs e coluna "Fila" na tabela de intervalos.
 - **1.0.0:** primeira versão: abas Agora, Evolução e Skills.
 
@@ -89,7 +90,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 | `app.js` | telas, atualização automática, cópia no aparelho |
 | `sw.js` | cache offline só deste app (caches `ura-b2c-v…`); o `.json` de dados nunca passa pelo cache |
 | `manifest.webmanifest`, `icons/` | instalação no celular |
-| `tests/` | `dados.test.js` (contas), `tela.js` e `robustez.js` (Playwright) |
+| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js` e `robustez.js` (Playwright) |
 
 ## Antes de publicar
 1. **Mesma versão** em `APP_VERSION` (`app.js`), `VERSION` (`sw.js`) e nos `?v=` do `index.html`. O teste confere.

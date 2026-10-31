@@ -21,6 +21,16 @@
     for (const f of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (f * p >= max) return f * p;
     return 10 * p;
   }
+  // retângulo com raio só no topo (rt) e/ou só na base (rb); raio 0 = canto reto
+  const RAIO = 3;
+  function barra(x, y, w, h, rt, rb) {
+    rt = Math.max(0, Math.min(rt, w / 2, h / 2)); rb = Math.max(0, Math.min(rb, w / 2, h / 2));
+    const f = v => +v.toFixed(2);
+    return `M${f(x)} ${f(y + rt)}` + (rt ? `A${rt} ${rt} 0 0 1 ${f(x + rt)} ${f(y)}` : '') + `H${f(x + w - rt)}` +
+      (rt ? `A${rt} ${rt} 0 0 1 ${f(x + w)} ${f(y + rt)}` : '') + `V${f(y + h - rb)}` +
+      (rb ? `A${rb} ${rb} 0 0 1 ${f(x + w - rb)} ${f(y + h)}` : '') + `H${f(x + rb)}` +
+      (rb ? `A${rb} ${rb} 0 0 1 ${f(x)} ${f(y + h - rb)}` : '') + 'Z';
+  }
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   function barras(cfg) {
@@ -49,15 +59,20 @@
       if (c.sd) {
         corpo += `<rect x="${cx - w / 2}" y="${T}" width="${w}" height="${hh}" rx="4" style="fill:url(#${id}sd)"/>`;
       } else {
-        let acc = 0;
-        (c.segs || []).forEach(g => {
-          if (!(g.v > 0)) return;
-          const y1 = Y(acc), y2 = Y(acc + g.v);
-          const h = Math.max(1.5, y1 - y2);
-          corpo += `<rect x="${cx - w / 2}" y="${y1 - h}" width="${w}" height="${h}" rx="3" style="fill:${g.cor}"/>`;
-          acc += g.v; topoY = y1 - h;
+        // coluna empilhada como UMA barra: só a base e o topo da coluna são arredondados;
+        // a emenda entre os grupos é reta (cada parte começa exatamente onde a anterior termina)
+        const vis = (c.segs || []).filter(g => g.v > 0);
+        let acc = 0, base = H - B;
+        vis.forEach((g, k) => {
+          const h = Math.max(1.5, Y(acc) - Y(acc + g.v));
+          const y = base - h;
+          const ultimo = k === vis.length - 1, primeiro = k === 0;
+          // sobe 0,6 px por baixo da parte seguinte para não aparecer fresta entre as cores
+          const ext = ultimo ? 0 : 0.6;
+          corpo += `<path d="${barra(cx - w / 2, y - ext, w, h + ext, ultimo ? RAIO : 0, primeiro ? RAIO : 0)}" style="fill:${g.cor}"/>`;
+          acc += g.v; base = y; topoY = y;
         });
-        if (c.and && acc > 0) corpo += `<rect x="${cx - w / 2}" y="${topoY}" width="${w}" height="${H - B - topoY}" rx="3" style="fill:url(#${id}an)"/>`;
+        if (c.and && acc > 0) corpo += `<path d="${barra(cx - w / 2, topoY, w, H - B - topoY, RAIO, RAIO)}" style="fill:url(#${id}an)"/>`;
         // coluna "sem fila": bolinha verde com check, como no Problemas Sistêmicos
         if (c.ok && acc === 0) {
           const r = Math.max(4, Math.min(8.5, bw * 0.36)), cy = H - B - r - 3;
