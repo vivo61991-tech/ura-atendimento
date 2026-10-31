@@ -155,17 +155,17 @@ h2.sec .rt{white-space:nowrap;font-size:12.5px;text-transform:none;letter-spacin
 .ctl-pe .meta-line{flex:1;min-width:0}
 .topbar.aberto .ctl-pe{margin-top:10px}
 .topbar.aberto .ctl-pe .meta-line{margin-top:0}
-.ctl-res{flex:1;min-width:0;display:flex;align-items:center;gap:6px;border:0;background:none;padding:0;cursor:pointer;overflow:hidden;text-align:left}
-.ctl-p{flex:none;white-space:nowrap;font-size:12.5px;font-weight:750;color:var(--p800);background:var(--p100);border-radius:999px;padding:4px 10px}
-.ctl-p:first-child{background:var(--p700);color:#fff}
-@media (prefers-color-scheme: dark){.ctl-p{background:#3a2356;color:#e6d8f5}.ctl-p:first-child{background:#8549b5;color:#fff}}
+/* recolhido: os botões escolhidos com a MESMA cara do botão marcado aberto (retângulo de canto arredondado, roxo), dividindo toda a largura */
+.ctl-res{flex:1;min-width:0;display:flex;align-items:stretch;gap:4px;border:0;background:none;padding:0;cursor:pointer;text-align:center}
+.ctl-p{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13.5px;font-weight:700;color:#fff;background:var(--p700);border-radius:9px;padding:8px 8px;box-shadow:0 2px 6px rgba(100,42,144,.35)}
+@media (prefers-color-scheme: dark){.ctl-p{background:#8549b5;color:#fff}}
 .ctl-seta{flex:none;margin-left:auto;width:26px;height:26px;border-radius:50%;border:0;padding:0;background:var(--p50);color:var(--p700);display:grid;place-items:center;cursor:pointer}
 .ctl-seta svg{width:16px;height:16px}
 .ctl-seta[aria-expanded="true"]{background:var(--p700);color:#fff}
 .ctl-seta:focus-visible,.ctl-res:focus-visible{outline:2px solid var(--p300);outline-offset:2px}
 @media (prefers-color-scheme: dark){.ctl-seta{background:#2a1c3d;color:#d3b5f0}.ctl-seta[aria-expanded="true"]{background:#8549b5;color:#fff}}
 .topbar.fechado .selchip{margin-top:8px}
-@media (max-width:360px){.ctl-p{font-size:11.5px;padding:4px 8px}}
+@media (max-width:370px){.ctl-p{font-size:12.5px;padding:8px 5px}}
 .chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 4px;margin:0 0 12px}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;color:var(--ink2)}
@@ -318,8 +318,8 @@ table.tsel tbody tr.sel td:last-child{border-right-color:var(--selln)}
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Detalhe"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="dados.js?v=1.6.0"></script>
-<script src="graf.js?v=1.6.0"></script>
-<script src="app.js?v=1.6.0"></script>
+<script src="dados.js?v=1.6.1"></script>
+<script src="graf.js?v=1.6.1"></script>
+<script src="app.js?v=1.6.1"></script>
 </body>
 </html>

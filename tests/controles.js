@@ -20,7 +20,16 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
     ok(e.fechado && e.segs === 0 && e.seta === 'false', `${larg}px: começa recolhido (sem os botões)`);
     ok(e.res.join(' | ') === 'CO | Por intervalo | Auto · 1 h', `${larg}px: mostra só o escolhido: ${e.res.join(' · ')}`);
     ok(e.linhas === 1 && e.dentro, `${larg}px: numa linha só, sem passar por baixo da seta`);
-    ok(e.h <= 52, `${larg}px: barra fina (${e.h}px)`);
+    ok(e.h <= 60, `${larg}px: barra fina (${e.h}px)`);
+    const enc = await p.$eval('#pgEvo .ctl-res', r => {
+      const ps = [...r.querySelectorAll('.ctl-p')], rr = r.getBoundingClientRect();
+      const cs = getComputedStyle(ps[0]), on = document.createElement('div');
+      return { ini: Math.round(ps[0].getBoundingClientRect().left - rr.left), fim: Math.round(rr.right - ps[ps.length - 1].getBoundingClientRect().right),
+        raio: cs.borderRadius, cor: ps.map(x => getComputedStyle(x).backgroundColor), corta: ps.some(x => x.scrollWidth > x.clientWidth) };
+    });
+    ok(enc.ini === 0 && enc.fim === 0, `${larg}px: botões ocupam toda a largura até a seta`);
+    ok(enc.raio === '9px' && new Set(enc.cor).size === 1, `${larg}px: mesmo formato do botão marcado aberto (canto ${enc.raio}, mesma cor)`);
+    ok(!enc.corta, `${larg}px: textos inteiros, sem cortar`);
     const seta = await p.$eval('#pgEvo .ctl-seta', s => { const r = s.getBoundingClientRect(), c = s.closest('.topbar').getBoundingClientRect(); return { dir: Math.round(c.right - r.right), baixo: Math.round(c.bottom - r.bottom) }; });
     ok(seta.dir <= 14 && seta.baixo <= 14, `${larg}px: seta no canto inferior direito (${seta.dir}px da direita, ${seta.baixo}px de baixo)`);
     // abrir pela seta
