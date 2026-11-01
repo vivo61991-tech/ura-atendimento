@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.12.0';
+  const APP_VERSION = '1.13.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -40,7 +40,9 @@
   // cmp: comparação pela mediana — 'sem' (7 mesmos dias da semana, padrão) | 'dias' (7 dias corridos); lembrada no aparelho.
   //      Fica sempre ligada quando há histórico (área clara atrás das barras).
   // Ao abrir o app, a Evolução começa SEMPRE nas primeiras opções (as da esquerda): Total URA · Por intervalo · Auto.
-  const evo = { dir: 'TODOS', passo: 'auto', grupo: null, sel: null, modo: 'int', ctl: false, fixo: lerPref('fixo', false) === true,
+  // skill: filtro por skill (nome simplificado da tradutora), escolhido no painel "Grupos e skills"
+  // abertos: grupos expandidos no painel (só enquanto o app está aberto)
+  const evo = { skill: null, abertos: new Set(), dir: 'TODOS', passo: 'auto', grupo: null, sel: null, modo: 'int', ctl: false, fixo: lerPref('fixo', false) === true,
     dia: null, cmp: ['dias', 'sem', 'off'].includes(lerPref('cmp', 'sem')) ? lerPref('cmp', 'sem') : 'sem' };
   const sk = { dir: 'CO', q: '', zeros: false };
 
@@ -249,9 +251,9 @@
   let infoAberto = null;
   const ICONE_INFO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6"/><path d="M12 7.4h.01" stroke-width="2.8"/></svg>';
   // filtro: texto discreto à esquerda do (i), na mesma linha (ex.: "CO – MANOBRA"); vazio = nada
-  function cartaoGraf(id, titulo, svg, info, fixo, filtro) {
+  function cartaoGraf(id, titulo, svg, info, fixo, filtro, cls) {
     const ab = infoAberto === id;
-    return `<div class="card chart" data-ch="${id}"><h2>${titulo}</h2>${svg}
+    return `<div class="card ${cls || 'chart'}" data-ch="${id}"><h2>${titulo}</h2>${svg}
       <div class="ch-pe">${fixo || ''}<div class="ch-base">${filtro ? `<span class="ch-filtro" title="Filtro aplicado">${esc(filtro)}</span>` : ''}<button class="info" data-info="${id}" aria-expanded="${ab}" aria-controls="inf-${id}" aria-label="${ab ? 'Esconder' : 'Mostrar'} a explicação do gráfico" title="Explicação do gráfico">${ICONE_INFO}</button></div></div>
       <div class="ch-info" id="inf-${id}"${ab ? '' : ' hidden'}>${info}</div></div>`;
   }
@@ -411,6 +413,11 @@
   }
 
   // ---------------------------------------------------------------- EVOLUÇÃO
+  // filtro da Evolução: atendimento + grupo + skill (nome simplificado; pode juntar várias skills do Pulse)
+  function filtroEvo(dd, dir) {
+    const ss = D.filtro(dd, { dir, grupo: evo.grupo });
+    return evo.skill ? ss.filter(s => dd.trad[s] && dd.trad[s].SKILL_SIMPLIFICADO === evo.skill) : ss;
+  }
   // ---------------------------------------------------------------- dia da Evolução (ao vivo ou do histórico)
   // Dias disponíveis = o dia do Pulse (sempre do Pulse, com fila) + os dias do histórico ANTERIORES a ele.
   // O histórico só vale "para trás": se ele tiver o próprio dia do Pulse (ou depois), esses dias ficam de fora.
@@ -440,7 +447,7 @@
     const refs = Hs.referencias(hist, iso, evo.cmp);
     const porRef = refs.map(r => {
       const dR = Hs.diaComoDados(hist, r, dados.trad);
-      const coR = D.filtro(dR, { dir: 'CO', grupo: evo.grupo }), telR = D.filtro(dR, { dir: 'TEL', grupo: evo.grupo });
+      const coR = filtroEvo(dR, 'CO'), telR = filtroEvo(dR, 'TEL');
       let ivC = D.intervalos(dR, passo, coR), ivT = D.intervalos(dR, passo, telR);
       if (acum) { ivC = D.acumulados(dR, ivC, coR); ivT = D.acumulados(dR, ivT, telR); }
       // "o dia até agora" nos outros dias = até o MESMO minuto, proporcional dentro do bloco de 15 min
@@ -507,13 +514,14 @@
 
   function renderEvo() {
     const ctx = diaEvo(), d = ctx.d, L = d.leituras[d.leituras.length - 1];
-    const filtroDir = dir => D.filtro(d, { dir, grupo: evo.grupo });
+    const filtroDir = dir => filtroEvo(d, dir);
     // grupos do atendimento escolhido, com as oferecidas do dia (prévia do volume): maior volume primeiro, zerados no fim
     const volGrp = new Map();
     D.filtro(d, { dir: evo.dir }).forEach(s => { const g = d.trad[s].SKILL_GRUPO; volGrp.set(g, (volGrp.get(g) || 0) + ((L.v[s] && L.v[s].Distinct_Entered) || 0)); });
     const grpsDisp = [...volGrp.keys()].sort((a, b) => volGrp.get(b) - volGrp.get(a) || a.localeCompare(b));
     const volTodos = [...volGrp.values()].reduce((a, b) => a + b, 0);
-    if (evo.grupo && !grpsDisp.includes(evo.grupo)) evo.grupo = null;
+    if (evo.grupo && !grpsDisp.includes(evo.grupo)) { evo.grupo = null; evo.skill = null; }
+    if (evo.skill && !D.filtro(d, { dir: evo.dir, grupo: evo.grupo }).some(s => d.trad[s].SKILL_SIMPLIFICADO === evo.skill)) evo.skill = null;
     const co = filtroDir('CO'), tel = filtroDir('TEL');
     const el = $('#pgEvo');
     const passo = evo.passo === 'auto' ? D.passoAuto(d, maxColunas(el)) : +evo.passo;
@@ -619,10 +627,10 @@
     //   CO ou TEL → "CO"; com grupo → "CO – GRUPO"; Total URA → nada; Total URA com grupo → "GRUPO",
     //   ou "CO – GRUPO"/"TEL – GRUPO" quando o grupo só existe num dos dois atendimentos
     let filtroTx = '';
-    if (dir !== 'TODOS') filtroTx = dir + (evo.grupo ? ' – ' + evo.grupo : '');
+    if (dir !== 'TODOS') filtroTx = dir + (evo.grupo ? ' – ' + evo.grupo : '') + (evo.skill ? ' › ' + evo.skill : '');
     else if (evo.grupo) {
       const ds = [...new Set(D.filtro(d, { dir: 'TODOS', grupo: evo.grupo }).map(s => d.trad[s].DIRECIONAMENTO))];
-      filtroTx = (ds.length === 1 ? ds[0] + ' – ' : '') + evo.grupo;
+      filtroTx = (ds.length === 1 ? ds[0] + ' – ' : '') + evo.grupo + (evo.skill ? ' › ' + evo.skill : '');
     }
     const graf = (titulo, svg, leg, tipo, extra) => cartaoGraf('evo-' + tipo, titulo, svg, `<div class="legend">${leg}${notas.join('')}</div>${dica}`, selTx(tipo, extra), filtroTx);
 
@@ -697,6 +705,7 @@
     } else {
       html += `<div class="card"><p class="nota">A TEL é atendida em outro sistema: a URA registra só o volume encaminhado. Por isso não há NS, abandono nem tempos para a TEL.</p></div>`;
     }
+    html += painelGrupos(d, L, ivC, iSel, acum);
     html += tabelaIntervalos(ivC, ivT, dir, passo, iSel, acum);
 
     el.innerHTML = `
@@ -766,6 +775,70 @@
     if (tipo === 'tma') return caixa(v.tma == null ? 'sem chamadas atendidas' : `TMA <b>${fS(v.tma)}</b> · TME ${fS(v.tme)} · ${pl(v.atend, 'atendida', 'atendidas')}`, nota);
     if (tipo === 'tme') return caixa(v.tme == null ? 'sem chamadas atendidas' : `TME <b>${fS(v.tme)}</b> · TMA ${fS(v.tma)} · ${pl(v.atend, 'atendida', 'atendidas')}`, nota);
     return caixa('');
+  }
+
+  // ---------------------------------------------------------------- painel "Grupos e skills" (Evolução)
+  // Grupos do atendimento escolhido, do maior para o menor volume DO DIA (a ordem não muda ao filtrar nem ao
+  // selecionar coluna). Números: do dia, ou da coluna selecionada (como os botões de grupo). O painel não se filtra:
+  // tocar no nome do grupo/skill filtra o RESTO da tela e só marca a linha. "N skills" abre as skills do grupo.
+  function painelGrupos(d, L, ivC, iSel, acum) {
+    const c = iSel >= 0 ? ivC[iSel] : null;
+    const lFim = c ? (c.semColeta ? null : d.leituras.find(x => x.m === c.ateM)) : L;
+    const lIni = c && !acum && c.baseM != null ? d.leituras.find(x => x.m === c.baseM) : null;
+    const per = ss => !lFim ? null : (c && !acum ? D.delta(D.agregar(lFim, ss), D.agregar(lIni, ss)) : D.agregar(lFim, ss));
+    const ehCO = s => d.trad[s].DIRECIONAMENTO === 'CO';
+    const todas = D.filtro(d, { dir: evo.dir });
+    const grupos = new Map();
+    todas.forEach(s => { const g = d.trad[s].SKILL_GRUPO; if (!grupos.has(g)) grupos.set(g, []); grupos.get(g).push(s); });
+    const info = ss => {
+      const co = ss.filter(ehCO), tel = ss.filter(s => !ehCO(s));
+      const aC = co.length ? per(co) : null, aT = tel.length ? per(tel) : null;
+      return { co, tel, aC, aT, q: lFim ? (aC ? aC.ofer : 0) + (aT ? aT.ofer : 0) : null, dia: (co.length ? D.agregar(L, co).ofer : 0) + (tel.length ? D.agregar(L, tel).ofer : 0) };
+    };
+    const lista = [...grupos.entries()].map(([g, ss]) => Object.assign({ g, ss }, info(ss))).sort((a, b) => b.dia - a.dia || a.g.localeCompare(b.g));
+    const total = lista.reduce((t, x) => t + (x.q || 0), 0);
+    const met = x => {
+      const vT = x.aT ? x.aT.ofer : 0;
+      if (!x.aC || !x.aC.ofer) return x.q == null ? '<i>sem coleta neste horário</i>' : vT ? `<i>só volume (TEL)</i>` : '<i>sem chamadas</i>';
+      const a = x.aC;
+      const p = [`NS ${a.ns == null ? '—' : `<span class="c-${situacao(a.ns)}">${fP(a.ns)}</span>`}`,
+        `${fI(a.aband)} aband.${a.abandPct == null ? '' : ' (' + fP(a.abandPct) + ')'}`, `TME ${a.tme == null ? '—' : minCurto(a.tme)}`, `TMA ${a.tma == null ? '—' : minCurto(a.tma)}`];
+      if (x.aT && x.aT.ofer && x.co.length) p.push(`TEL ${fI(x.aT.ofer)}`);
+      return p.map(t => `<i>${t}</i>`).join('<span class="gk-s">·</span>');
+    };
+    const barra = (x, ref) => {
+      const pc = v => ref ? Math.max(0, Math.min(100, v / ref * 100)) : 0;
+      const vc = x.aC ? x.aC.ofer : 0, vt = x.aT ? x.aT.ofer : 0;
+      return `<div class="gk-bar" aria-hidden="true"><i style="width:${pc(vc).toFixed(2)}%;background:var(--sCO)"></i><i style="width:${pc(vt).toFixed(2)}%;background:var(--sTEL)"></i></div>`;
+    };
+    const linha = (x, sub, g) => {
+      const on = sub ? evo.skill === x.nome : evo.grupo === x.g && !evo.skill;
+      const nome = sub ? x.nome : x.g, chave = sub ? 's:' + g + '|' + x.nome : 'g:' + x.g;
+      const btNome = sub ? `<button class="gk-n" data-gsk="${esc(x.nome)}" data-gg="${esc(g)}" aria-pressed="${on}" title="Filtrar a tela por esta skill">${esc(nome)}</button>`
+        : `<button class="gk-n" data-gk="${esc(x.g)}" aria-pressed="${on}" title="Filtrar a tela por este grupo">${esc(nome)}</button>`;
+      const nSk = sub ? '' : (() => { const n = new Set(x.ss.map(s => d.trad[s].SKILL_SIMPLIFICADO)).size, ab = evo.abertos.has(x.g);
+        return `<button class="gk-x" data-gab="${esc(x.g)}" aria-expanded="${ab}" title="${ab ? 'Esconder' : 'Mostrar'} as skills do grupo"><b><i>${n} ${n === 1 ? 'skill' : 'skills'}</i></b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ab ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'}"/></svg></button><span class="gk-s">·</span>`; })();
+      return `<div class="gk${sub ? ' sub' : ''}${on ? ' on' : ''}${x.q ? '' : ' zero'}" data-anc="${esc(chave)}">
+        <div class="gk-l">${btNome}<b class="gk-q num">${x.q == null ? '—' : fI(x.q)}</b></div>
+        ${barra(x, sub ? x.ref : total)}
+        <div class="gk-m">${nSk}${met(x)}</div></div>`;
+    };
+    const corpo = lista.map(x => {
+      let h = linha(x, false);
+      if (evo.abertos.has(x.g)) {
+        const m = new Map();
+        x.ss.forEach(s => { const k = d.trad[s].SKILL_SIMPLIFICADO; if (!m.has(k)) m.set(k, []); m.get(k).push(s); });
+        const sk = [...m.entries()].map(([nome, ss]) => Object.assign({ nome, ss, ref: x.q }, info(ss))).sort((a, b) => b.dia - a.dia || a.nome.localeCompare(b.nome));
+        h += `<div class="gk-sub">${sk.map(y => linha(y, true, x.g)).join('')}</div>`;
+      }
+      return h;
+    }).join('');
+    const onde = !c ? 'no dia' : acum ? 'até ' + D.hhmm(c.andamento ? c.ateM : c.fim) : D.hhmm(c.ini) + '–' + D.hhmm(c.andamento ? c.ateM : c.fim);
+    const titulo = `Grupos e skills <small>· oferecidas ${esc(onde)}</small>`;
+    const leg = `<div class="legend"><span><i style="background:var(--sCO)"></i>CO</span><span><i style="background:var(--sTEL)"></i>TEL</span></div>
+      <div class="cap">Grupos do maior para o menor volume do dia (a ordem não muda ao filtrar). Barra do grupo: parte das oferecidas ${esc(onde)}; barra da skill: parte do grupo.
+      Embaixo: NS (5 min), abandonadas, TME e TMA do CO ${c && !acum ? 'no intervalo (÷ finalizadas)' : esc(onde)}. Toque no nome para filtrar a tela (de novo para limpar); em “skills” para abrir as skills do grupo.</div>`;
+    return cartaoGraf('evo-grupos', titulo, `<div class="gks">${corpo}</div>`, leg, '', '', 'painel');
   }
 
   function tabelaIntervalos(ivC, ivT, dir, passo, iSel, acum) {
@@ -908,7 +981,10 @@
     if (b.dataset.act === 'limpar') { evo.sel = null; return redesenhar(); }
     if (b.dataset.act === 'zeros') { sk.zeros = true; return render(); }
     if (b.dataset.sk) return abrirSkill(b.dataset.sk, b.dataset.skd);
-    if (b.dataset.dir && b.closest('#pgEvo')) { evo.dir = b.dataset.dir; evo.grupo = null; evo.sel = null; return redesenhar(); }
+    if (b.dataset.gk != null) { const g = b.dataset.gk; evo.grupo = evo.grupo === g && !evo.skill ? null : g; evo.skill = null; return redesenhar(b); }
+    if (b.dataset.gsk != null) { const k = b.dataset.gsk; if (evo.skill === k) evo.skill = null; else { evo.skill = k; evo.grupo = b.dataset.gg; } return redesenhar(b); }
+    if (b.dataset.gab != null) { const g = b.dataset.gab; if (evo.abertos.has(g)) evo.abertos.delete(g); else evo.abertos.add(g); return redesenhar(b); }
+    if (b.dataset.dir && b.closest('#pgEvo')) { evo.dir = b.dataset.dir; evo.grupo = null; evo.skill = null; evo.sel = null; return redesenhar(); }
     if (b.dataset.modo) { evo.modo = b.dataset.modo; return redesenhar(); }
     if (b.dataset.cmp) { evo.cmp = b.dataset.cmp; gravarPref('cmp', evo.cmp); return redesenhar(); }
     if (b.dataset.navdia) {
@@ -924,11 +1000,11 @@
       // tocar no grupo já selecionado desmarca e volta para "Todos os grupos"
       const g = b.dataset.grp || null;
       // a coluna selecionada continua selecionada: os gráficos trocam de grupo mantendo o mesmo horário
-      evo.grupo = g && g === evo.grupo ? null : g; chipAnimar = true;
+      evo.grupo = g && g === evo.grupo ? null : g; evo.skill = null; chipAnimar = true;
       return redesenhar();
     }
     if (b.dataset.skdir) { sk.dir = b.dataset.skdir; sk.zeros = false; return render(); }
-    if (b.matches('[data-grupo]')) { evo.dir = b.dataset.dir; evo.grupo = b.dataset.grupo; evo.sel = null; return irPara('evo'); }
+    if (b.matches('[data-grupo]')) { evo.dir = b.dataset.dir; evo.grupo = b.dataset.grupo; evo.skill = null; evo.sel = null; return irPara('evo'); }
     if (b.matches('rect.hit') && b.closest('#pgEvo') || b.matches('#tIv tr[data-i]')) {
       const iv = ivAtuais(); const i = +b.dataset.i; const c = iv[i];
       if (c) { evo.sel = evo.sel === c.ini ? null : c.ini; redesenhar(b); }
@@ -936,7 +1012,7 @@
   });
   function ivAtuais() {
     const d = diaEvo().d;
-    const co = D.filtro(d, { dir: 'CO', grupo: evo.grupo });
+    const co = filtroEvo(d, 'CO');
     const passo = evo.passo === 'auto' ? D.passoAuto(d, maxColunas($('#pgEvo'))) : +evo.passo;
     return D.intervalos(d, passo, co);
   }
@@ -948,6 +1024,9 @@
     : el.classList.contains('evo-ctl') ? 'ctl' : el.querySelector('#tIv') ? 'tab' : null;
   function ancora(toque) {
     if (pagina !== 'evo' || window.scrollY < 1) return null;
+    // tocou numa linha do painel de grupos: é ELA que fica parada (abrir/fechar skills ou filtrar não mexe nela)
+    const linha = toque && toque.closest ? toque.closest('[data-anc]') : null;
+    if (linha) return { anc: linha.dataset.anc, y: linha.getBoundingClientRect().top };
     const ctl = $('#pgEvo .evo-ctl.fixo'), topo = Math.max($('header.top') ? $('header.top').getBoundingClientRect().bottom : 0, ctl ? ctl.getBoundingClientRect().bottom : 0);
     const blocos = [...document.querySelectorAll('#pgEvo > *')].filter(el => !el.classList.contains('fixo'));
     const ordem = blocos.map(chaveBloco).filter(Boolean);
@@ -963,6 +1042,11 @@
     render();
     window.scrollTo(0, y);
     if (!a) return;
+    if (a.anc) {
+      const el = [...document.querySelectorAll('#pgEvo [data-anc]')].find(x => x.dataset.anc === a.anc);
+      if (el) window.scrollBy(0, el.getBoundingClientRect().top - a.y);
+      return;
+    }
     const novo = new Map([...document.querySelectorAll('#pgEvo > *')].map(el => [chaveBloco(el), el]));
     const k = a.ordem.slice(a.ordem.indexOf(a.k)).find(x => novo.has(x));
     if (k) window.scrollBy(0, novo.get(k).getBoundingClientRect().top - a.y);

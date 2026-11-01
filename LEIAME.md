@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.12.0)
+# URA · Suporte B2C (v1.13.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -89,6 +89,15 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 - Um dia do histórico é convertido para o mesmo formato do `pulse.json` (leituras acumuladas a cada 15 min, 08:00–21:00),
   então todas as telas e contas servem para os dois. **O histórico não tem fila** (técnicos em espera): esse gráfico só aparece no dia ao vivo.
 
+## Painel "Grupos e skills" (Evolução, depois dos gráficos)
+- Um grupo por linha: nome e quantidade (oferecidas, CO + TEL) na mesma linha; barra com a parte do volume
+  (CO roxo, TEL azul); embaixo, em letra pequena e itálico: **N skills** (negrito), NS (5 min), abandonadas, TME e TMA do CO.
+- Ordem: maior volume DO DIA primeiro — não muda ao filtrar nem ao selecionar coluna. Números: do dia, ou da coluna
+  selecionada (no intervalo ou acumulado até ela), como os botões de grupo.
+- "N skills" abre as skills do grupo (fundo mais escuro; barra = parte do grupo). Skill = nome simplificado da tradutora.
+- Tocar no nome do grupo ou da skill filtra a tela inteira (gráficos, cards, previsto, tabela); de novo, limpa.
+  O painel não se filtra (continua mostrando tudo e marca o escolhido) e a linha tocada não sai do lugar na tela.
+
 ## Fila do histórico (técnicos em espera)
 - **Um SELECT só** (`sql/historico_ura_b2c.sql`) gera o `historico.csv` com volumes, tempos E a fila:
   duas colunas no fim, `FILA;ESPERA_MAX_S` = técnicos esperando no FIM do bloco (HORARIO + 15) e há quanto tempo
@@ -139,6 +148,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.13.0:** painel "Grupos e skills" na Evolução: barra, volume, NS/abandono/TME/TMA, skills expansíveis e filtro por grupo ou skill sem mexer na rolagem.
 - **1.12.0:** um SELECT só: a fila virou duas colunas do historico.csv (FILA, ESPERA_MAX_S); sai o historico_fila.sql/csv. Mesmo resultado do formato separado (conferido nos 139 dias: zero diferenças).
 - **1.11.0:** fila do histórico (historico_fila.csv, refeita pelo Genesys e calibrada contra o Pulse): gráfico de técnicos em espera nos dias do histórico, previsto na fila e mediana no "Pico em espera" e no "Em espera agora".
 - **1.10.0:** previsto proporcional até o minuto da última coleta: coluna em andamento da Evolução, cards do dia; aba Agora com chave Previsto, "med." nos cards e área do previsto na hora atual inteira, com resumo até agora × previsto e previsto da hora.
