@@ -23,7 +23,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   ok(/187 oferecidas · 107 atendidas · 77 abandonadas/.test(caps[0]) && !/NS|TME|técnico/.test(caps[0]), 'oferecidas: só volumes');
   ok(/pico de 50 técnicos em espera às 12:00/.test(caps[1]) && !/oferecidas|NS/.test(caps[1]), 'técnicos em espera: só a fila');
   ok(/0,0% atendidos direto · 0 de 107 em até 1 min/.test(caps[2]), 'atendidos direto: só o % de até 1 min');
-  ok(/NS 1,6% · 3 de 184 finalizadas/.test(caps[3]) && /acumulado do dia/.test(caps[3]) && !/TME/.test(caps[3]), 'NS: só o NS (com o acumulado)');
+  ok(/NS 1,6% · 3 de 184 finalizadas/.test(caps[3]) && !/acumulado do dia/.test(caps[3]) && !/TME/.test(caps[3]), 'NS: só o NS do intervalo (sem o acumulado, a linha saiu)');
   ok(/41,8% de abandono · 77 de 184 finalizadas/.test(caps[4]), 'abandono: só o abandono');
   ok(/TME 17min 33s · TMA 18min 31s/.test(caps[5]) && !/NS|abandono/.test(caps[5]), 'TME: só os tempos');
   ok(/TMA 18min 31s · TME 17min 33s · 107 atendidas/.test(caps[6]) && !/NS|abandono/.test(caps[6]), 'TMA: só os tempos, TMA em destaque');

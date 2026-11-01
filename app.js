@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.9.1';
+  const APP_VERSION = '1.9.2';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -38,7 +38,7 @@
   // cmp: comparação pela mediana — 'sem' (7 mesmos dias da semana, padrão) | 'dias' (7 dias corridos); lembrada no aparelho.
   //      Fica sempre ligada quando há histórico (área clara atrás das barras).
   const evo = { dir: 'CO', passo: lerPref('passo', 'auto'), grupo: null, sel: null, modo: 'int', ctl: false, fixo: lerPref('fixo', false) === true,
-    dia: null, cmp: lerPref('cmp', 'sem') === 'dias' ? 'dias' : 'sem' };
+    dia: null, cmp: ['dias', 'sem', 'off'].includes(lerPref('cmp', 'sem')) ? lerPref('cmp', 'sem') : 'sem' };
   const sk = { dir: 'CO', q: '', zeros: false };
 
   const $ = s => document.querySelector(s);
@@ -382,7 +382,7 @@
   // Mediana do histórico para o dia em exibição: mesmos filtros, mesmo eixo e mesmo modo (intervalo/acumulado).
   // Lm: horário da última leitura do dia em exibição — os cards comparam "o dia até agora" com os outros dias até a mesma hora.
   function comparacao(iso, passo, acum, Lm) {
-    if (!hist) return null;
+    if (!hist || evo.cmp === 'off') return null;   // previsto desligado: gráficos e cards limpos
     const refs = Hs.referencias(hist, iso, evo.cmp);
     const porRef = refs.map(r => {
       const dR = Hs.diaComoDados(hist, r, dados.trad);
@@ -406,11 +406,13 @@
     return `${x > 0 ? '+' : x < 0 ? '−' : '±'}${Math.abs(x).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}%`;
   }
 
-  // chave acima do primeiro gráfico: com o que comparar (vale para todos os gráficos)
+  // chave acima do primeiro gráfico: com o que comparar (vale para todos os gráficos), ou desligado.
+  // Três botões da mesma largura: "7 dias" (corridos) · "7 dom" (mesmo dia da semana) · "Desligado"
   function chaveCmp(ctx) {
     const w = Hs.diaSemana(ctx.iso);
-    return `<div class="cmpk" role="group" aria-label="Comparar com a mediana do histórico"><span class="cmpk-l">Previsto</span>
-      <div class="seg sm">${[['dias', '7 dias corridos'], ['sem', '7 ' + DS_PLURAL[w]]].map(([v, t]) => `<button data-cmp="${v}" class="${evo.cmp === v ? 'on' : ''}" aria-pressed="${evo.cmp === v}">${t}</button>`).join('')}</div></div>`;
+    const ops = [['dias', '7 dias', 'mediana dos 7 dias corridos anteriores'], ['sem', '7 ' + DS_CURTO[w], 'mediana dos 7 ' + DS_PLURAL[w] + ' anteriores'], ['off', 'Desligado', 'sem previsto: gráficos limpos']];
+    return `<div class="cmpk" role="group" aria-label="Previsto: mediana do histórico"><span class="cmpk-l">Previsto</span>
+      <div class="seg sm">${ops.map(([v, t, ti]) => `<button data-cmp="${v}" class="${evo.cmp === v ? 'on' : ''}" aria-pressed="${evo.cmp === v}" title="${ti}" aria-label="${ti}">${t}</button>`).join('')}</div></div>`;
   }
 
   // barra de data da Evolução: ‹ dia ›, seletor de data e "Hoje"/"Último"
@@ -575,20 +577,17 @@
           : '<span><i style="background:var(--sCO)"></i>altura: técnicos atendidos em até 1&nbsp;min no intervalo</span>') +
         `<span>rótulo: % das atendidas ${acum ? 'no dia até o horário' : 'no intervalo'} (em cima) e quantidade de técnicos atendidos direto (embaixo)</span>`, 'dir',
         { refHtml: vS ? refSel(v => v.a60, fI, vS.a60) : null });
-      // 2) NS do intervalo + NS acumulado do dia
-      // linha do NS acumulado: só no modo por intervalo (no acumulado as próprias colunas já são o acumulado)
-      const linhaNS = [];
-      ivC.forEach(c => { const l = c.v ? d.leituras.find(x => x.m === c.ateM) : null; linhaNS.push(l ? D.agregar(l, co).ns : null); });
+      // 2) NS do intervalo (sem a linha do NS acumulado do dia: o card do topo já mostra o NS do dia)
       const colsNS = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
         rot: rot(c), and: c.andamento, titulo: tit(c),
         segs: [{ v: c.v.ns == null ? 0 : c.v.ns, cor: corSit(situacao(c.v.ns)) }],
         lab: c.v.ns == null ? '' : Math.round(c.v.ns) + '%' });
       html += graf((acum ? 'Nível de serviço (<span class="un">5 min</span>)' : 'Nível de serviço (<span class="un">5 min</span>) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf,
-        // a mediana fica como área clara atrás das barras; a linha do NS acumulado continua por cima
-        G.barras({ cols: colsNS, max: 100, meta: META_NS, metaTx: META_NS + '%', linha: acum ? null : linhaNS, ref: refArr(v => v.ns), refCor: 'var(--p500)', sel: iSel, aria: 'Nível de serviço' }),
-        `<span><i style="background:var(--verdeS)"></i>Meta atingida</span><span><i style="background:var(--amareloS)"></i>Em atenção</span><span><i style="background:var(--vermelhoS)"></i>Crítico</span>${acum ? '' : '<span><i class="ln"></i>NS acumulado do dia (÷ oferecidas, como no Pulse)</span>'}<span><i class="dash"></i>meta ${META_NS}%</span>` +
+        // a mediana fica como área clara atrás das barras
+        G.barras({ cols: colsNS, max: 100, meta: META_NS, metaTx: META_NS + '%', ref: refArr(v => v.ns), refCor: 'var(--p500)', sel: iSel, aria: 'Nível de serviço' }),
+        `<span><i style="background:var(--verdeS)"></i>Meta atingida</span><span><i style="background:var(--amareloS)"></i>Em atenção</span><span><i style="background:var(--vermelhoS)"></i>Crítico</span><span><i class="dash"></i>meta ${META_NS}%</span>` +
         (acum ? '<span>colunas: NS do dia até o horário — atendidas em até 5&nbsp;min ÷ oferecidas, como no Pulse</span>' : '<span>colunas: atendidas em até 5&nbsp;min ÷ chamadas finalizadas no intervalo (atendidas + abandonadas)</span>'),
-        'ns', { acum: iSel >= 0 && !acum ? linhaNS[iSel] : null, refHtml: vS ? refSel(v => v.ns, x => fP(x), vS.ns, true) : null });
+        'ns', { refHtml: vS ? refSel(v => v.ns, x => fP(x), vS.ns, true) : null });
       // 3) abandono
       const colsAb = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
         rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: acum ? c.v.aband : (c.v.abandPct || 0), cor: 'var(--sAb)' }],
@@ -674,8 +673,7 @@
     if (tipo === 'ns') {
       const sit = situacao(v.ns);
       if (ac) return caixa(v.ns == null ? 'sem chamadas oferecidas' : `NS <b class="c-${sit}">${fP(v.ns)}</b> · ${fI(v.a300)} de ${fI(v.ofer)} oferecidas em até 5&nbsp;min`, nota);
-      return caixa(v.ns == null ? 'sem chamadas finalizadas' : `NS <b class="c-${sit}">${fP(v.ns)}</b> · ${fI(v.a300)} de ${fI(v.fin)} finalizadas em até 5&nbsp;min`,
-        [extra && extra.acum != null ? 'acumulado do dia até aqui: ' + fP(extra.acum) : '', nota].filter(Boolean).join(' · '));
+      return caixa(v.ns == null ? 'sem chamadas finalizadas' : `NS <b class="c-${sit}">${fP(v.ns)}</b> · ${fI(v.a300)} de ${fI(v.fin)} finalizadas em até 5&nbsp;min`, nota);
     }
     if (tipo === 'ab') return caixa(v.abandPct == null ? (ac ? 'sem chamadas oferecidas' : 'sem chamadas finalizadas')
       : `<b>${fP(v.abandPct)}</b> de abandono · ${fI(v.aband)} de ${fI(ac ? v.ofer : v.fin)} ${ac ? 'oferecidas' : 'finalizadas'}`, nota);
@@ -847,7 +845,7 @@
     if (b.matches('[data-grupo]')) { evo.dir = b.dataset.dir; evo.grupo = b.dataset.grupo; evo.sel = null; return irPara('evo'); }
     if (b.matches('rect.hit') && b.closest('#pgEvo') || b.matches('#tIv tr[data-i]')) {
       const iv = ivAtuais(); const i = +b.dataset.i; const c = iv[i];
-      if (c) { evo.sel = evo.sel === c.ini ? null : c.ini; redesenhar(); }
+      if (c) { evo.sel = evo.sel === c.ini ? null : c.ini; redesenhar(b); }
     }
   });
   function ivAtuais() {
@@ -856,7 +854,33 @@
     const passo = evo.passo === 'auto' ? D.passoAuto(d, maxColunas($('#pgEvo'))) : +evo.passo;
     return D.intervalos(d, passo, co);
   }
-  function redesenhar() { const y = window.scrollY; render(); window.scrollTo(0, y); }
+  // Redesenhar sem mexer na rolagem. Na Evolução, a tela "ancora" no primeiro bloco visível (card, gráfico…):
+  // depois de redesenhar, esse mesmo bloco volta exatamente para a mesma altura da tela, mesmo que algo acima
+  // tenha mudado de tamanho (ex.: trocar de data some/volta o gráfico de técnicos em espera, os cards mudam).
+  // Se o bloco não existir no novo dia, ancora no seguinte.
+  const chaveBloco = el => el.dataset.ch ? 'ch:' + el.dataset.ch : el.classList.contains('kpis2') ? 'kpis' : el.classList.contains('cmpk') ? 'cmpk'
+    : el.classList.contains('evo-ctl') ? 'ctl' : el.querySelector('#tIv') ? 'tab' : null;
+  function ancora(toque) {
+    if (pagina !== 'evo' || window.scrollY < 1) return null;
+    const ctl = $('#pgEvo .evo-ctl.fixo'), topo = Math.max($('header.top') ? $('header.top').getBoundingClientRect().bottom : 0, ctl ? ctl.getBoundingClientRect().bottom : 0);
+    const blocos = [...document.querySelectorAll('#pgEvo > *')].filter(el => !el.classList.contains('fixo'));
+    const ordem = blocos.map(chaveBloco).filter(Boolean);
+    // o primeiro bloco que COMEÇA na área visível; se nenhum começar nela (gráfico alto), o que está cortado no topo
+    const cand = blocos.filter(el => chaveBloco(el));
+    // tocou num gráfico (selecionar coluna): ele é que fica parado
+    const tocado = toque && toque.closest ? cand.find(el => el.contains(toque)) : null;
+    const alvo = tocado || cand.find(el => { const r = el.getBoundingClientRect(); return r.top >= topo - 2 && r.top < innerHeight; }) || cand.find(el => el.getBoundingClientRect().bottom > topo + 4);
+    return alvo ? { ordem, k: chaveBloco(alvo), y: alvo.getBoundingClientRect().top } : null;
+  }
+  function redesenhar(toque) {
+    const y = window.scrollY, a = ancora(toque);
+    render();
+    window.scrollTo(0, y);
+    if (!a) return;
+    const novo = new Map([...document.querySelectorAll('#pgEvo > *')].map(el => [chaveBloco(el), el]));
+    const k = a.ordem.slice(a.ordem.indexOf(a.k)).find(x => novo.has(x));
+    if (k) window.scrollBy(0, novo.get(k).getBoundingClientRect().top - a.y);
+  }
   // seletor de data: escolher um dia sem dados avisa e não muda
   document.addEventListener('change', e => {
     if (e.target.id !== 'dnData') return;

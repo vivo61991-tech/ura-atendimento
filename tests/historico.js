@@ -62,14 +62,14 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   await abrir(p); await p.click('#pgEvo button[data-passo="60"]');
   const ch = await p.$eval('#pgEvo .cmpk', k => ({ bts: [...k.querySelectorAll('button')].map(b => b.textContent + (b.classList.contains('on') ? '*' : '')),
     antes: k.getBoundingClientRect().bottom <= document.querySelector('#pgEvo .chart').getBoundingClientRect().top, fora: !k.closest('.topbar') }));
-  ok(ch.bts.join('|') === '7 dias corridos|7 sextas*' && ch.antes && ch.fora, 'chave "Previsto" acima do 1º gráfico, fora dos controles: ' + ch.bts.join(' · '));
+  ok(ch.bts.join('|') === '7 dias|7 sex*|Desligado' && ch.antes && ch.fora, 'chave "Previsto" acima do 1º gráfico, fora dos controles: ' + ch.bts.join(' · '));
   const nRef = await p.$$eval('#pgEvo .chart', cs => cs.map(c => c.querySelectorAll('path.ref').length));
   ok(nRef.filter(x => x > 0).length === 6, `área do previsto em 6 dos 7 gráficos (fila não tem histórico): ${nRef.join(',')}`);
   const atras = await p.$$eval('#pgEvo .chart svg', ss => ss.filter(s => s.querySelector('path.ref')).every(s => { const els = [...s.children]; const r = els.findIndex(e => e.matches('path.ref')); const bar = els.findIndex(e => e.tagName === 'path' && !e.matches('.ref,.ref-l')); return bar < 0 || r < bar; }));
   ok(atras, 'área desenhada atrás das barras');
   const cores = await p.$$eval('#pgEvo .chart svg path.ref', ps => [...new Set(ps.map(x => (x.getAttribute('style').match(/var\(--[a-zA-Z0-9]+\)/) || [''])[0]))]);
   ok(cores.length >= 4, 'área na cor de cada gráfico, bem clara: ' + cores.join(' '));
-  ok(await p.locator('#pgEvo .chart').nth(3).locator('path[style*="sAcum"]').count() > 0, 'NS: a linha do NS acumulado continua junto com a área');
+  ok(await p.locator('#pgEvo .chart').nth(3).locator('path[style*="sAcum"]').count() === 0 && !/NS acumulado do dia/.test(await p.$eval('#inf-evo-ns', x => x.textContent)), 'NS: sem a linha do NS acumulado (removida)');
   const leg = await p.$eval('#inf-evo-of', x => x.textContent);
   ok(/mediana das últimas 7 sextas do histórico \(23\/10, 16\/10, 09\/10, 02\/10, 25\/09, 18\/09, 11\/09\)/.test(leg), 'legenda: as 7 sextas usadas');
   const esperadoOf = medAte(19 * 60 + 15, a => a.ofer);
@@ -88,7 +88,13 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   ok(/mediana dos últimos 7 dias do histórico \(29\/10, 28\/10, 27\/10, 26\/10, 25\/10, 24\/10, 23\/10\)/.test(await p.$eval('#inf-evo-of', x => x.textContent)), '7 dias corridos: 29/10 a 23/10');
   // num dia do histórico a comparação usa as semanas anteriores a ele
   await p.click('#pgEvo [data-navdia="-1"]'); await p.click('#pgEvo button[data-cmp="sem"]'); await p.waitForTimeout(150);
-  ok(/sextas|quintas/.test(await p.$eval('#pgEvo .cmpk', k => k.textContent)) && /7 quintas/.test(await p.$eval('#pgEvo .cmpk', k => k.textContent)), 'chave acompanha o dia: "7 quintas" em 29/10');
+  ok(await p.$eval('#pgEvo .cmpk button[data-cmp="sem"]', b => b.textContent) === '7 qui', 'chave acompanha o dia: "7 qui" em 29/10');
+  // desligado: gráficos e cards limpos
+  await p.click('#pgEvo button[data-cmp="off"]'); await p.waitForTimeout(150);
+  ok(await p.locator('#pgEvo path.ref, #pgEvo path.ref-l').count() === 0 && await p.locator('#pgEvo .kpis2 .kpi .r').count() === 0 && !/área clara/.test(await p.$eval('#inf-evo-of', x => x.textContent)),
+    'Desligado: sem área, sem linha de mediana nos cards e sem legenda do previsto');
+  ok(await p.locator('#pgEvo .cmpk button.on[data-cmp="off"]').count() === 1, 'Desligado: chave continua à vista para religar');
+  await p.click('#pgEvo button[data-cmp="sem"]'); await p.waitForTimeout(150);
   ok(/7 quintas do histórico \(22\/10/.test(await p.$eval('#inf-evo-of', x => x.textContent)), 'em 29/10: compara com as 7 quintas anteriores');
   // comparação é lembrada; controles recolhidos com 4 botões cabem em 360 px
   await p.close();
@@ -97,6 +103,16 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   ok(rec.length === 3 && rec.every(x => !x.corta), '360 px, recolhido: 3 botões inteiros (a comparação não está mais nos controles)');
   const cmpk = await q.$eval('#pgEvo .cmpk', k => [...k.querySelectorAll('button')].every(b => b.scrollWidth <= b.clientWidth));
   ok(cmpk, '360 px: chave "Previsto" sem texto cortado');
+  const larg = await q.$$eval('#pgEvo .cmpk button', bs => bs.map(b => Math.round(b.getBoundingClientRect().width)));
+  ok(larg.length === 3 && Math.max(...larg) - Math.min(...larg) <= 1, '360 px: os 3 botões da chave com a mesma largura: ' + larg.join('/'));
+  // contorno da data no histórico: roxo (não azul)
+  await q.click('#pgEvo [data-navdia="-1"]'); await q.waitForTimeout(100);
+  const cont = await q.$eval('#pgEvo .dnav.hist', x => getComputedStyle(x).boxShadow + ' ' + getComputedStyle(x.querySelector('.dn-t small')).color);
+  ok(!/1, 100, 201|0, 100, 201/.test(cont) && /100, 42, 144/.test(cont), 'dia do histórico: contorno e "histórico · Genesys" em roxo: ' + cont);
+  await q.click('#pgEvo .dn-hoje'); await q.waitForTimeout(100);
+  await q.click('#pgEvo button[data-cmp="off"]');
+  await q.reload(); await q.waitForFunction(() => window.__ura.estado().hist); await q.click('nav.tabs button[data-v="evo"]');
+  ok(await q.evaluate(() => window.__ura.estado().evo.cmp) === 'off' && await q.locator('#pgEvo path.ref').count() === 0, 'Desligado lembrado ao reabrir');
   await q.click('#pgEvo button[data-cmp="dias"]');
   await q.reload(); await q.waitForFunction(() => window.__ura.estado().hist); await q.click('nav.tabs button[data-v="evo"]');
   ok(await q.evaluate(() => window.__ura.estado().evo.cmp) === 'dias', 'comparação lembrada ao reabrir');

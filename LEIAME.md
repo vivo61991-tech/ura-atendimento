@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.9.1)
+# URA · Suporte B2C (v1.9.2)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -63,7 +63,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
    - **CO / TEL / Total URA**;
    - eixo em **Auto, 15 min, 30 min, 1 h ou 2 h**. O Auto escolhe o menor intervalo que cabe na tela sem poluir, e a escolha fica salva no aparelho;
    - filtro por grupo;
-   - gráficos de oferecidas (com a parte abandonada), **técnicos em espera**, **técnicos atendidos direto**, NS por intervalo (com meta e NS acumulado), abandono e TME;
+   - gráficos de oferecidas (com a parte abandonada), **técnicos em espera**, **técnicos atendidos direto**, NS por intervalo (com meta), abandono e TME;
    - **técnicos em espera:** o **pico** do intervalo, ou seja, o maior número de técnicos de campo esperando ao mesmo tempo nas coletas do intervalo.
      - Numa coleta, as chamadas em espera **somam** entre as skills, porque cada chamada fica numa fila só.
      - Ao longo do tempo **não somam**: a fila é um retrato, e por isso vale o maior valor.
@@ -91,14 +91,16 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 
 ## Navegação por dia e comparação (Evolução)
 - **Barra de data** acima dos controles: ‹ dia ›, toque na data para escolher no calendário, botão "Hoje" para voltar.
-  O dia do `pulse.json` vem **sempre do Pulse** ("ao vivo" quando é hoje); os outros vêm do histórico (borda azul,
+  O dia do `pulse.json` vem **sempre do Pulse** ("ao vivo" quando é hoje); os outros vêm do histórico (borda roxa,
   "histórico · Genesys"). O histórico só vale para trás: dias iguais ou posteriores ao dia do Pulse ficam de fora.
-  A coluna selecionada continua ao trocar de dia.
-- **Previsto** (chave acima do primeiro gráfico, vale para todos): 7 dias corridos (os 7 dias anteriores) · 7 sextas
-  (os 7 mesmos dias da semana anteriores; padrão). Sempre ligada quando há histórico; a escolha fica lembrada no aparelho.
+  A coluna selecionada continua ao trocar de dia, e a tela não pula: o gráfico que está à vista fica no mesmo lugar
+  (se ele não existir no outro dia, como a fila no histórico, o seguinte ocupa o lugar dele).
+- **Previsto** (chave acima do primeiro gráfico, vale para todos, três botões da mesma largura):
+  **7 dias** (os 7 dias corridos anteriores) · **7 sex** (os 7 mesmos dias da semana anteriores; padrão) ·
+  **Desligado** (gráficos e cards limpos). Aparece quando há histórico; a escolha fica lembrada no aparelho.
 - **Mediana**, não média: um feriado ou um dia de pico não puxa a referência.
   - Gráficos: área bem clara, na cor do gráfico, com linha suave, ATRÁS das barras = o previsto para o horário.
-    Barra acima da área = acima do previsto. No NS a linha do NS acumulado continua por cima.
+    Barra acima da área = acima do previsto.
   - Cards: "med. 7 sex" com a diferença (% em volume e tempo; p.p. em percentual). Sem seleção, o dia até a hora da última
     coleta contra os outros dias até a mesma hora; com coluna selecionada, a coluna.
   - Resumo da coluna selecionada: "mediana 7 sextas: X".
@@ -106,6 +108,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.9.2:** sem a linha do NS acumulado no gráfico de NS; trocar a data (ou o previsto, ou tocar numa coluna) não mexe na rolagem; chave Previsto com 3 botões iguais: 7 dias · 7 dom/seg… · Desligado; barra de data do histórico em roxo (sem o azul).
 - **1.9.1:** dia do Pulse sempre do Pulse (histórico só para trás); previsto como área clara atrás das barras; chave "Previsto" (7 dias corridos / 7 mesmos dias da semana) acima do primeiro gráfico, fora dos controles.
 - **1.9.0:** histórico da base Genesys (139 dias): navegação por dia na Evolução e comparação pela mediana dos 7 dias corridos ou dos 7 mesmos dias da semana (linha nos gráficos, cards e resumo da seleção).
 - **1.8.4:** técnicos atendidos direto: a altura das colunas passa a ser a QUANTIDADE de técnicos atendidos em até 1 min também no modo Por intervalo (antes era o %); o rótulo continua com o % em cima e a quantidade embaixo.
