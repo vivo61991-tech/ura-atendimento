@@ -1,15 +1,18 @@
 -- =====================================================================================
 -- URA · Suporte B2C — HISTÓRICO DA FILA (técnicos em espera no CO), para o app
--- Fonte: GENESYS_DAGENT_HIST_V3 · Banco: Oracle      *** RASCUNHO: confirmar o desconto com a calibração ***
+-- Fonte: GENESYS_DAGENT_HIST_V3 · Banco: Oracle      (calibrado contra o Pulse em 30/10, chamada a chamada)
 --
 -- A fila é um RETRATO: quantos técnicos estão esperando num instante. O Genesys não guarda esse retrato,
 -- mas guarda cada chamada; daí dá para refazê-lo:
---   • a chamada entra no ponto de roteamento em INICIO_INTERACAO_PERNA e sai (atendida ou desistindo)
---     MEDIATION_DURATION segundos depois (na atendida = ESPERA; na abandonada = ABANDONED_TIME);
---   • os primeiros ~110 s são URA/anúncio, que o Pulse NÃO conta como fila → parâmetro DESC_FILA_S;
---   • em cada marca de 5 min (08:05 … 21:00), conta as chamadas que estão entre "entrou na fila" e "saiu".
--- Conferido em 30/10 com o analítico (só a FAIXA de 30 min, sem a hora): com 110 s o total de técnicos
--- em espera nas coletas bate com o Pulse (99%). Com a hora exata a coluna fica no lugar certo.
+--   • FIM da espera: na ATENDIDA é o INICIO_INTERACAO_PERNA (a perna "RoutedTo" começa quando a chamada
+--     vai para o agente); na ABANDONADA é o FIM_INTERACAO_PERNA (quando o técnico desliga);
+--   • a espera toda dura MEDIATION_DURATION (na atendida = ESPERA; na abandonada = ABANDONED_TIME);
+--   • os primeiros 120 s são URA/anúncio, que o Pulse NÃO conta como fila → parâmetro DESC_FILA_S
+--     (o mesmo desconto que acertou o NS);
+--   • em cada marca de 5 min (08:05 … 21:00), conta as chamadas entre "entrou na fila" e "saiu".
+-- Calibração (30/10, 87 coletas do Pulse, CO): total 100% igual, erro médio 0,8 técnico por coleta,
+-- correlação 0,997, maior diferença 8; espera mais longa com erro médio de 26 s.
+-- (A 1ª versão usava o INICIO como começo da espera: ficava 15–30 min adiantada — correlação 0,77.)
 --
 -- Saída: uma linha por DIA × MARCA (5 min) × SKILL, só quando havia alguém esperando (arquivo pequeno).
 --   DIA;MARCA;SKILL;EM_ESPERA;ESPERA_MAX_S
@@ -19,18 +22,18 @@
 -- Exportar: delimitado · tabulação · cabeçalho · UTF-8 → historico_fila.txt
 -- =====================================================================================
 WITH param AS (
-    SELECT 110                        AS desc_fila_s,  -- URA/anúncio antes da fila (calibrar)
+    SELECT 120                        AS desc_fila_s,  -- URA/anúncio antes da fila (calibrado em 30/10)
            TRUNC(SYSDATE) - (90 + 49) AS dia_ini,      -- mesmo período do historico.csv
            TRUNC(SYSDATE)             AS dia_fim       -- só dias fechados
       FROM dual
 ),
-chamadas AS (
-    SELECT TRUNC(h.inicio_interacao_perna)                                        AS dia,
+esperas AS (
+    SELECT h.interaction_id,
            h.vq_name,
-           h.inicio_interacao_perna + p.desc_fila_s / 86400                       AS entra_fila,
-           h.inicio_interacao_perna + NVL(h.mediation_duration, 0) / 86400        AS sai_fila,
-           ROW_NUMBER() OVER (PARTITION BY h.interaction_id, h.vq_name
-                              ORDER BY h.inicio_interacao_perna)                  AS ordem
+           h.inicio_interacao_perna,
+           NVL(h.mediation_duration, 0)                                           AS espera_total_s,
+           CASE WHEN NVL(h.abandoned, 0) = 1 THEN h.fim_interacao_perna
+                ELSE h.inicio_interacao_perna END                                 AS fim_espera
       FROM genesys_dagent_hist_v3 h
      CROSS JOIN param p
      WHERE h.row_date >= p.dia_ini
@@ -89,6 +92,16 @@ chamadas AS (
     , 'VQ_COE_VIV_C_HB_HIB_SUP_V2_VOIP'
     , 'VQ_COE_VIV_C_HB_HIB_SUP_V2_VOIP_SF'
        )
+),
+chamadas AS (
+    SELECT TRUNC(e.fim_espera)                                                    AS dia,
+           e.vq_name,
+           e.fim_espera - (e.espera_total_s - p.desc_fila_s) / 86400              AS entra_fila,
+           e.fim_espera                                                           AS sai_fila,
+           ROW_NUMBER() OVER (PARTITION BY e.interaction_id, e.vq_name
+                              ORDER BY e.inicio_interacao_perna)                  AS ordem
+      FROM esperas e
+     CROSS JOIN param p
 ),
 dias AS (
     SELECT p.dia_ini + LEVEL - 1 AS dia
