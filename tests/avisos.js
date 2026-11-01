@@ -30,7 +30,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await p.click('nav.tabs button[data-v="evo"]');
   await p.locator('#pgEvo .topbar.fechado').count() && await p.click('#pgEvo .ctl-seta'); await p.click('#pgEvo button[data-dir="CO"]'); await p.click('#pgEvo .ctl-seta'); // a Evolução abre no Total URA: estes testes usam o CO
   const evo = await p.evaluate(() => document.querySelector('#pgEvo').innerText);
-  ok(!/300s/.test(evo) && /NS 5 min/.test(evo) && /NÍVEL DE SERVIÇO \(5 min\)/.test(evo), 'Evolução: card "NS 5 min" e gráfico "Nível de serviço (5 min)"');
+  ok(!/300s/.test(evo) && /NS \(5 min\) POR INTERVALO/.test(evo), 'Evolução: gráfico "NS (5 min) por intervalo" (sem "300s")');
   await p.click('nav.tabs button[data-v="skills"]');
   await p.locator('#pgSkills .fi[data-skd="CO"]').first().click(); await p.waitForTimeout(300);
   ok(/NS 5 min/.test(await p.$eval('#sheet', e => e.innerText)), 'detalhe da skill: "NS 5 min"');

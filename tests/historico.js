@@ -32,7 +32,7 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   const nav = () => p.$eval('#pgEvo .dnav', n => ({ t: n.querySelector('.dn-t').innerText.replace(/\s+/g, ' '), hist: n.classList.contains('hist'),
     ant: !n.querySelector('[data-navdia="-1"]').disabled, prox: !n.querySelector('[data-navdia="1"]').disabled, hoje: !!n.querySelector('.dn-hoje') }));
   const titulos = () => p.$$eval('#pgEvo .chart h2', h => h.map(x => x.innerText));
-  const kOf = () => p.$eval('#pgEvo .kpis2 .kpi .v', x => x.textContent);
+  const kOf = () => p.$eval('#pgEvo .chart[data-ch="evo-of"] .ch-v', x => x.textContent);   // total do dia embaixo do título
   // 1) abre no dia ao vivo
   let n = await nav();
   const toastTx = () => p.$eval('#toast', t => t.classList.contains('show') ? t.textContent : '');
@@ -59,16 +59,14 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   ok(lab29.includes(String(Math.max(...esp29.filter(x => x != null)))), `29/10: pico do dia no gráfico = ${Math.max(...esp29.filter(x => x != null))} (arquivo da fila)`);
   ok(await p.locator('#pgEvo .chart[data-ch="evo-esp"] path.ref').count() === 1, '29/10: previsto (mediana) também na fila');
   ok(await kOf() === fI(totCO('2026-10-29').ofer), `oferecidas CO de 29/10 = ${fI(totCO('2026-10-29').ofer)} (arquivo)`);
-  const kp = await p.$$eval('#pgEvo .kpis2 .kpi', x => x.map(e => e.textContent.replace(/\s+/g, ' ')));
-  const kPico = kp.find(x => /Pico em espera/.test(x)) || '';
-  ok(kPico.includes(fI(D.espera(d29.leituras, -1, d29.leituras[d29.leituras.length - 1].m, co29).pico)) && /med\. 7 qui/.test(kPico), 'histórico com fila: card "Pico em espera" com a mediana: ' + kPico.trim());
+  const kPico = await p.$eval('#pgEvo .chart[data-ch="evo-esp"]', c => c.querySelector('.ch-tot').textContent + ' ' + c.querySelector('.ch-det').textContent);
+  ok(kPico.includes(fI(D.espera(d29.leituras, -1, d29.leituras[d29.leituras.length - 1].m, co29).pico)) && /med\. 7 qui/.test(kPico) && /enfrentaram fila/.test(kPico), 'histórico com fila: pico, % que enfrentou fila e a mediana no gráfico: ' + kPico.trim());
   const filaTab = await p.$$eval('#tIv tbody tr', rs => rs.map(r => r.children[5] && r.children[5].textContent));
   ok(filaTab.some(x => /^\d+$/.test(x) && +x > 0), 'tabela: coluna Fila com números no histórico');
   // dia antes do arquivo da fila (14/06): cartão no lugar, sem gráfico, explicando o período
   await p.$eval('#dnData', i => { i.value = '2026-06-14'; i.dispatchEvent(new Event('change', { bubbles: true })); }); await p.waitForTimeout(150);
   ok(await p.locator('#pgEvo .chart.semfila[data-ch="evo-esp"]').count() === 1 && /veio sem a coluna FILA/.test(await p.$eval('#pgEvo .semfila', x => x.textContent)), '14/06 (sem a coluna FILA): cartão explica');
-  const kp14 = await p.$$eval('#pgEvo .kpis2 .kpi .l', x => x.map(e => e.textContent));
-  ok(kp14.includes('Atendidas') && !kp14.includes('Pico em espera'), 'sem fila: card "Atendidas" no lugar de "Pico em espera"');
+  ok(await p.locator('#pgEvo .kpis2').count() === 0, 'sem cards na Evolução');
   await p.click('#pgEvo .semfila button[data-navdia="fim"]'); await p.waitForTimeout(150);
   ok(/30\/10/.test((await nav()).t) && await p.locator('#pgEvo .chart[data-ch="evo-esp"] rect.hit').count() > 0, 'botão "Ver o dia do Pulse" volta para 30/10');
   await p.click('#pgEvo [data-navdia="-1"]'); await p.waitForTimeout(150);
@@ -98,7 +96,7 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   const leg = await p.$eval('#inf-evo-of', x => x.textContent);
   ok(/mediana das últimas 7 sextas do histórico \(23\/10, 16\/10, 09\/10, 02\/10, 25\/09, 18\/09, 11\/09\)/.test(leg), 'legenda: as 7 sextas usadas');
   const esperadoOf = medAte(19 * 60 + 15, a => a.ofer);
-  const r0 = await p.$eval('#pgEvo .kpis2 .kpi .r', x => x.textContent);
+  const r0 = await p.$eval('#pgEvo .chart[data-ch="evo-of"] .ch-det', x => x.textContent);
   ok(r0.includes('med. 7 sex: ' + fI(esperadoOf)), `card: mediana das sextas até 19:15 = ${fI(esperadoOf)} (${r0.trim()})`);
   // coluna das 11h: mediana conferida em Python (173)
   await p.locator('#pgEvo .chart').first().locator('rect.hit').nth(3).click(); await p.waitForTimeout(150);
@@ -121,7 +119,7 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   ok(await p.$eval('#pgEvo .cmpk button[data-cmp="sem"]', b => b.textContent) === '7 qui', 'chave acompanha o dia: "7 qui" em 29/10');
   // desligado: gráficos e cards limpos
   await p.click('#pgEvo button[data-cmp="off"]'); await p.waitForTimeout(150);
-  ok(await p.locator('#pgEvo path.ref, #pgEvo path.ref-l').count() === 0 && await p.locator('#pgEvo .kpis2 .kpi .r').count() === 0 && !/área clara/.test(await p.$eval('#inf-evo-of', x => x.textContent)),
+  ok(await p.locator('#pgEvo path.ref, #pgEvo path.ref-l').count() === 0 && await p.locator('#pgEvo .ch-det b').count() === 0 && !/área clara/.test(await p.$eval('#inf-evo-of', x => x.textContent)),
     'Desligado: sem área, sem linha de mediana nos cards e sem legenda do previsto');
   ok(await p.locator('#pgEvo .cmpk button.on[data-cmp="off"]').count() === 1, 'Desligado: chave continua à vista para religar');
   await p.click('#pgEvo button[data-cmp="sem"]'); await p.waitForTimeout(150);

@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.16.0)
+# URA · Suporte B2C (v1.17.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -89,6 +89,18 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 - Um dia do histórico é convertido para o mesmo formato do `pulse.json` (leituras acumuladas a cada 15 min, 08:00–21:00),
   então todas as telas e contas servem para os dois. **O histórico não tem fila** (técnicos em espera): esse gráfico só aparece no dia ao vivo.
 
+## Gráficos sem cards (Evolução e Agora)
+- Os cards saíram: cada gráfico traz, embaixo do título (centralizado), o **total do período** — o dia até agora na
+  Evolução; a hora até agora na aba Agora — e um detalhe (ex.: "CO 1.562 · TEL 2.808"). No NS, o NS do período.
+- Na linha do (i), em letra bem pequena, a **comparação com a mediana** ("med. 7 sex: 4.480 −2%"); o filtro de
+  grupo/skill fica embaixo dela.
+- No Total URA, depois das oferecidas: **Oferecidas TEL** e **Oferecidas CO** — o do CO encabeça os gráficos que só o
+  CO tem (fila, atendidos direto, NS, abandono, TME, TMA).
+- Técnicos em espera: maior fila do período e **% que enfrentou fila** = atendidas depois de 1 min ÷ oferecidas do CO.
+- Abandono zero na coluna: o mesmo visto verde da fila zerada.
+- Títulos curtos (numa linha só em 360 px): "TME por intervalo", "TMA por intervalo", "NS (5 min) por intervalo".
+- Aba Agora: fica só o card do **NS do dia**; os agentes disponíveis foram para a linha da "Fila agora".
+
 ## Aba Agora
 - No topo, os botões **Total URA · CO · TEL** (os mesmos da aba Skills, na ordem da Evolução); começa sempre em Total URA.
   - Total URA: NS do CO, Oferecidas URA (CO e TEL), abandonadas, em espera, TME, últimos 15 min (CO + TEL), agentes.
@@ -170,6 +182,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.17.0:** sem cards: total do período embaixo do título de cada gráfico e a mediana no rodapé; gráficos Oferecidas TEL e Oferecidas CO no Total URA; % que enfrentou fila; visto no abandono zero; títulos centralizados e curtos (TME/TMA). Na Agora fica só o card do NS.
 - **1.16.0:** aba Agora com os botões Total URA · CO · TEL no topo e a tabela de intervalos de 15 min (igual à da Evolução); saem as tabelas por grupo e a parte TEL · Parceira.
 - **1.15.0:** aba Agora com os mesmos gráficos da Evolução na hora atual (previsto até o fim da hora, barras preenchendo) e o painel Grupos e skills da hora, com filtro próprio.
 - **1.14.0:** barra de data só com a data inteira, maior; domingo em vermelho escuro; origem (Pulse / Histórico · Genesys) como aviso no rodapé ao trocar.

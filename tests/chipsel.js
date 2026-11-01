@@ -32,8 +32,11 @@ const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()
   ok(st.grupo === 'MANOBRA' && st.sel === 11 * 60, 'trocar para MANOBRA não tira a seleção (continua 11h)');
   const capOf = await p.$eval('#pgEvo .chart .csel', x => x.innerText.replace(/\s+/g, ' '));
   ok(capOf.startsWith('11:00–12:00') && capOf.includes(e.MANOBRA + ' oferecidas'), 'gráfico de oferecidas mostra MANOBRA às 11h: ' + capOf.trim());
-  const kOf = await p.$eval('#pgEvo .kpis2 .kpi .v', x => x.textContent);
-  ok(kOf === e.MANOBRA, `card de oferecidas = ${kOf} (MANOBRA no intervalo)`);
+  // embaixo do título fica o total do DIA do filtro (o da coluna está no resumo, acima)
+  const diaMan = await p.evaluate(() => { const d = window.__ura.estado().dados, L = d.leituras[d.leituras.length - 1];
+    return d.skills.filter(s => d.trad[s].DIRECIONAMENTO === 'CO' && d.trad[s].SKILL_GRUPO === 'MANOBRA').reduce((t, s) => t + (L.v[s] ? L.v[s].Distinct_Entered || 0 : 0), 0); });
+  const kOf = await p.$eval('#pgEvo .chart[data-ch="evo-of"] .ch-v', x => x.textContent);
+  ok(kOf === diaMan.toLocaleString('pt-BR'), `total do gráfico = MANOBRA no dia (${kOf})`);
   await p.click('#pgEvo .chip[data-grp="SUPORTE TV"]'); await p.waitForTimeout(500);
   st = await p.evaluate(() => window.__ura.estado().evo);
   ok(st.grupo === 'SUPORTE TV' && st.sel === 11 * 60, 'alternar para SUPORTE TV: seleção continua');

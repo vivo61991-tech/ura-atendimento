@@ -1,4 +1,4 @@
-// Rodapé dos gráficos da Evolução: filtro aplicado na linha do botão (i).
+// Rodapé dos gráficos da Evolução: comparação com a mediana na linha do (i), em letra bem pequena; o filtro embaixo dela.
 const { chromium } = require('/home/claude/.npm-global/lib/node_modules/playwright');
 const URL = process.env.URL || 'http://localhost:8765/ura/';
 const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1; } else console.log('ok  ', m); };
@@ -9,10 +9,10 @@ const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()
   const erros = []; p.on('pageerror', e => erros.push(e.message));
   await p.clock.install({ time: new Date('2026-10-30T19:17:30') });
   await p.goto(URL);
-  await p.waitForFunction(() => window.__ura.estado().dados);
+  await p.waitForFunction(() => window.__ura.estado().dados && window.__ura.estado().hist);
   await p.click('nav.tabs button[data-v="evo"]');
   await p.locator('#pgEvo .topbar.fechado').count() && await p.click('#pgEvo .ctl-seta'); await p.click('#pgEvo button[data-dir="CO"]'); await p.click('#pgEvo .ctl-seta'); // a Evolução abre no Total URA: estes testes usam o CO
-  const filtros = () => p.$$eval('#pgEvo .chart', cs => cs.map(c => { const f = c.querySelector('.ch-base .ch-filtro'); return f ? f.textContent : ''; }));
+  const filtros = () => p.$$eval('#pgEvo .chart', cs => cs.map(c => { const f = c.querySelector('.ch-pe > .ch-filtro'); return f ? f.textContent : ''; }));
   const um = async () => { const f = await filtros(); return new Set(f).size === 1 ? f[0] : 'DIFERENTES: ' + f.join(' | '); };
   ok(await um() === 'CO', 'CO selecionado: "CO" em todos os gráficos');
   await p.click('#pgEvo .chip[data-grp="MANOBRA"]'); await p.waitForTimeout(400);
@@ -27,11 +27,14 @@ const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()
   ok(await um() === 'MANOBRA', 'Total URA + grupo dos dois atendimentos: só "MANOBRA"');
   await p.click('#pgEvo .chip[data-grp="SUSPEITA MASSIVA"]'); await p.waitForTimeout(400);
   ok(await um() === 'TEL – SUSPEITA MASSIVA', 'Total URA + grupo só da TEL: "TEL – SUSPEITA MASSIVA"');
-  // estilo discreto e na linha do (i)
-  const st = await p.$eval('#pgEvo .chart .ch-filtro', f => { const cs = getComputedStyle(f), i = f.parentElement.querySelector('.info'); const a = f.getBoundingClientRect(), r = i.getBoundingClientRect();
-    return { w: +cs.fontWeight, fs: parseFloat(cs.fontSize), mesmaLinha: Math.abs((a.top + a.height / 2) - (r.top + r.height / 2)) < 3, antes: a.right <= r.left }; });
-  ok(st.w < 600 && st.fs <= 12, `sem negrito e letra pequena (peso ${st.w}, ${st.fs}px)`);
-  ok(st.mesmaLinha && st.antes, 'na mesma linha do (i)');
+  // estilo discreto; a comparação com a mediana fica na linha do (i) (letra bem pequena) e o filtro embaixo dela
+  const st = await p.$eval('#pgEvo .chart', c => { const f = c.querySelector('.ch-filtro'), dt = c.querySelector('.ch-det'), i = c.querySelector('.info');
+    const cs = getComputedStyle(f), a = f.getBoundingClientRect(), r = i.getBoundingClientRect(), d = dt.getBoundingClientRect();
+    return { w: +cs.fontWeight, fs: parseFloat(cs.fontSize), fsD: parseFloat(getComputedStyle(dt).fontSize), det: dt.textContent, embaixo: a.top >= r.bottom - 1,
+      detLinha: Math.abs((d.top + d.height / 2) - (r.top + r.height / 2)) < 4 && d.right <= r.left }; });
+  ok(st.w < 600 && st.fs <= 12, `filtro sem negrito e letra pequena (peso ${st.w}, ${st.fs}px)`);
+  ok(st.embaixo, 'filtro embaixo da linha do (i)');
+  ok(st.detLinha && st.fsD <= 11 && /^med\. 7 sex: /.test(st.det), `comparação com a mediana na linha do (i), letra bem pequena (${st.fsD}px): ${st.det}`);
   const cen = await p.$$eval('#pgEvo .chart', cs => cs.map(c => { const f = c.querySelector('.ch-filtro'), r = document.createRange(); r.selectNodeContents(f);
     const t = r.getBoundingClientRect(), k = c.getBoundingClientRect(); return Math.abs((t.left + t.width / 2) - (k.left + k.width / 2)); }));
   ok(cen.every(x => x < 2), `texto centralizado no cartão (desvio máx. ${Math.max(...cen).toFixed(1)}px)`);
@@ -40,7 +43,7 @@ const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()
   // com coluna selecionada: resumo em cima, filtro e (i) embaixo
   await p.locator('#pgEvo .chart').first().locator('rect.hit').nth(3).click(); await p.waitForTimeout(200);
   const ordem = await p.$eval('#pgEvo .chart', c => { const s = c.querySelector('.csel').getBoundingClientRect(), f = c.querySelector('.ch-filtro').getBoundingClientRect(); return f.top >= s.bottom - 1; });
-  ok(ordem && await um() === 'TEL – SUSPEITA MASSIVA', 'com coluna selecionada: resumo em cima, filtro na linha do (i) embaixo');
+  ok(ordem && await um() === 'TEL – SUSPEITA MASSIVA', 'com coluna selecionada: resumo em cima, filtro embaixo');
   // aba Agora e detalhe: sem filtro
   await p.click('nav.tabs button[data-v="agora"]');
   ok(await p.locator('#pgAgora .ch-filtro').count() === 0, 'gráfico da aba Agora: sem texto de filtro');

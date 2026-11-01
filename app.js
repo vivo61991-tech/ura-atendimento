@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.16.0';
+  const APP_VERSION = '1.17.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -255,10 +255,12 @@
   let infoAberto = null;
   const ICONE_INFO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6"/><path d="M12 7.4h.01" stroke-width="2.8"/></svg>';
   // filtro: texto discreto à esquerda do (i), na mesma linha (ex.: "CO – MANOBRA"); vazio = nada
-  function cartaoGraf(id, titulo, svg, info, fixo, filtro, cls) {
+  // tot: total do período embaixo do título (valor em destaque + detalhe); det: comparação com a mediana, em letra
+  // bem pequena, na linha do (i); o filtro aplicado fica embaixo dela.
+  function cartaoGraf(id, titulo, svg, info, fixo, filtro, cls, tot, det) {
     const ab = infoAberto === id;
-    return `<div class="card ${cls || 'chart'}" data-ch="${id}"><h2>${titulo}</h2>${svg}
-      <div class="ch-pe">${fixo || ''}<div class="ch-base">${filtro ? `<span class="ch-filtro" title="Filtro aplicado">${esc(filtro)}</span>` : ''}<button class="info" data-info="${id}" aria-expanded="${ab}" aria-controls="inf-${id}" aria-label="${ab ? 'Esconder' : 'Mostrar'} a explicação do gráfico" title="Explicação do gráfico">${ICONE_INFO}</button></div></div>
+    return `<div class="card ${cls || 'chart'}" data-ch="${id}"><h2>${titulo}</h2>${tot ? `<div class="ch-tot">${tot}</div>` : ''}${svg}
+      <div class="ch-pe">${fixo || ''}<div class="ch-base"><span class="ch-det">${det || ''}</span><button class="info" data-info="${id}" aria-expanded="${ab}" aria-controls="inf-${id}" aria-label="${ab ? 'Esconder' : 'Mostrar'} a explicação do gráfico" title="Explicação do gráfico">${ICONE_INFO}</button></div>${filtro ? `<div class="ch-filtro" title="Filtro aplicado">${esc(filtro)}</div>` : ''}</div>
       <div class="ch-info" id="inf-${id}"${ab ? '' : ' hidden'}>${info}</div></div>`;
   }
   function alternarInfo(id) {
@@ -290,14 +292,10 @@
     const co = D.filtro(d, { dir: 'CO' }), tel = D.filtro(d, { dir: 'TEL' });
     const a = D.agregar(L, co), t = D.agregar(L, tel);
     const sit = situacao(a.ns);
-    const iv15 = D.intervalos(d, 15, co), u15 = iv15.filter(i => i.v).pop();
-    const iv15t = D.intervalos(d, 15, tel), u15t = iv15t.filter(i => i.v).pop();
-    const totURA = a.ofer + t.ofer;
     const pctBar = a.ns == null ? 0 : Math.min(100, a.ns);
     const cmp = cmpAgora();
     const dC = r => D.agregarEm(r.dR, L.m, r.coR), dT = r => D.agregarEm(r.dR, L.m, r.telR);
     const mDia = f => medAg(cmp, r => f(dC(r), dT(r)));
-    const m15 = (u, k) => !u ? null : medAg(cmp, r => (k !== 'TEL' ? D.intervaloEm(r.dR, u.ini, u.ateM, r.coR).ofer : 0) + (k !== 'CO' ? D.intervaloEm(r.dR, u.ini, u.ateM, r.telR).ofer : 0));
 
     // botões do topo: mesmos da aba Skills, na ordem da Evolução
     const botoes = `<div class="seg agdir" role="tablist" aria-label="Atendimento">${[['TODOS', 'Total URA'], ['CO', 'CO'], ['TEL', 'TEL']].map(([v, tx]) => `<button data-agdir="${v}" class="${dir === v ? 'on' : ''}" aria-pressed="${dir === v}">${tx}</button>`).join('')}</div>`;
@@ -312,26 +310,8 @@
           ${cmp ? `<div class="meta hr">${linhaMed(cmp, mDia(x => x.ns), x => fP(x), a.ns, true)}</div>` : ''}
         </div>
       </div></div>`;
-    const kEspera = kpi('Em espera agora', fI(a.fila), a.fila ? 'mais antiga ' + fS(a.espMax) : 'nenhuma na fila', '', linhaMed(cmp && cmp.porRef.some(r => r.dR.temFila) ? cmp : null, medAg(cmp, r => { if (!r.dR.temFila) return null; const l = [...r.dR.leituras].reverse().find(x => x.m <= L.m); return l ? D.agregar(l, r.coR).fila : null; }), fI, a.fila));
-    const kAband = kpi('Abandonadas', `<span class="${a.aband ? 'c-VERMELHO' : ''}">${fI(a.aband)}</span>`, a.abandPct == null ? '' : fP(a.abandPct) + (dir === 'TODOS' ? ' no CO' : ' das oferecidas'), '', linhaMed(cmp, mDia(x => x.aband), fI, a.aband));
-    const kTme = kpi('TME', fS(a.tme), 'TMA ' + fS(a.tma), '', linhaMed(cmp, mDia(x => x.tme), fS, a.tme));
-    const kAg = kpi('Agentes disponíveis', fI(a.dispMax), 'maior valor numa skill CO');
-    const u15u = u15 || u15t, v15 = (u15 ? u15.v.ofer : 0) + (u15t && u15t.v ? u15t.v.ofer : 0);
-    let k;
-    if (dir === 'TODOS') k = `<div class="kpis2 k3">
-      ${kpi('Oferecidas URA', fI(totURA), `CO ${fI(a.ofer)} · TEL ${fI(t.ofer)}`, '', linhaMed(cmp, mDia((x, y) => x.ofer + y.ofer), fI, totURA))}
-      ${kAband}${kEspera}${kTme}
-      ${kpi('Últimos 15 min', u15u ? fI(v15) : '—', u15u ? `${u15u.rot}–${D.hhmm(u15u.ateM)} · CO + TEL` : '', '', u15u ? linhaMed(cmp, m15(u15u, 'TODOS'), fI, v15) : '')}
-      ${kAg}</div>`;
-    else if (dir === 'CO') k = `<div class="kpis2 k3">
-      ${kpi('Oferecidas CO', fI(a.ofer), `atendidas ${fI(a.atend)}`, '', linhaMed(cmp, mDia(x => x.ofer), fI, a.ofer))}
-      ${kAband}${kEspera}${kTme}
-      ${kpi('Últimos 15 min', u15 ? fI(u15.v.ofer) : '—', u15 ? `${u15.rot}–${D.hhmm(u15.ateM)} · NS ${u15.v.ns == null ? '—' : fP(u15.v.ns)}` : '', '', u15 ? linhaMed(cmp, m15(u15, 'CO'), fI, u15.v.ofer) : '')}
-      ${kAg}</div>`;
-    else k = `<div class="kpis2">
-      ${kpi('Oferecidas TEL', fI(t.ofer), totURA ? fP(t.ofer / totURA * 100) + ' do volume da URA' : '', '', linhaMed(cmp, mDia((x, y) => y.ofer), fI, t.ofer))}
-      ${kpi('Últimos 15 min', u15t ? fI(u15t.v.ofer) : '—', u15t ? `${u15t.rot}–${D.hhmm(u15t.ateM)}` : '', '', u15t ? linhaMed(cmp, m15(u15t, 'TEL'), fI, u15t.v.ofer) : '')}
-      </div><div class="card"><p class="nota">A TEL é atendida em outro sistema: aqui aparece só o volume que a URA encaminhou (sem atendidas, abandono, NS ou fila).</p></div>`;
+    // sem os cards (os totais ficam nos gráficos da hora); só o NS do dia, e na TEL o aviso de que ela é só volume
+    const telNota = `<div class="card"><p class="nota">A TEL é atendida em outro sistema: aqui aparece só o volume que a URA encaminhou (sem atendidas, abandono, NS ou fila).</p></div>`;
 
     // fila agora (CO)
     const filas = [...porSimpl(d, 'CO').entries()].map(([nome, ss]) => ({ nome, ss, a: D.agregar(L, ss) })).filter(x => x.a.fila > 0)
@@ -354,8 +334,8 @@
     $('#pgAgora').innerHTML = `
       ${botoes}
       <h2 class="sec">${titulo}<span class="sp"></span><span class="rt">acumulado do dia</span></h2>
-      ${dir === 'TEL' ? '' : hero}${k}
-      ${dir === 'TEL' ? '' : `<h2 class="sec">Fila agora <span class="ct num">${fI(a.fila)}</span><span class="sp"></span><span class="rt">${esc(L.horario)}</span></h2>${filaHtml}`}
+      ${dir === 'TEL' ? telNota : hero}
+      ${dir === 'TEL' ? '' : `<h2 class="sec">Fila agora <span class="ct num">${fI(a.fila)}</span><span class="sp"></span><span class="rt">${esc(L.horario)} · ${fI(a.dispMax)} ${a.dispMax === 1 ? 'agente disponível' : 'agentes disponíveis'}</span></h2>${filaHtml}`}
       ${hora}
       ${tab}`;
   }
@@ -400,7 +380,11 @@
       (cmp && passo === 5 ? '<span>de 5 em 5 min o histórico não tem o detalhe: cada bloco de 15 min é dividido em 3 partes iguais (aproximação); a fila prevista fica entre os retratos de 15 min</span>' : '');
     let html = `<h2 class="sec">${nome}<span class="sp"></span><span class="rt">${D.hhmm(desde)}–${D.hhmm(desde + 60)}</span></h2>`;
     if (hist) html += chaveCmp({ iso: d.dia });
-    html += graficos({ ivC, ivT, dir: ag.dir, acum: false, passo, iSel, rot, tit, cmp, temFilaDia: true, vivo: true, filtroTx: textoFiltro(d, ag.dir, ag),
+    const lDe = [...d.leituras].reverse().find(x => x.m <= desde) || null;
+    const per = { aC: D.delta(D.agregar(L, co), D.agregar(lDe, co)), aT: D.delta(D.agregar(L, tel), D.agregar(lDe, tel)), esp: D.espera(d.leituras, desde, L.m, co), parcial: true, onde: '',
+      med: f => !cmp ? null : Hs.mediana(cmp.porRef.map(r => f(D.intervaloEm(r.dR, desde, L.m, r.coR), D.intervaloEm(r.dR, desde, L.m, r.telR)))),
+      medEsp: () => !cmp ? null : Hs.mediana(cmp.porRef.map(r => { if (!r.dR.temFila) return null; const e = D.espera(r.dR.leituras, desde, L.m, r.coR); return e ? e.pico : null; })) };
+    html += graficos({ per, ivC, ivT, dir: ag.dir, acum: false, passo, iSel, rot, tit, cmp, temFilaDia: true, vivo: true, filtroTx: textoFiltro(d, ag.dir, ag),
       pre: 'agora', suf: '', gopt: { maxRot: 12, rotulos: true }, fixoOf: resumo, notaExtra, cmpTipo: evo.cmp });
     html += painelGrupos(d, L, ivC, iSel, false, ag, { dir: ag.dir, desde, id: 'agora-grupos' });
     return html;
@@ -587,33 +571,10 @@
     const temFilaDia = ctx.vivo || !!d.temFila;      // o dia tem a fila? (Pulse sempre; histórico com o historico_fila.csv)
     // controles recolhidos: só o que está escolhido, numa linha
     const resumoCtl = [{ TODOS: 'Total URA', CO: 'CO', TEL: 'TEL' }[dir], acum ? 'Acumulado' : 'Por intervalo', evo.passo === 'auto' ? 'Auto · ' + PASSO_NOME[passo] : PASSO_NOME[passo]];
-    // KPIs: sem seleção = acumulado do dia; com seleção = só o intervalo
-    const aC = iSel >= 0 ? (ivC[iSel].v || null) : D.agregar(L, co);
-    const aT = iSel >= 0 ? (ivT[iSel] && ivT[iSel].v || null) : D.agregar(L, tel);
-    const kc = iSel >= 0 ? 'ksel' : '';
-    const onde = iSel >= 0 ? (acum ? 'até ' + D.hhmm(fimDe(ivC[iSel])) : 'no intervalo') : 'no dia';
-    // mediana para os cards: com coluna selecionada, a da coluna; sem seleção, a do dia até o mesmo horário
-    const kRef = f => !temCmp ? null : iSel >= 0 ? medCol(cmp, ivC[iSel], f) : medDia(cmp, f);
-    const kR = (f, fmt, atual, pp) => { if (!temCmp) return ''; const r = kRef(f); return `med. ${esc(cmp.curto)}: <b>${r == null ? '—' : fmt(r)}</b> <span class="df">${r == null ? '' : difTx(atual, r, pp)}</span>`; };
-    let k = '';
-    if (iSel >= 0 && ivC[iSel].semColeta) k = `<div class="banner warn">${rot(ivC[iSel])}: sem coleta neste horário${acum ? '.' : ' — o volume entra no intervalo seguinte.'}</div>`;
-    else if (dir === 'CO') {
-      const eD = iSel >= 0 ? ivC[iSel].esp : D.espera(d.leituras, -1, L.m, co);
-      // dia do histórico sem a fila (fora do arquivo historico_fila): no lugar do "Pico em espera" entram as atendidas
-      const rEsp = !temCmp ? null : iSel >= 0 ? medEsp(cmp, ivC[iSel]) : medEspDia(cmp, L.m);
-      const kFila = temFilaDia
-        ? kpi('Pico em espera', eD ? fI(eD.pico) + (eD.pico === 1 ? ' técnico' : ' técnicos') : '—', eD && eD.pico ? 'às ' + D.hhmm(eD.picoM) + ' · até ' + minCurto(eD.espMax) : 'sem fila nas coletas', kc,
-          temCmp ? `med. ${esc(cmp.curto)}: <b>${rEsp == null ? '—' : fI(rEsp)}</b> <span class="df">${rEsp == null || !eD ? '' : difTx(eD.pico, rEsp)}</span>` : '')
-        : kpi('Atendidas', fI(aC.atend), aC.ofer ? fP(aC.atend / aC.ofer * 100) + ' das oferecidas' : '', kc, kR(v => v.atend, fI, aC.atend));
-      k = kpi('Oferecidas', fI(aC.ofer), `atendidas ${fI(aC.atend)} ${onde}`, kc, kR(v => v.ofer, fI, aC.ofer)) +
-        kpi('NS 5 min', nsTx(aC.ns), `meta ${META_NS}%`, kc, kR(v => v.ns, x => fP(x), aC.ns, true)) +
-        kpi('Abandonadas', fI(aC.aband), aC.abandPct == null ? '' : fP(aC.abandPct) + (iSel >= 0 && !acum ? ' das finalizadas' : ' das oferecidas'), kc, kR(v => v.aband, fI, aC.aband)) +
-        kpi('TME', fS(aC.tme), 'TMA ' + fS(aC.tma), kc, kR(v => v.tme, fS, aC.tme)) + kFila +
-        kpi('Atendidos direto', aC.dir60 == null ? '—' : fP(aC.dir60), 'em até 1&nbsp;min ' + onde, kc, kR(v => v.dir60, x => fP(x), aC.dir60, true));
-    }
-    else if (dir === 'TEL') k = kpi('Oferecidas TEL', fI(aT.ofer), onde, kc, kR((v, t) => t ? t.ofer : 0, fI, aT.ofer)) + kpi('Média por intervalo', fI(media(ivT)), `${n} intervalo(s) de ${PASSO_NOME[passo]}`, kc);
-    else k = kpi('Oferecidas URA', fI((aC ? aC.ofer : 0) + (aT ? aT.ofer : 0)), onde, kc, kR((v, t) => v.ofer + (t ? t.ofer : 0), fI, (aC ? aC.ofer : 0) + (aT ? aT.ofer : 0))) + kpi('CO', fI(aC.ofer), `NS ${aC.ns == null ? '—' : fP(aC.ns)}`, kc, kR(v => v.ofer, fI, aC.ofer)) +
-      kpi('TEL', fI(aT.ofer), (aC.ofer + aT.ofer) ? fP(aT.ofer / (aC.ofer + aT.ofer) * 100) + ' do volume' : '', kc, kR((v, t) => t ? t.ofer : 0, fI, aT.ofer)) + kpi('Abandonadas CO', fI(aC.aband), aC.abandPct == null ? '' : fP(aC.abandPct), kc, kR(v => v.aband, fI, aC.aband));
+    // sem cards: os totais e a comparação com a mediana ficam nos próprios gráficos (embaixo do título e no rodapé)
+    const kBan = iSel >= 0 && ivC[iSel].semColeta ? `<div class="banner warn">${rot(ivC[iSel])}: sem coleta neste horário${acum ? '.' : ' — o volume entra no intervalo seguinte.'}</div>` : '';
+    const per = { aC: D.agregar(L, co), aT: D.agregar(L, tel), esp: D.espera(d.leituras, -1, L.m, co), parcial: false, onde: '',
+      med: f => medDia(cmp, f), medEsp: () => medEspDia(cmp, L.m) };
 
     let nGraf = 0;
     // filtro aplicado, mostrado no rodapé de cada gráfico:
@@ -626,7 +587,7 @@
       filtroTx = (ds.length === 1 ? ds[0] + ' – ' : '') + evo.grupo + (evo.skill ? ' › ' + evo.skill : '');
     }
     let html = '';
-    html += graficos({ ivC, ivT, dir, acum, passo, iSel, rot, tit, cmp, temFilaDia, vivo: ctx.vivo, filtroTx, pre: 'evo', suf, cmpTipo: evo.cmp });
+    html += graficos({ ivC, ivT, dir, acum, passo, iSel, rot, tit, cmp, temFilaDia, vivo: ctx.vivo, filtroTx, pre: 'evo', suf, cmpTipo: evo.cmp, per });
     html += painelGrupos(d, L, ivC, iSel, acum);
     html += tabelaIntervalos(ivC, ivT, dir, passo, iSel, acum);
 
@@ -646,7 +607,7 @@
         return `<button class="chip${v ? '' : ' zero'}" data-grp="${esc(g || '')}" aria-pressed="${evo.grupo === g}" title="${v == null ? 'sem coleta' : fI(v) + ' oferecidas ' + esc(ondeChip)}">${esc(g || 'Todos os grupos')}<span class="qt num">${v == null ? '—' : fI(v)}</span></button>`;
       }).join('')}</div>
       </div>
-      <div class="kpis2">${k}</div>
+      ${kBan}
       ${hist ? chaveCmp(ctx) : ''}
       ${html}`;
   }
@@ -706,6 +667,16 @@
   function graficos(o) {
     const { ivC, ivT, dir, acum, passo, iSel, rot, tit, cmp, temFilaDia, vivo, filtroTx, pre, suf, fixoOf, notaExtra, cmpTipo } = o;
     const gopt = o.gopt || {};
+    // per: o período em exibição (o dia até agora na Evolução; a hora até agora na aba Agora), para o total embaixo do
+    // título e a comparação com a mediana no rodapé: { aC, aT, esp, onde, med(f), medEsp() }
+    const P = o.per;
+    const totH = (v, sub) => `<b class="ch-v">${v}</b>${sub ? `<small>${sub}</small>` : ''}`;
+    const detH = (f, fmt, atual, pp) => {
+      if (!P || !temCmp) return '';
+      const r = P.med(f);
+      return `med. ${esc(cmp.curto)}${P.onde ? ' ' + esc(P.onde) : ''}: <b>${r == null ? '—' : fmt(r)}</b>${r == null ? '' : ' ' + difTx(atual, r, pp)}`;
+    };
+    const pC = P && P.aC, pT = P && P.aT;
     const temCmp = !!(cmp && cmp.porRef.length);
     const temCO = dir !== 'TEL', temTEL = dir !== 'CO';
     const vaz = c => ({ rot: rot(c), titulo: tit(c), segs: [] });
@@ -732,7 +703,7 @@
     const capPadrao = !acum && ivC.length && ivC[0].incluiAntes ? `A 1ª coluna (${rot(ivC[0])}) inclui o que entrou antes da primeira coleta do dia.` : 'Toque numa coluna para selecionar · toque de novo para limpar.';
     // o resumo do intervalo selecionado fica sempre à vista, centralizado, só com os valores DAQUELE gráfico;
     // legenda e explicações ficam no botão (i)
-    const selTx = (tipo, extra) => iSel >= 0 ? capGraf(tipo, ivC[iSel], ivT[iSel], dir, extra) : (tipo === 'of' && fixoOf) || '';
+    const selTx = (tipo, extra) => iSel >= 0 ? capGraf(tipo === 'oftel' || tipo === 'ofco' ? 'of' : tipo, ivC[iSel], ivT[iSel], tipo === 'oftel' ? 'TEL' : tipo === 'ofco' ? 'CO' : dir, extra) : (tipo === 'of' && fixoOf) || '';
     // mediana da coluna selecionada no resumo de cada gráfico
     const refSel = (f, fmt, atual, pp) => {
       if (!temCmp || iSel < 0) return null;
@@ -745,10 +716,31 @@
     const refArr = f => temCmp ? ivC.map(c => medCol(cmp, c, f)) : null;
     const corOf = dir === 'TEL' ? 'var(--sTEL)' : 'var(--sCO)';
     const dica = `<div class="cap">${acum ? 'Modo acumulado: cada coluna mostra o total do dia até o horário dela. ' : ''}${capPadrao}${!acum && ivC.length && ivC[0].incluiAntes ? ' Toque numa coluna para selecionar · toque de novo para limpar.' : ''}</div>`;
-    const graf = (titulo, svg, leg, tipo, extra) => cartaoGraf(pre + '-' + tipo, titulo, svg, `<div class="legend">${leg}${notas.join('')}</div>${dica}`, selTx(tipo, extra), filtroTx);
+    const graf = (titulo, svg, leg, tipo, extra, tot, det) => cartaoGraf(pre + '-' + tipo, titulo, svg, `<div class="legend">${leg}${notas.join('')}</div>${dica}`, selTx(tipo, extra), filtroTx, '', tot, det);
 
+    const totOf = P ? fOf(pC, pT) : null;
     let html = graf((acum ? 'Chamadas oferecidas' : 'Chamadas oferecidas por intervalo') + suf, G.barras({ ...gopt, cols: colsOf, sel: iSel, ref: refArr(fOf), refCor: corOf, aria: 'Chamadas oferecidas' }), legOf, 'of',
-      { refHtml: vS ? refSel(fOf, fI, fOf(vS, vT)) : null });
+      { refHtml: vS ? refSel(fOf, fI, fOf(vS, vT)) : null },
+      P ? totH(fI(totOf), dir === 'TODOS' ? `CO ${fI(pC.ofer)} · TEL ${fI(pT.ofer)}` : dir === 'CO' ? `atendidas ${fI(pC.atend)} · abandonadas ${fI(pC.aband)}` : '') : '',
+      detH(fOf, fI, totOf));
+    if (dir === 'TODOS') {
+      // no Total URA: a TEL e o CO separados; o gráfico do CO encabeça os gráficos que só o CO tem (fila, NS, tempos)
+      const fTel = (v, t) => t ? t.ofer : 0;
+      const colsTel = ivC.map((c, i) => { const t = ivT[i]; if (c.futuro) return vaz(c);
+        const base = { rot: rot(c), and: c.andamento, sd: c.semColeta, titulo: tit(c) }; if (c.semColeta || !t || !t.v) return Object.assign(base, { sd: true });
+        return Object.assign(base, { segs: [{ v: t.v.ofer, cor: 'var(--sTEL)' }], lab: fI(t.v.ofer) }); });
+      html += graf((acum ? 'Oferecidas TEL' : 'Oferecidas TEL por intervalo') + suf, G.barras({ ...gopt, cols: colsTel, sel: iSel, ref: refArr(fTel), refCor: 'var(--sTEL)', aria: 'Oferecidas TEL' }),
+        '<span><i style="background:var(--sTEL)"></i>TEL: chamadas encaminhadas à parceira (só volume)</span>', 'oftel',
+        { refHtml: vS ? refSel(fTel, fI, vT ? vT.ofer : 0) : null },
+        P ? totH(fI(pT.ofer), (pC.ofer + pT.ofer) ? fP(pT.ofer / (pC.ofer + pT.ofer) * 100) + ' da URA' : '') : '', detH(fTel, fI, P ? pT.ofer : 0));
+      const colsCo = ivC.map(c => { if (c.futuro) return vaz(c);
+        const base = { rot: rot(c), and: c.andamento, sd: c.semColeta, titulo: tit(c) }; if (c.semColeta) return base;
+        return Object.assign(base, { segs: [{ v: c.v.ofer - Math.min(c.v.aband, c.v.ofer), cor: 'var(--sCO)' }, { v: Math.min(c.v.aband, c.v.ofer), cor: 'var(--sAb)' }], lab: fI(c.v.ofer) }); });
+      html += graf((acum ? 'Oferecidas CO' : 'Oferecidas CO por intervalo') + suf, G.barras({ ...gopt, cols: colsCo, sel: iSel, ref: refArr(v => v.ofer), refCor: 'var(--sCO)', aria: 'Oferecidas CO' }),
+        '<span><i style="background:var(--sCO)"></i>oferecidas CO</span><span><i style="background:var(--sAb)"></i>parte abandonada</span>', 'ofco',
+        { refHtml: vS ? refSel(v => v.ofer, fI, vS.ofer) : null },
+        P ? totH(fI(pC.ofer), `atendidas ${fI(pC.atend)} · abandonadas ${fI(pC.aband)}`) : '', detH(v => v.ofer, fI, P ? pC.ofer : 0));
+    }
     if (temCO) {
       // técnicos em espera: pico do intervalo (retrato das coletas), cor pela espera mais longa
       if (temFilaDia) {
@@ -758,13 +750,20 @@
         if (!c.esp) return Object.assign(base, { sd: true });
         return Object.assign(base, { segs: [{ v: c.esp.pico, cor: corEspera(c.esp.espMax) }], lab: c.esp.pico ? fI(c.esp.pico) : '', ok: c.esp.pico === 0 });
       });
+      // total: maior fila do período e quantos ENFRENTARAM fila: atendidas depois de 1 min ÷ oferecidas do CO
+      const pE = P && P.esp, pctFila = P && pC.ofer ? Math.max(0, pC.atend - pC.a60) / pC.ofer * 100 : null;
+      const rEsp = P && temCmp && P.medEsp ? P.medEsp() : null;
+      const totEsp = P ? totH(pE ? fI(pE.pico) : '—', `${pE && pE.pico ? 'pico às ' + D.hhmm(pE.picoM) + ' · ' : ''}${pctFila == null ? '' : `<b>${fP(pctFila)}</b> das oferecidas enfrentaram fila`}`) : '';
+      const detEsp = P && temCmp ? `med. ${esc(cmp.curto)}${P.onde ? ' ' + esc(P.onde) : ''}: <b>${rEsp == null ? '—' : fI(rEsp)}</b>${rEsp == null || !pE ? '' : ' ' + difTx(pE.pico, rEsp)}` : '';
       html += graf('Técnicos em espera' + (dir === 'TODOS' ? ' · CO' : '') + (acum ? ' <small>· maior fila do dia até o horário</small>' : ''),
         G.barras({ ...gopt, cols: colsEsp, sel: iSel, ref: temCmp ? ivC.map(c => medEsp(cmp, c)) : null, refCor: 'var(--p500)', aria: 'Técnicos em espera por intervalo' }),
         `<span><i style="background:var(--okc);border-radius:50%"></i>sem fila</span><span><i style="background:var(--p300)"></i>espera mais longa até 2 min</span><span><i style="background:var(--laranja)"></i>2 a 5 min</span><span><i style="background:var(--rosa)"></i>acima de 5 min</span>` +
         (acum ? '<span>maior número de técnicos esperando ao mesmo tempo, do início do dia até o horário da coluna (a fila é um retrato: não se soma ao longo do tempo)</span>'
           : `<span>maior número de técnicos esperando ao mesmo tempo nas coletas do intervalo (${passo < 15 ? 'de 5 em 5 min' : 'horas fechadas: uma coleta a cada 15 min'})</span>`) +
+        '<span>embaixo do título: a maior fila do período e quantos enfrentaram fila — atendidas depois de 1&nbsp;min ÷ oferecidas do CO</span>' +
         (vivo ? '' : '<span>dia do histórico: fila refeita chamada a chamada pelo Genesys (quem passou dos 120 s de URA e ainda não tinha sido atendido nem desistido), no mesmo retrato de 15 em 15 min do Pulse</span>'), 'esp',
-        { refHtml: temCmp && iSel >= 0 && ivC[iSel].esp ? (() => { const r = medEsp(cmp, ivC[iSel]); return `mediana ${esc(cmp.nome)}${ivC[iSel].andamento ? ' até ' + D.hhmm(ivC[iSel].ateM) : ''}: <b>${r == null ? '—' : fI(r)}</b>${r == null ? '' : ' ' + difTx(ivC[iSel].esp.pico, r)}`; })() : null });
+        { refHtml: temCmp && iSel >= 0 && ivC[iSel].esp ? (() => { const r = medEsp(cmp, ivC[iSel]); return `mediana ${esc(cmp.nome)}${ivC[iSel].andamento ? ' até ' + D.hhmm(ivC[iSel].ateM) : ''}: <b>${r == null ? '—' : fI(r)}</b>${r == null ? '' : ' ' + difTx(ivC[iSel].esp.pico, r)}`; })() : null },
+        totEsp, detEsp);
       } else {
         // dia do histórico fora do arquivo da fila (ou sem ele): o cartão fica no lugar, explicando e levando ao dia do Pulse.
         const diaP = dados ? ddmmaaaa(dados.dia).slice(0, 5) : '';
@@ -784,38 +783,45 @@
         (acum ? '<span><i style="background:var(--sCO)"></i>altura: técnicos atendidos em até 1&nbsp;min, somados do início do dia até o horário</span>'
           : '<span><i style="background:var(--sCO)"></i>altura: técnicos atendidos em até 1&nbsp;min no intervalo</span>') +
         `<span>rótulo: % das atendidas ${acum ? 'no dia até o horário' : 'no intervalo'} (em cima) e quantidade de técnicos atendidos direto (embaixo)</span>`, 'dir',
-        { refHtml: vS ? refSel(v => v.a60, fI, vS.a60) : null });
+        { refHtml: vS ? refSel(v => v.a60, fI, vS.a60) : null },
+        P ? totH(fI(pC.a60), pC.dir60 == null ? '' : fP(pC.dir60) + ' das atendidas, em até 1&nbsp;min') : '', detH(v => v.a60, fI, P ? pC.a60 : 0));
       // 2) NS do intervalo (sem a linha do NS acumulado do dia: o card do topo já mostra o NS do dia)
       const colsNS = ivC.map(c => c.futuro ? vaz(c) : c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
         rot: rot(c), and: c.andamento, titulo: tit(c),
         segs: [{ v: c.v.ns == null ? 0 : c.v.ns, cor: corSit(situacao(c.v.ns)) }],
         lab: c.v.ns == null ? '' : Math.round(c.v.ns) + '%' });
-      html += graf((acum ? 'Nível de serviço (<span class="un">5 min</span>)' : 'Nível de serviço (<span class="un">5 min</span>) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf,
+      html += graf((acum ? 'Nível de serviço (<span class="un">5 min</span>)' : 'NS (<span class="un">5 min</span>) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf,
         // a mediana fica como área clara atrás das barras
         G.barras({ ...gopt, cols: colsNS, max: 100, meta: META_NS, metaTx: META_NS + '%', ref: refArr(v => v.ns), refCor: 'var(--p500)', sel: iSel, aria: 'Nível de serviço' }),
         `<span><i style="background:var(--verdeS)"></i>Meta atingida</span><span><i style="background:var(--amareloS)"></i>Em atenção</span><span><i style="background:var(--vermelhoS)"></i>Crítico</span><span><i class="dash"></i>meta ${META_NS}%</span>` +
         (acum ? '<span>colunas: NS do dia até o horário — atendidas em até 5&nbsp;min ÷ oferecidas, como no Pulse</span>' : '<span>colunas: atendidas em até 5&nbsp;min ÷ chamadas finalizadas no intervalo (atendidas + abandonadas)</span>'),
-        'ns', { refHtml: vS ? refSel(v => v.ns, x => fP(x), vS.ns, true) : null });
+        'ns', { refHtml: vS ? refSel(v => v.ns, x => fP(x), vS.ns, true) : null },
+        P ? totH(nsTx(pC.ns), `meta ${META_NS}% · ${fI(pC.a300)} de ${fI(P.parcial ? pC.fin : pC.ofer)} ${P.parcial ? 'finalizadas' : 'oferecidas'} em até 5&nbsp;min`) : '', detH(v => v.ns, x => fP(x), P ? pC.ns : null, true));
       // 3) abandono
       const colsAb = ivC.map(c => c.futuro ? vaz(c) : c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
         rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: acum ? c.v.aband : (c.v.abandPct || 0), cor: 'var(--sAb)' }],
-        lab: c.v.abandPct == null ? '' : Math.round(c.v.abandPct) + '%', lab2: c.v.abandPct == null ? '' : fI(c.v.aband) });
+        // nenhum técnico abandonou: o mesmo visto verde da fila zerada
+        ok: !c.v.aband, lab: !c.v.aband || c.v.abandPct == null ? '' : Math.round(c.v.abandPct) + '%', lab2: !c.v.aband || c.v.abandPct == null ? '' : fI(c.v.aband) });
       html += graf((acum ? 'Abandono' : 'Abandono por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ ...gopt, cols: colsAb, sel: iSel, ref: refArr(fAb), refCor: 'var(--sAb)', aria: 'Abandono' }),
         (acum ? '<span><i style="background:var(--sAb)"></i>altura: chamadas abandonadas, somadas do início do dia até o horário</span><span>rótulo: abandonadas ÷ oferecidas do dia (em cima) e quantidade (embaixo)</span>'
-          : '<span><i style="background:var(--sAb)"></i>altura: abandonadas ÷ chamadas finalizadas no intervalo</span><span>rótulo: % (em cima) e quantidade de abandonadas (embaixo)</span>'), 'ab',
-        { refHtml: vS ? (acum ? refSel(v => v.aband, fI, vS.aband) : refSel(v => v.abandPct, x => fP(x), vS.abandPct, true)) : null });
+          : '<span><i style="background:var(--sAb)"></i>altura: abandonadas ÷ chamadas finalizadas no intervalo</span><span>rótulo: % (em cima) e quantidade de abandonadas (embaixo)</span>') +
+        '<span><i style="background:var(--okc);border-radius:50%"></i>nenhum técnico abandonou</span>', 'ab',
+        { refHtml: vS ? (acum ? refSel(v => v.aband, fI, vS.aband) : refSel(v => v.abandPct, x => fP(x), vS.abandPct, true)) : null },
+        P ? totH(fI(pC.aband), pC.abandPct == null ? '' : fP(pC.abandPct) + (P.parcial ? ' das finalizadas' : ' das oferecidas')) : '', detH(v => v.aband, fI, P ? pC.aband : 0));
       // 4) TME
       const colsT = ivC.map(c => c.futuro ? vaz(c) : c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
         rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: c.v.tme || 0, cor: 'var(--sTme)' }], lab: c.v.tme == null ? '' : minCurto(c.v.tme) });
-      html += graf((acum ? 'Tempo médio de espera (TME)' : 'Tempo médio de espera (TME) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ ...gopt, cols: colsT, sel: iSel, ref: refArr(v => v.tme), refCor: 'var(--sTme)', aria: 'TME' }),
-        `<span><i style="background:var(--sTme)"></i>TME das chamadas atendidas ${acum ? 'no dia até o horário' : 'no intervalo'}: tempo que o técnico esperou até ser atendido</span>`, 'tme',
-        { refHtml: vS ? refSel(v => v.tme, fS, vS.tme) : null });
+      html += graf((acum ? 'TME' : 'TME por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ ...gopt, cols: colsT, sel: iSel, ref: refArr(v => v.tme), refCor: 'var(--sTme)', aria: 'TME' }),
+        `<span><i style="background:var(--sTme)"></i>TME (tempo médio de espera) das chamadas atendidas ${acum ? 'no dia até o horário' : 'no intervalo'}: tempo que o técnico esperou até ser atendido</span>`, 'tme',
+        { refHtml: vS ? refSel(v => v.tme, fS, vS.tme) : null },
+        P ? totH(fS(pC.tme), `${fI(pC.atend)} atendidas`) : '', detH(v => v.tme, fS, P ? pC.tme : null));
       // 5) TMA (média: no acumulado é a média do dia até ali, não soma)
       const colsTma = ivC.map(c => c.futuro ? vaz(c) : c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
         rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: c.v.tma || 0, cor: 'var(--sTma)' }], lab: c.v.tma == null ? '' : minCurto(c.v.tma) });
-      html += graf((acum ? 'Tempo médio de atendimento (TMA)' : 'Tempo médio de atendimento (TMA) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ ...gopt, cols: colsTma, sel: iSel, ref: refArr(v => v.tma), refCor: 'var(--sTma)', aria: 'TMA' }),
-        `<span><i style="background:var(--sTma)"></i>TMA das chamadas atendidas ${acum ? 'no dia até o horário' : 'no intervalo'}: duração do atendimento (média ponderada pelas atendidas)</span>`, 'tma',
-        { refHtml: vS ? refSel(v => v.tma, fS, vS.tma) : null });
+      html += graf((acum ? 'TMA' : 'TMA por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ ...gopt, cols: colsTma, sel: iSel, ref: refArr(v => v.tma), refCor: 'var(--sTma)', aria: 'TMA' }),
+        `<span><i style="background:var(--sTma)"></i>TMA (tempo médio de atendimento) das chamadas atendidas ${acum ? 'no dia até o horário' : 'no intervalo'}: duração do atendimento (média ponderada pelas atendidas)</span>`, 'tma',
+        { refHtml: vS ? refSel(v => v.tma, fS, vS.tma) : null },
+        P ? totH(fS(pC.tma), `${fI(pC.atend)} atendidas`) : '', detH(v => v.tma, fS, P ? pC.tma : null));
     } else {
       html += `<div class="card"><p class="nota">A TEL é atendida em outro sistema: a URA registra só o volume encaminhado. Por isso não há NS, abandono nem tempos para a TEL.</p></div>`;
     }

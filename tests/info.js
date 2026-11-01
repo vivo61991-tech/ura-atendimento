@@ -20,13 +20,13 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await bt(0).click();
   ok(JSON.stringify(await abertos()) === '["inf-evo-of"]' && await bt(0).getAttribute('aria-expanded') === 'true', 'toque no (i) do 1º gráfico: abre só ele');
   await bt(2).click();
-  ok(JSON.stringify(await abertos()) === '["inf-evo-dir"]', 'abrir outro gráfico fecha o anterior');
+  ok(JSON.stringify(await abertos()) === '["inf-evo-ofco"]', 'abrir outro gráfico fecha o anterior');
   await bt(2).click();
   ok((await abertos()).length === 0, 'tocar de novo recolhe');
   // continua aberto quando a tela se redesenha (seleção de coluna)
   await bt(1).click();
   await p.locator('#pgEvo .chart').first().locator('rect.hit').nth(4).click();
-  ok(JSON.stringify(await abertos()) === '["inf-evo-esp"]', 'selecionar uma coluna mantém aberto o que estava aberto');
+  ok(JSON.stringify(await abertos()) === '["inf-evo-oftel"]', 'selecionar uma coluna mantém aberto o que estava aberto');
   ok(await p.locator('#pgEvo .chart').first().locator('.capsel').isVisible(), 'resumo do intervalo selecionado fica à vista, fora do (i)');
   // trocar de aba fecha
   await p.click('nav.tabs button[data-v="skills"]'); await p.click('nav.tabs button[data-v="evo"]');

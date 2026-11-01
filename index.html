@@ -254,7 +254,14 @@ h2.sec .rt{white-space:nowrap;font-size:12.5px;text-transform:none;letter-spacin
 /* linha do botão (i): filtro aplicado à esquerda, discreto */
 .ch-base{display:flex;align-items:center;gap:8px;min-height:26px}
 /* centralizado no cartão: o respiro à esquerda (30px) equilibra o (i) + o espaço à direita */
-.ch-filtro{flex:1;min-width:0;padding-left:30px;text-align:center;font-size:11.5px;font-weight:500;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.1px}
+.ch-det{flex:1;min-width:0;padding-left:30px;text-align:center;font-size:10.5px;color:var(--ink3);line-height:1.3}
+.ch-det b{color:var(--ink2);font-weight:700}
+.ch-filtro{text-align:center;font-size:11.5px;font-weight:500;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.1px;margin-top:-2px}
+.card.chart h2{text-align:center}
+.ch-tot{display:flex;flex-direction:column;align-items:center;text-align:center;margin:-4px 0 4px;line-height:1.25}
+.ch-v{font-size:21px;font-weight:800;color:var(--ink);letter-spacing:.2px}
+.ch-tot small{font-size:11.5px;color:var(--ink2)}
+.ch-tot small b{color:var(--ink);font-weight:750}
 .card.chart,.card.painel{padding-bottom:10px}
 .ch-pe .cap{flex:1;margin-top:0}
 /* resumo da coluna selecionada: centralizado, período em cima, valores do gráfico embaixo */
@@ -403,9 +410,9 @@ table.tsel tbody tr.sel td:last-child{border-right-color:var(--selln)}
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Detalhe"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="dados.js?v=1.16.0"></script>
-<script src="graf.js?v=1.16.0"></script>
-<script src="historico.js?v=1.16.0"></script>
-<script src="app.js?v=1.16.0"></script>
+<script src="dados.js?v=1.17.0"></script>
+<script src="graf.js?v=1.17.0"></script>
+<script src="historico.js?v=1.17.0"></script>
+<script src="app.js?v=1.17.0"></script>
 </body>
 </html>

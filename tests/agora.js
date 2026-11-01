@@ -31,19 +31,27 @@ const AGORA = 19 * 60 + 15;
   const bts = await p.$$eval(`${pg} .agdir button`, bs => bs.map(b => b.textContent + (b.classList.contains('on') ? '*' : '')).join('|'));
   ok(bts === 'Total URA*|CO|TEL' && await p.$eval(`${pg} > *`, x => x.classList.contains('agdir')), 'topo da Agora: Total URA (marcado) · CO · TEL: ' + bts);
   ok(await p.locator(`${pg} .tg, ${pg} h2.sec:has-text("TEL · Parceira")`).count() === 0 && !/CO por grupo|TEL por grupo/.test(await p.$eval(pg, x => x.textContent)), 'sem as tabelas "CO por grupo"/"TEL por grupo" e sem a parte "TEL · Parceira"');
-  const urM = med('sem', (d, co, tel) => D.agregarEm(d, AGORA, co).ofer + D.agregarEm(d, AGORA, tel).ofer);
-  const kOf = await p.$eval(`${pg} .kpis2 .kpi`, x => x.textContent.replace(/\s+/g, ' '));
-  ok(/Oferecidas URA\s*4\.370\s*CO 1\.562 · TEL 2\.808/.test(kOf) && kOf.includes('med. 7 sex: ' + fI(urM)), `Total URA: Oferecidas URA com CO e TEL e a mediana ${fI(urM)} (${kOf.trim()})`);
+  // sem cards: só o NS do dia fica; os totais (da hora) e a comparação com a mediana ficam nos gráficos
+  ok(await p.locator(`${pg} .kpis2`).count() === 0 && await p.locator(`${pg} .hero`).count() === 1, 'Agora: sem os cards, só o card do NS');
+  const urA = (d, co, tel, i, f) => D.intervaloEm(d, i, f, co).ofer + D.intervaloEm(d, i, f, tel).ofer;
+  const pAte = med('sem', (d, co, tel) => urA(d, co, tel, 1140, AGORA));
+  const tOf = await p.$eval(`${pg} .chart[data-ch="agora-of"]`, c => c.querySelector('.ch-tot').textContent.replace(/\s+/g, ' ') + ' | ' + c.querySelector('.ch-det').textContent);
+  ok(/^39 ?CO 20 · TEL 19 \| med\. 7 sex: /.test(tOf) && tOf.endsWith('med. 7 sex: ' + fI(pAte) + ' +34%'), `1º gráfico: total da hora (39 = CO 20 · TEL 19) e a mediana até 19:15 no rodapé (${tOf})`);
+  const ordem = await p.$$eval(`${pg} .chart`, cs => cs.map(c => c.dataset.ch).slice(0, 4).join());
+  ok(ordem === 'agora-of,agora-oftel,agora-ofco,agora-esp', 'Total URA: oferecidas, depois TEL, depois CO encabeçando os do CO: ' + ordem);
+  const telH = await p.$eval(`${pg} .chart[data-ch="agora-oftel"] .ch-v`, x => x.textContent), coH = await p.$eval(`${pg} .chart[data-ch="agora-ofco"] .ch-v`, x => x.textContent);
+  ok(telH === '19' && coH === '20', `TEL e CO separados: ${telH} e ${coH}`);
   // CO
   await p.click(`${pg} button[data-agdir="CO"]`); await p.waitForTimeout(150);
-  const kCO = await p.$eval(`${pg} .kpis2 .kpi .r`, x => x.textContent.replace(/\s+/g, ' '));
-  ok(/Oferecidas CO/.test(await p.$eval(`${pg} .kpis2 .kpi .l`, x => x.textContent)) && kCO.includes('med. 7 sex: ' + fI(ofM)), `CO: Oferecidas CO, mediana até 19:15 = ${fI(ofM)} (${kCO.trim()})`);
+  const coM = med('sem', (d, co) => D.intervaloEm(d, 1140, AGORA, co).ofer);
+  const kCO = await p.$eval(`${pg} .chart[data-ch="agora-of"]`, c => c.querySelector('.ch-v').textContent + ' | ' + c.querySelector('.ch-det').textContent);
+  ok(kCO.startsWith('20 | ') && kCO.includes('med. 7 sex: ' + fI(coM)) && await p.locator(`${pg} .chart[data-ch="agora-oftel"]`).count() === 0, `CO: total da hora 20, mediana ${fI(coM)}, sem o gráfico da TEL (${kCO})`);
   ok(await p.$eval(`${pg} .chart[data-ch="agora-of"] .ch-filtro`, x => x.textContent) === 'CO' && await p.locator(`${pg} #tIvAg thead th`).count() === 7, 'CO: gráficos e tabela só do CO');
   // TEL
   await p.click(`${pg} button[data-agdir="TEL"]`); await p.waitForTimeout(150);
-  const telM = med('sem', (d, co, tel) => D.agregarEm(d, AGORA, tel).ofer);
-  const kTel = await p.$$eval(`${pg} .kpis2 .kpi`, ks => { const k = ks.find(x => /Oferecidas TEL/.test(x.textContent)); return k && k.querySelector('.r') ? k.querySelector('.r').textContent : ''; });
-  ok(kTel.includes(fI(telM)), `TEL: Oferecidas TEL, mediana até 19:15 = ${fI(telM)}`);
+  const telM = med('sem', (d, co, tel) => D.intervaloEm(d, 1140, AGORA, tel).ofer);
+  const kTel = await p.$eval(`${pg} .chart[data-ch="agora-of"]`, c => c.querySelector('.ch-v').textContent + ' | ' + c.querySelector('.ch-det').textContent);
+  ok(kTel.startsWith('19 | ') && kTel.includes(fI(telM)), `TEL: total da hora 19 e mediana ${fI(telM)} (${kTel})`);
   const telTela = await p.evaluate(() => ({ hero: !!document.querySelector('#pgAgora .hero'), fila: /Fila agora/i.test(document.querySelector('#pgAgora').textContent), graf: [...document.querySelectorAll('#pgAgora .chart')].map(c => c.dataset.ch) }));
   ok(!telTela.hero && !telTela.fila && telTela.graf.join() === 'agora-of', 'TEL: sem NS, sem fila; na hora só o gráfico de oferecidas: ' + telTela.graf.join());
   await p.click(`${pg} button[data-agdir="TODOS"]`); await p.waitForTimeout(150);
@@ -52,29 +60,31 @@ const AGORA = 19 * 60 + 15;
   const iv15 = D.intervalos(D.normalizar(require('./amostra.json')), 15, D.filtro(D.normalizar(require('./amostra.json')), { dir: 'CO' }));
   ok(/Intervalos de 15 min/.test(await p.$eval(`${pg} #tIvAg`, t => t.closest('.card').querySelector('h2').textContent)) && tb.length === iv15.length && tb[0][0] === '19:00' && tb[tb.length - 1][0] === '08:00', `tabela de 15 em 15 min, mais recente primeiro (${tb.length} linhas)`);
   ok(tb.find(r => r[0] === '11:00')[1] === String(iv15.find(i => i.rot === '11:00').v.ofer), 'tabela: CO das 11:00 confere com as contas');
-  ok(await p.$$eval(`${pg} .kpis2 .kpi`, ks => { const k = ks.find(x => /Agentes/.test(x.textContent)); return !k.querySelector('.r'); }), 'agentes sem mediana (o histórico não tem)');
-  const filaM = med('sem', (d, co) => { const l = [...d.leituras].reverse().find(x => x.m <= AGORA); return D.agregar(l, co).fila; });
-  const kEsp = await p.$$eval(`${pg} .kpis2 .kpi`, ks => { const k = ks.find(x => /Em espera agora/.test(x.textContent)); return k.querySelector('.r') ? k.querySelector('.r').textContent : ''; });
-  ok(kEsp.includes('med. 7 sex: ' + fI(filaM)), `Em espera agora: mediana das sextas às 19:15 = ${fI(filaM)} (${kEsp.trim()})`);
+  ok(/Fila agora\s*0.*19:15 · 11 agentes disponíveis/.test(await p.$$eval(`${pg} h2.sec`, hs => hs.map(h => h.textContent).join(' | '))), 'agentes disponíveis na linha da "Fila agora"');
+  // técnicos em espera: pico da hora, % que enfrentou fila (atendidas depois de 1 min ÷ oferecidas CO) e a mediana do pico
+  const co19 = D.filtro(D.normalizar(require('./amostra.json')), { dir: 'CO' }), dd0 = D.normalizar(require('./amostra.json'));
+  const hC = D.delta(D.agregar(dd0.leituras.find(x => x.m === AGORA), co19), D.agregar(dd0.leituras.find(x => x.m === 1140), co19));
+  const pct = D.fmtPct((hC.atend - hC.a60) / hC.ofer * 100);
+  const picoM = med('sem', (d, co) => d.temFila ? D.espera(d.leituras, 1140, AGORA, co).pico : null);
+  const tEsp = await p.$eval(`${pg} .chart[data-ch="agora-esp"]`, c => c.querySelector('.ch-tot').textContent.replace(/\s+/g, ' ') + ' | ' + c.querySelector('.ch-det').textContent);
+  ok(tEsp.includes(pct + ' das oferecidas enfrentaram fila') && tEsp.includes('med. 7 sex: ' + fI(picoM)), `fila da hora: ${tEsp}`);
   // hora atual: área do início ao fim da hora, CO + TEL, 5 min = bloco ÷ 3
   const hora = `${pg} .chart[data-ch="agora-of"]`;
   const cobre = await p.$eval(hora, c => { const r = c.querySelector('path.ref').getBBox(), hs = c.querySelectorAll('rect.hit'), u = hs[hs.length - 1];
     return { n: hs.length, ok: r.x + r.width >= +u.getAttribute('x') + +u.getAttribute('width') / 2 }; });
   ok(cobre.n === 12 && cobre.ok, `hora atual: área até a última coluna da hora (${cobre.n} colunas de 5 min)`);
-  const urA = (d, co, tel, i, f) => D.intervaloEm(d, i, f, co).ofer + D.intervaloEm(d, i, f, tel).ofer;
-  const pAte = med('sem', (d, co, tel) => urA(d, co, tel, 1140, AGORA)), pHora = med('sem', (d, co, tel) => urA(d, co, tel, 1140, 1200));
+  const pHora = med('sem', (d, co, tel) => urA(d, co, tel, 1140, 1200));
   const res = await p.$eval(`${hora} .hres`, x => x.innerText.replace(/\s+/g, ' '));
   ok(res.includes('previsto ' + fI(pAte)) && res.includes('(19:00–20:00): ' + fI(pHora)), `resumo da hora: previsto até 19:15 = ${fI(pAte)} e na hora inteira = ${fI(pHora)} (${res})`);
   ok(/até agora/.test(res) && /mediana 7 sextas/.test(res), 'resumo diz "até agora" e qual mediana');
   ok(/dividido em 3 partes iguais/.test(await p.$eval('#inf-agora-of', x => x.textContent)), 'explicação (i): 5 min = bloco de 15 ÷ 3');
   // 7 dias corridos
   await p.click(`${pg} button[data-cmp="dias"]`); await p.waitForTimeout(150);
-  const ofD = med('dias', (d, co) => D.agregarEm(d, AGORA, co).ofer);
-  const urD = med('dias', (d, co, tel) => D.agregarEm(d, AGORA, co).ofer + D.agregarEm(d, AGORA, tel).ofer);
-  ok((await p.$eval(`${pg} .kpis2 .kpi .r`, x => x.textContent)).includes('med. 7 dias: ' + fI(urD)), `7 dias: Oferecidas URA med. ${fI(urD)}`);
+  const urD = med('dias', (d, co, tel) => urA(d, co, tel, 1140, AGORA));
+  ok((await p.$eval(`${pg} .chart[data-ch="agora-of"] .ch-det`, x => x.textContent)).includes('med. 7 dias: ' + fI(urD)), `7 dias: mediana da hora até 19:15 = ${fI(urD)}`);
   // Desligado: tudo limpo, e vale também para a Evolução (mesma chave)
   await p.click(`${pg} button[data-cmp="off"]`); await p.waitForTimeout(150);
-  ok(await p.locator(`${pg} .kpi .r, ${pg} .meta.hr, ${pg} path.ref, ${pg} .hres`).count() === 0, 'Desligado: sem mediana nos cards, sem área e sem resumo');
+  ok(await p.locator(`${pg} .ch-det b, ${pg} .meta.hr, ${pg} path.ref, ${pg} .hres`).count() === 0, 'Desligado: sem mediana nos gráficos e no NS, sem área e sem resumo');
   await p.click('nav.tabs button[data-v="evo"]');
   ok(await p.locator('#pgEvo path.ref').count() === 0 && await p.locator('#pgEvo .cmpk button.on[data-cmp="off"]').count() === 1, 'a mesma chave vale na Evolução');
   await p.click('nav.tabs button[data-v="agora"]');
@@ -87,7 +97,7 @@ const AGORA = 19 * 60 + 15;
   ok(cobertura.every(x => x.n === 12 && x.ref), 'todos com 12 colunas de 5 min e o previsto até o fim da hora');
   const vazias = await p.$$eval(`${pg} .chart[data-ch="agora-ns"] svg text`, ts => ts.map(t => t.textContent).filter(t => /%$/.test(t)).length);
   ok(vazias === 3, `só as 3 colunas que chegaram têm valor (19:00, 19:05, 19:10); o resto da hora vazio (${vazias} rótulos)`);
-  ok((await p.$$eval(`${pg} .chart`, cs => cs.filter(c => /19:15|19:30|19:45/.test(c.textContent)).length)) === 7, 'eixo com a hora inteira (19:15, 19:30, 19:45)');
+  ok((await p.$$eval(`${pg} .chart`, cs => cs.filter(c => /19:15|19:30|19:45/.test(c.textContent)).length)) === 9, 'eixo com a hora inteira (19:15, 19:30, 19:45)');
   // coluna de 5 min selecionada: valores dela e o previsto (bloco de 15 ÷ 3)
   await p.locator(`${pg} .chart[data-ch="agora-of"] rect.hit`).nth(1).click(); await p.waitForTimeout(150);
   const p5 = med('sem', (d, co, tel) => urA(d, co, tel, 1145, 1150));

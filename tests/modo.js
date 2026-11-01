@@ -40,8 +40,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   ok(/oferecidas em até 5 min/.test(caps[3]) && !/finalizadas/.test(caps[3]), 'NS acumulado ÷ oferecidas');
   const thead = await p.$eval('#tIv thead', t => t.innerText);
   ok(/^Até/.test(thead.trim()), 'tabela: coluna "Até"');
-  const k = await p.$eval('#pgEvo .kpis2', e => e.innerText);
-  ok(/até 12:00/.test(k), 'cards mostram o acumulado até 12:00');
+  ok(await p.locator('#pgEvo .kpis2').count() === 0 && await p.$eval('#pgEvo .chart[data-ch="evo-of"] .ch-v', x => x.textContent) === '1.562', 'sem cards: o total do dia (1.562) fica embaixo do título do gráfico');
   // volta e recarrega: sempre começa em "Por intervalo"
   await p.reload(); await p.waitForFunction(() => window.__ura.estado().dados);
   await p.click('nav.tabs button[data-v="evo"]');
