@@ -12,6 +12,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await p.goto(URL);
   await p.waitForFunction(() => window.__ura.estado().dados);
   await p.click('nav.tabs button[data-v="evo"]');
+  await p.locator('#pgEvo .topbar.fechado').count() && await p.click('#pgEvo .ctl-seta'); await p.click('#pgEvo button[data-dir="CO"]'); await p.click('#pgEvo .ctl-seta'); // a Evolução abre no Total URA: estes testes usam o CO
   await abrir(p); await p.click('#pgEvo button[data-passo="60"]');
   ok(await p.locator('.csel').count() === 0, 'sem seleção: nenhum resumo');
   // coluna das 11h (4ª) no gráfico de técnicos em espera

@@ -11,6 +11,7 @@ const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()
   await p.goto(URL);
   await p.waitForFunction(() => window.__ura.estado().dados);
   await p.click('nav.tabs button[data-v="evo"]');
+  await p.locator('#pgEvo .topbar.fechado').count() && await p.click('#pgEvo .ctl-seta'); await p.click('#pgEvo button[data-dir="CO"]'); await p.click('#pgEvo .ctl-seta'); // a Evolução abre no Total URA: estes testes usam o CO
   const filtros = () => p.$$eval('#pgEvo .chart', cs => cs.map(c => { const f = c.querySelector('.ch-base .ch-filtro'); return f ? f.textContent : ''; }));
   const um = async () => { const f = await filtros(); return new Set(f).size === 1 ? f[0] : 'DIFERENTES: ' + f.join(' | '); };
   ok(await um() === 'CO', 'CO selecionado: "CO" em todos os gráficos');

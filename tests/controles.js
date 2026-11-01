@@ -18,7 +18,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
       dentro: [...t.querySelectorAll('.ctl-p')].every(x => x.getBoundingClientRect().right <= t.querySelector('.ctl-seta').getBoundingClientRect().left) }));
     let e = await est();
     ok(e.fechado && e.segs === 0 && e.seta === 'false', `${larg}px: começa recolhido (sem os botões)`);
-    ok(e.res.join(' | ') === 'CO | Por intervalo | Auto · 1 h', `${larg}px: mostra só o escolhido: ${e.res.join(' · ')}`);
+    ok(e.res.join(' | ') === 'Total URA | Por intervalo | Auto · 1 h', `${larg}px: abre sempre em Total URA · Por intervalo · Auto: ${e.res.join(' · ')}`);
     ok(e.linhas === 1 && e.dentro, `${larg}px: numa linha só, sem passar por baixo da seta`);
     ok(e.h <= 60, `${larg}px: barra fina (${e.h}px)`);
     const enc = await p.$eval('#pgEvo .ctl-res', r => {
@@ -57,6 +57,14 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
     ok(await p.locator('#pgEvo .topbar .selchip').isVisible() && (await est()).fechado, `${larg}px: seleção visível com os controles recolhidos`);
     const w = await p.evaluate(() => document.documentElement.scrollWidth);
     ok(w <= larg, `${larg}px: sem estouro lateral`);
+    // escolher outras opções e reabrir o app: volta para Total URA · Por intervalo · Auto (o 1º de cada linha)
+    await p.click('#pgEvo .ctl-res'); await p.click('#pgEvo button[data-dir="TEL"]'); await p.click('#pgEvo button[data-modo="acum"]'); await p.click('#pgEvo button[data-passo="30"]');
+    await p.reload(); await p.waitForFunction(() => window.__ura.estado().dados); await p.click('nav.tabs button[data-v="evo"]');
+    e = await est();
+    ok(e.res.join(' | ') === 'Total URA | Por intervalo | Auto · 1 h', `${larg}px: reabrir o app volta para Total URA · Por intervalo · Auto: ${e.res.join(' · ')}`);
+    await p.click('#pgEvo .ctl-seta');
+    const ordem = await p.$$eval('#pgEvo .topbar .seg', ss => ss.map(s => [...s.querySelectorAll('button')].map(b => b.textContent + (b.classList.contains('on') ? '*' : '')).join(',')));
+    ok(ordem[0] === 'Total URA*,CO,TEL' && ordem[1].startsWith('Por intervalo*') && ordem[2].startsWith('Auto*'), `${larg}px: botões na ordem e marcados à esquerda: ${ordem.join(' | ')}`);
     await p.close();
   }
   ok(erros.length === 0, 'sem erros de JavaScript' + (erros.length ? ': ' + erros.join(' | ') : ''));

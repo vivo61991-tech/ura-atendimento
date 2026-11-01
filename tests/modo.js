@@ -12,6 +12,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await p.goto(URL);
   await p.waitForFunction(() => window.__ura.estado().dados);
   await p.click('nav.tabs button[data-v="evo"]');
+  await p.locator('#pgEvo .topbar.fechado').count() && await p.click('#pgEvo .ctl-seta'); await p.click('#pgEvo button[data-dir="CO"]'); await p.click('#pgEvo .ctl-seta'); // a Evolução abre no Total URA: estes testes usam o CO
   ok(await (await abrir(p), p).locator('#pgEvo button[data-modo="int"]').getAttribute('class') === 'on', 'abre em "Por intervalo"');
   await abrir(p); await p.click('#pgEvo button[data-passo="60"]');
   const rotX = () => p.$$eval('#pgEvo .chart svg', s => [...s[0].querySelectorAll('text')].filter(t => +t.getAttribute('y') > 160).map(t => t.textContent));
@@ -44,6 +45,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   // volta e recarrega: sempre começa em "Por intervalo"
   await p.reload(); await p.waitForFunction(() => window.__ura.estado().dados);
   await p.click('nav.tabs button[data-v="evo"]');
+  await p.locator('#pgEvo .topbar.fechado').count() && await p.click('#pgEvo .ctl-seta'); await p.click('#pgEvo button[data-dir="CO"]'); await p.click('#pgEvo .ctl-seta'); // a Evolução abre no Total URA: estes testes usam o CO
   ok(await (await abrir(p), p).locator('#pgEvo button[data-modo="int"]').getAttribute('class') === 'on', 'ao reabrir o app, volta para "Por intervalo"');
   const w = await p.evaluate(() => document.documentElement.scrollWidth);
   ok(w <= 390, `sem estouro lateral (${w}px)`);

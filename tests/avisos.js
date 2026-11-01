@@ -28,6 +28,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   ok(await p.locator('#banners .banner').count() === 0, 'continua fechado depois de atualizar e trocar de aba');
   // Evolução e detalhe: rótulos em 5 min
   await p.click('nav.tabs button[data-v="evo"]');
+  await p.locator('#pgEvo .topbar.fechado').count() && await p.click('#pgEvo .ctl-seta'); await p.click('#pgEvo button[data-dir="CO"]'); await p.click('#pgEvo .ctl-seta'); // a Evolução abre no Total URA: estes testes usam o CO
   const evo = await p.evaluate(() => document.querySelector('#pgEvo').innerText);
   ok(!/300s/.test(evo) && /NS 5 min/.test(evo) && /NÍVEL DE SERVIÇO \(5 min\)/.test(evo), 'Evolução: card "NS 5 min" e gráfico "Nível de serviço (5 min)"');
   await p.click('nav.tabs button[data-v="skills"]');

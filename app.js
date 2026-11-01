@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.9.2';
+  const APP_VERSION = '1.9.3';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -37,7 +37,8 @@
   // dia: null = o mais recente (ao vivo) | 'aaaa-mm-dd' = dia escolhido na navegação
   // cmp: comparação pela mediana — 'sem' (7 mesmos dias da semana, padrão) | 'dias' (7 dias corridos); lembrada no aparelho.
   //      Fica sempre ligada quando há histórico (área clara atrás das barras).
-  const evo = { dir: 'CO', passo: lerPref('passo', 'auto'), grupo: null, sel: null, modo: 'int', ctl: false, fixo: lerPref('fixo', false) === true,
+  // Ao abrir o app, a Evolução começa SEMPRE nas primeiras opções (as da esquerda): Total URA · Por intervalo · Auto.
+  const evo = { dir: 'TODOS', passo: 'auto', grupo: null, sel: null, modo: 'int', ctl: false, fixo: lerPref('fixo', false) === true,
     dia: null, cmp: ['dias', 'sem', 'off'].includes(lerPref('cmp', 'sem')) ? lerPref('cmp', 'sem') : 'sem' };
   const sk = { dir: 'CO', q: '', zeros: false };
 
@@ -476,7 +477,7 @@
     const cmp = comparacao(ctx.iso, passo, acum, L.m);
     const temCmp = !!(cmp && cmp.porRef.length);
     // controles recolhidos: só o que está escolhido, numa linha
-    const resumoCtl = [{ CO: 'CO', TEL: 'TEL', TODOS: 'Total URA' }[dir], acum ? 'Acumulado' : 'Por intervalo', evo.passo === 'auto' ? 'Auto · ' + PASSO_NOME[passo] : PASSO_NOME[passo]];
+    const resumoCtl = [{ TODOS: 'Total URA', CO: 'CO', TEL: 'TEL' }[dir], acum ? 'Acumulado' : 'Por intervalo', evo.passo === 'auto' ? 'Auto · ' + PASSO_NOME[passo] : PASSO_NOME[passo]];
     // KPIs: sem seleção = acumulado do dia; com seleção = só o intervalo
     const aC = iSel >= 0 ? (ivC[iSel].v || null) : D.agregar(L, co);
     const aT = iSel >= 0 ? (ivT[iSel] && ivT[iSel].v || null) : D.agregar(L, tel);
@@ -617,7 +618,7 @@
       <div class="evo-ctl${evo.fixo ? ' fixo' : ''}">
       ${navDia(ctx)}
       <div class="card topbar ${evo.ctl ? 'aberto' : 'fechado'}">
-        ${evo.ctl ? `<div class="seg" role="tablist" aria-label="Atendimento">${[['CO', 'CO'], ['TEL', 'TEL'], ['TODOS', 'Total URA']].map(([v, t]) => `<button data-dir="${v}" class="${dir === v ? 'on' : ''}">${t}</button>`).join('')}</div>
+        ${evo.ctl ? `<div class="seg" role="tablist" aria-label="Atendimento">${[['TODOS', 'Total URA'], ['CO', 'CO'], ['TEL', 'TEL']].map(([v, t]) => `<button data-dir="${v}" class="${dir === v ? 'on' : ''}">${t}</button>`).join('')}</div>
         <div class="seg sm" role="tablist" aria-label="Modo">${[['int', 'Por intervalo'], ['acum', 'Acumulado']].map(([v, t]) => `<button data-modo="${v}" class="${evo.modo === v ? 'on' : ''}" aria-pressed="${evo.modo === v}">${t}</button>`).join('')}</div>
         <div class="seg sm" role="tablist" aria-label="Intervalo do eixo">${['auto', 15, 30, 60, 120].map(p => `<button data-passo="${p}" class="${String(evo.passo) === String(p) ? 'on' : ''}">${PASSO_NOME[p]}</button>`).join('')}</div>
         <div class="ctl-pe"><div class="meta-line"><span>${acum ? 'Acumulado · a cada ' + PASSO_NOME[passo] : 'Intervalos de ' + PASSO_NOME[passo]}${evo.passo === 'auto' ? ' (auto)' : ''}</span><span>08:00–${esc(L.horario)}</span></div>${pinoCtl()}${setaCtl(true)}</div>`
@@ -833,7 +834,7 @@
       evo.dia = i === lista.length - 1 ? null : lista[i];
       return redesenhar();
     }
-    if (b.dataset.passo) { evo.passo = b.dataset.passo === 'auto' ? 'auto' : +b.dataset.passo; gravarPref('passo', evo.passo); evo.sel = null; return redesenhar(); }
+    if (b.dataset.passo) { evo.passo = b.dataset.passo === 'auto' ? 'auto' : +b.dataset.passo; evo.sel = null; return redesenhar(); }
     if (b.dataset.grp != null && b.classList.contains('chip')) {
       // tocar no grupo já selecionado desmarca e volta para "Todos os grupos"
       const g = b.dataset.grp || null;

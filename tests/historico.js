@@ -25,6 +25,7 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
     await p.reload(); await p.waitForFunction(() => window.__ura.estado().dados);
     await p.waitForFunction(() => window.__ura.estado().hist || window.__ura.estado().histErro);
     await p.click('nav.tabs button[data-v="evo"]');
+    await p.locator('#pgEvo .topbar.fechado').count() && await p.click('#pgEvo .ctl-seta'); await p.click('#pgEvo button[data-dir="CO"]'); await p.click('#pgEvo .ctl-seta'); // a Evolução abre no Total URA: estes testes usam o CO
     return p;
   };
   const p = await nova();
@@ -135,6 +136,7 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   await v.clock.install({ time: new Date('2026-10-31T09:15:00') });
   await v.goto(URL); await v.waitForFunction(() => window.__ura.estado().dados && window.__ura.estado().hist);
   await v.click('nav.tabs button[data-v="evo"]');
+  await v.locator('#pgEvo .topbar.fechado').count() && await v.click('#pgEvo .ctl-seta'); await v.click('#pgEvo button[data-dir="CO"]'); await v.click('#pgEvo .ctl-seta'); // a Evolução abre no Total URA: estes testes usam o CO
   const nv = await v.$eval('#pgEvo .dnav', x => x.innerText.replace(/\s+/g, ' '));
   ok(/sex, 30\/10 Pulse/.test(nv) && !/histórico/.test(nv), 'Pulse de 30/10 aberto em 31/10: 30/10 continua do Pulse (' + nv.trim() + ')');
   ok(await v.locator('#pgEvo .chart h2:has-text("TÉCNICOS EM ESPERA")').count() === 1, 'continua com a fila do Pulse');

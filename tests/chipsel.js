@@ -11,6 +11,7 @@ const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()
   await p.goto(URL);
   await p.waitForFunction(() => window.__ura.estado().dados);
   await p.click('nav.tabs button[data-v="evo"]');
+  await p.locator('#pgEvo .topbar.fechado').count() && await p.click('#pgEvo .ctl-seta'); await p.click('#pgEvo button[data-dir="CO"]'); await p.click('#pgEvo .ctl-seta'); // a Evolução abre no Total URA: estes testes usam o CO
   await abrir(p); await p.click('#pgEvo button[data-passo="60"]');
   const chips = () => p.$$eval('#pgEvo .chip', cs => Object.fromEntries(cs.map(c => [c.dataset.grp || 'TODOS', c.querySelector('.qt').textContent])));
   const dia = await chips();
