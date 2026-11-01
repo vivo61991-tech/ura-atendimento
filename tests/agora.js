@@ -27,11 +27,31 @@ const AGORA = 19 * 60 + 15;
   const nsM = med('sem', (d, co) => D.agregarEm(d, AGORA, co).ns), ofM = med('sem', (d, co) => D.agregarEm(d, AGORA, co).ofer);
   const hero = await p.$eval(`${pg} .hero .meta.hr`, x => x.textContent.replace(/\s+/g, ' '));
   ok(hero.includes('med. 7 sex: ' + fP(nsM)), `NS do dia: mediana até 19:15 = ${fP(nsM)} (${hero.trim()})`);
-  const kOf = await p.$eval(`${pg} .kpis2 .kpi .r`, x => x.textContent.replace(/\s+/g, ' '));
-  ok(kOf.includes('med. 7 sex: ' + fI(ofM)), `Oferecidas CO: mediana até 19:15 = ${fI(ofM)} (${kOf.trim()})`);
+  // botões do topo (iguais aos da aba Skills, na ordem da Evolução); começa em Total URA
+  const bts = await p.$$eval(`${pg} .agdir button`, bs => bs.map(b => b.textContent + (b.classList.contains('on') ? '*' : '')).join('|'));
+  ok(bts === 'Total URA*|CO|TEL' && await p.$eval(`${pg} > *`, x => x.classList.contains('agdir')), 'topo da Agora: Total URA (marcado) · CO · TEL: ' + bts);
+  ok(await p.locator(`${pg} .tg, ${pg} h2.sec:has-text("TEL · Parceira")`).count() === 0 && !/CO por grupo|TEL por grupo/.test(await p.$eval(pg, x => x.textContent)), 'sem as tabelas "CO por grupo"/"TEL por grupo" e sem a parte "TEL · Parceira"');
+  const urM = med('sem', (d, co, tel) => D.agregarEm(d, AGORA, co).ofer + D.agregarEm(d, AGORA, tel).ofer);
+  const kOf = await p.$eval(`${pg} .kpis2 .kpi`, x => x.textContent.replace(/\s+/g, ' '));
+  ok(/Oferecidas URA\s*4\.370\s*CO 1\.562 · TEL 2\.808/.test(kOf) && kOf.includes('med. 7 sex: ' + fI(urM)), `Total URA: Oferecidas URA com CO e TEL e a mediana ${fI(urM)} (${kOf.trim()})`);
+  // CO
+  await p.click(`${pg} button[data-agdir="CO"]`); await p.waitForTimeout(150);
+  const kCO = await p.$eval(`${pg} .kpis2 .kpi .r`, x => x.textContent.replace(/\s+/g, ' '));
+  ok(/Oferecidas CO/.test(await p.$eval(`${pg} .kpis2 .kpi .l`, x => x.textContent)) && kCO.includes('med. 7 sex: ' + fI(ofM)), `CO: Oferecidas CO, mediana até 19:15 = ${fI(ofM)} (${kCO.trim()})`);
+  ok(await p.$eval(`${pg} .chart[data-ch="agora-of"] .ch-filtro`, x => x.textContent) === 'CO' && await p.locator(`${pg} #tIvAg thead th`).count() === 7, 'CO: gráficos e tabela só do CO');
+  // TEL
+  await p.click(`${pg} button[data-agdir="TEL"]`); await p.waitForTimeout(150);
   const telM = med('sem', (d, co, tel) => D.agregarEm(d, AGORA, tel).ofer);
   const kTel = await p.$$eval(`${pg} .kpis2 .kpi`, ks => { const k = ks.find(x => /Oferecidas TEL/.test(x.textContent)); return k && k.querySelector('.r') ? k.querySelector('.r').textContent : ''; });
-  ok(kTel.includes(fI(telM)), `Oferecidas TEL: mediana até 19:15 = ${fI(telM)}`);
+  ok(kTel.includes(fI(telM)), `TEL: Oferecidas TEL, mediana até 19:15 = ${fI(telM)}`);
+  const telTela = await p.evaluate(() => ({ hero: !!document.querySelector('#pgAgora .hero'), fila: /Fila agora/i.test(document.querySelector('#pgAgora').textContent), graf: [...document.querySelectorAll('#pgAgora .chart')].map(c => c.dataset.ch) }));
+  ok(!telTela.hero && !telTela.fila && telTela.graf.join() === 'agora-of', 'TEL: sem NS, sem fila; na hora só o gráfico de oferecidas: ' + telTela.graf.join());
+  await p.click(`${pg} button[data-agdir="TODOS"]`); await p.waitForTimeout(150);
+  // tabela de intervalos de 15 min do dia, igual à da Evolução
+  const tb = await p.$$eval(`${pg} #tIvAg tbody tr`, rs => rs.map(r => [...r.children].map(c => c.textContent)));
+  const iv15 = D.intervalos(D.normalizar(require('./amostra.json')), 15, D.filtro(D.normalizar(require('./amostra.json')), { dir: 'CO' }));
+  ok(/Intervalos de 15 min/.test(await p.$eval(`${pg} #tIvAg`, t => t.closest('.card').querySelector('h2').textContent)) && tb.length === iv15.length && tb[0][0] === '19:00' && tb[tb.length - 1][0] === '08:00', `tabela de 15 em 15 min, mais recente primeiro (${tb.length} linhas)`);
+  ok(tb.find(r => r[0] === '11:00')[1] === String(iv15.find(i => i.rot === '11:00').v.ofer), 'tabela: CO das 11:00 confere com as contas');
   ok(await p.$$eval(`${pg} .kpis2 .kpi`, ks => { const k = ks.find(x => /Agentes/.test(x.textContent)); return !k.querySelector('.r'); }), 'agentes sem mediana (o histórico não tem)');
   const filaM = med('sem', (d, co) => { const l = [...d.leituras].reverse().find(x => x.m <= AGORA); return D.agregar(l, co).fila; });
   const kEsp = await p.$$eval(`${pg} .kpis2 .kpi`, ks => { const k = ks.find(x => /Em espera agora/.test(x.textContent)); return k.querySelector('.r') ? k.querySelector('.r').textContent : ''; });
@@ -50,7 +70,8 @@ const AGORA = 19 * 60 + 15;
   // 7 dias corridos
   await p.click(`${pg} button[data-cmp="dias"]`); await p.waitForTimeout(150);
   const ofD = med('dias', (d, co) => D.agregarEm(d, AGORA, co).ofer);
-  ok((await p.$eval(`${pg} .kpis2 .kpi .r`, x => x.textContent)).includes('med. 7 dias: ' + fI(ofD)), `7 dias: Oferecidas CO med. ${fI(ofD)}`);
+  const urD = med('dias', (d, co, tel) => D.agregarEm(d, AGORA, co).ofer + D.agregarEm(d, AGORA, tel).ofer);
+  ok((await p.$eval(`${pg} .kpis2 .kpi .r`, x => x.textContent)).includes('med. 7 dias: ' + fI(urD)), `7 dias: Oferecidas URA med. ${fI(urD)}`);
   // Desligado: tudo limpo, e vale também para a Evolução (mesma chave)
   await p.click(`${pg} button[data-cmp="off"]`); await p.waitForTimeout(150);
   ok(await p.locator(`${pg} .kpi .r, ${pg} .meta.hr, ${pg} path.ref, ${pg} .hres`).count() === 0, 'Desligado: sem mediana nos cards, sem área e sem resumo');
@@ -95,6 +116,9 @@ const AGORA = 19 * 60 + 15;
   const of19 = await p.$$eval(`${pg} .chart[data-ch="agora-of"] svg text`, ts => ts.map(t => t.textContent));
   const v1900 = D.agregar(dd.leituras.find(x => x.m === 1145), ssBL).ofer - D.agregar(l19, ssBL).ofer;
   ok(of19.includes(String(v1900)), `oferecidas 19:00–19:05 só do grupo: ${v1900}`);
+  const ivBL = D.intervalos(dd, 15, D.filtro(dd, { dir: 'CO', grupo: 'SUPORTE BANDA LARGA' }));
+  const t11 = await p.$$eval(`${pg} #tIvAg tbody tr`, rs => { const r = rs.find(x => x.children[0].textContent === '11:00'); return r.children[1].textContent; });
+  ok(t11 === String(ivBL.find(i => i.rot === '11:00').v.ofer) && /SUPORTE BANDA LARGA/.test(await p.$eval(`${pg} .tfil`, x => x.textContent)), 'filtro do painel vale também para a tabela (com o filtro escrito em cima)');
   await p.click(`${pn} .gks > .gk .gk-n`); await p.waitForTimeout(150);
   ok(await p.evaluate(() => window.__ura.estado().ag.grupo) === null, 'tocar de novo limpa o filtro da Agora');
   await p.evaluate(() => scrollTo(0, 0));

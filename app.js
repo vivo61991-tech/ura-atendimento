@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.15.0';
+  const APP_VERSION = '1.16.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -46,7 +46,8 @@
     dia: null, cmp: ['dias', 'sem', 'off'].includes(lerPref('cmp', 'sem')) ? lerPref('cmp', 'sem') : 'sem' };
   const sk = { dir: 'CO', q: '', zeros: false };
   // aba Agora: filtro do painel de grupos (grupo/skill), grupos abertos e coluna selecionada nos gráficos da hora
-  const ag = { grupo: null, skill: null, abertos: new Set(), sel: null };
+  // dir: atendimento escolhido nos botões do topo (começa sempre em Total URA, como a Evolução)
+  const ag = { dir: 'TODOS', grupo: null, skill: null, abertos: new Set(), sel: null };
   let agCols = [];   // colunas da hora em exibição na aba Agora (para o toque nas colunas)
 
   const $ = s => document.querySelector(s);
@@ -285,7 +286,7 @@
   const linhaMed = (cmp, r, fmt, atual, pp) => !cmp ? '' : `med. ${esc(cmp.curto)}: <b>${r == null ? '—' : fmt(r)}</b> <span class="df">${r == null ? '' : difTx(atual, r, pp)}</span>`;
 
   function renderAgora() {
-    const d = dados, L = ultima();
+    const d = dados, L = ultima(), dir = ag.dir;
     const co = D.filtro(d, { dir: 'CO' }), tel = D.filtro(d, { dir: 'TEL' });
     const a = D.agregar(L, co), t = D.agregar(L, tel);
     const sit = situacao(a.ns);
@@ -296,7 +297,10 @@
     const cmp = cmpAgora();
     const dC = r => D.agregarEm(r.dR, L.m, r.coR), dT = r => D.agregarEm(r.dR, L.m, r.telR);
     const mDia = f => medAg(cmp, r => f(dC(r), dT(r)));
-    const m15 = (u, k) => !u ? null : medAg(cmp, r => D.intervaloEm(r.dR, u.ini, u.ateM, k === 'CO' ? r.coR : r.telR).ofer);
+    const m15 = (u, k) => !u ? null : medAg(cmp, r => (k !== 'TEL' ? D.intervaloEm(r.dR, u.ini, u.ateM, r.coR).ofer : 0) + (k !== 'CO' ? D.intervaloEm(r.dR, u.ini, u.ateM, r.telR).ofer : 0));
+
+    // botões do topo: mesmos da aba Skills, na ordem da Evolução
+    const botoes = `<div class="seg agdir" role="tablist" aria-label="Atendimento">${[['TODOS', 'Total URA'], ['CO', 'CO'], ['TEL', 'TEL']].map(([v, tx]) => `<button data-agdir="${v}" class="${dir === v ? 'on' : ''}" aria-pressed="${dir === v}">${tx}</button>`).join('')}</div>`;
 
     const hero = `<div class="card">
       <div class="hero">
@@ -308,15 +312,26 @@
           ${cmp ? `<div class="meta hr">${linhaMed(cmp, mDia(x => x.ns), x => fP(x), a.ns, true)}</div>` : ''}
         </div>
       </div></div>`;
-
-    const k = `<div class="kpis2 k3">
+    const kEspera = kpi('Em espera agora', fI(a.fila), a.fila ? 'mais antiga ' + fS(a.espMax) : 'nenhuma na fila', '', linhaMed(cmp && cmp.porRef.some(r => r.dR.temFila) ? cmp : null, medAg(cmp, r => { if (!r.dR.temFila) return null; const l = [...r.dR.leituras].reverse().find(x => x.m <= L.m); return l ? D.agregar(l, r.coR).fila : null; }), fI, a.fila));
+    const kAband = kpi('Abandonadas', `<span class="${a.aband ? 'c-VERMELHO' : ''}">${fI(a.aband)}</span>`, a.abandPct == null ? '' : fP(a.abandPct) + (dir === 'TODOS' ? ' no CO' : ' das oferecidas'), '', linhaMed(cmp, mDia(x => x.aband), fI, a.aband));
+    const kTme = kpi('TME', fS(a.tme), 'TMA ' + fS(a.tma), '', linhaMed(cmp, mDia(x => x.tme), fS, a.tme));
+    const kAg = kpi('Agentes disponíveis', fI(a.dispMax), 'maior valor numa skill CO');
+    const u15u = u15 || u15t, v15 = (u15 ? u15.v.ofer : 0) + (u15t && u15t.v ? u15t.v.ofer : 0);
+    let k;
+    if (dir === 'TODOS') k = `<div class="kpis2 k3">
+      ${kpi('Oferecidas URA', fI(totURA), `CO ${fI(a.ofer)} · TEL ${fI(t.ofer)}`, '', linhaMed(cmp, mDia((x, y) => x.ofer + y.ofer), fI, totURA))}
+      ${kAband}${kEspera}${kTme}
+      ${kpi('Últimos 15 min', u15u ? fI(v15) : '—', u15u ? `${u15u.rot}–${D.hhmm(u15u.ateM)} · CO + TEL` : '', '', u15u ? linhaMed(cmp, m15(u15u, 'TODOS'), fI, v15) : '')}
+      ${kAg}</div>`;
+    else if (dir === 'CO') k = `<div class="kpis2 k3">
       ${kpi('Oferecidas CO', fI(a.ofer), `atendidas ${fI(a.atend)}`, '', linhaMed(cmp, mDia(x => x.ofer), fI, a.ofer))}
-      ${kpi('Abandonadas', `<span class="${a.aband ? 'c-VERMELHO' : ''}">${fI(a.aband)}</span>`, a.abandPct == null ? '' : fP(a.abandPct) + ' das oferecidas', '', linhaMed(cmp, mDia(x => x.aband), fI, a.aband))}
-      ${kpi('Em espera agora', fI(a.fila), a.fila ? 'mais antiga ' + fS(a.espMax) : 'nenhuma na fila', '', linhaMed(cmp && cmp.porRef.some(r => r.dR.temFila) ? cmp : null, medAg(cmp, r => { if (!r.dR.temFila) return null; const l = [...r.dR.leituras].reverse().find(x => x.m <= L.m); return l ? D.agregar(l, r.coR).fila : null; }), fI, a.fila))}
-      ${kpi('TME', fS(a.tme), 'TMA ' + fS(a.tma), '', linhaMed(cmp, mDia(x => x.tme), fS, a.tme))}
+      ${kAband}${kEspera}${kTme}
       ${kpi('Últimos 15 min', u15 ? fI(u15.v.ofer) : '—', u15 ? `${u15.rot}–${D.hhmm(u15.ateM)} · NS ${u15.v.ns == null ? '—' : fP(u15.v.ns)}` : '', '', u15 ? linhaMed(cmp, m15(u15, 'CO'), fI, u15.v.ofer) : '')}
-      ${kpi('Agentes disponíveis', fI(a.dispMax), 'maior valor numa skill CO')}
-    </div>`;
+      ${kAg}</div>`;
+    else k = `<div class="kpis2">
+      ${kpi('Oferecidas TEL', fI(t.ofer), totURA ? fP(t.ofer / totURA * 100) + ' do volume da URA' : '', '', linhaMed(cmp, mDia((x, y) => y.ofer), fI, t.ofer))}
+      ${kpi('Últimos 15 min', u15t ? fI(u15t.v.ofer) : '—', u15t ? `${u15t.rot}–${D.hhmm(u15t.ateM)}` : '', '', u15t ? linhaMed(cmp, m15(u15t, 'TEL'), fI, u15t.v.ofer) : '')}
+      </div><div class="card"><p class="nota">A TEL é atendida em outro sistema: aqui aparece só o volume que a URA encaminhou (sem atendidas, abandono, NS ou fila).</p></div>`;
 
     // fila agora (CO)
     const filas = [...porSimpl(d, 'CO').entries()].map(([nome, ss]) => ({ nome, ss, a: D.agregar(L, ss) })).filter(x => x.a.fila > 0)
@@ -330,51 +345,21 @@
     }).join('')}</div>`
       : `<div class="okcard"><span class="okb"><svg viewBox="0 0 24 24"><path d="m6.5 12.3 3.6 3.6L17.5 8.6"/></svg></span><div>Nenhuma chamada em espera no CO<small>na coleta das ${esc(L.horario)}</small></div></div>`;
 
-    // hora atual de 5 em 5 min (CO + TEL empilhados)
+    // hora atual (gráficos + painel de grupos e skills) e a tabela do dia de 15 em 15 min, com o filtro da aba Agora
     const hora = horaAgora(d);
+    const fC = filtroEvo(d, 'CO', ag), fT = filtroEvo(d, 'TEL', ag);
+    const tab = tabelaIntervalos(D.intervalos(d, 15, fC), D.intervalos(d, 15, fT), dir, 15, -1, false, { id: 'tIvAg', filtro: textoFiltro(d, dir, ag) });
 
-    // grupos CO
-    const gCO = grupos(d, co, L);
-    const tabCO = `<div class="card"><h2>CO por grupo <small>· toque para ver a evolução</small></h2>${tabGrupos(['Ofer.', 'NS', 'Aband.', 'TME'],
-      gCO.map(g => ({ nome: g.nome, dir: 'CO', v: [fI(g.a.ofer), nsTx(g.a.ns), g.a.abandPct == null ? '—' : fP(g.a.abandPct), fS(g.a.tme)] })),
-      { nome: 'Total CO', v: [fI(a.ofer), nsTx(a.ns), a.abandPct == null ? '—' : fP(a.abandPct), fS(a.tme)] })}</div>`;
-
-    // TEL
-    const gTEL = grupos(d, tel, L);
-    const kt = `<div class="kpis2">
-      ${kpi('Oferecidas TEL', fI(t.ofer), totURA ? fP(t.ofer / totURA * 100) + ' do volume da URA' : '', '', linhaMed(cmp, mDia((x, y) => y.ofer), fI, t.ofer))}
-      ${kpi('Últimos 15 min', u15t ? fI(u15t.v.ofer) : '—', u15t ? `${u15t.rot}–${D.hhmm(u15t.ateM)}` : '', '', u15t ? linhaMed(cmp, m15(u15t, 'TEL'), fI, u15t.v.ofer) : '')}
-    </div>`;
-    const tabTEL = `<div class="card"><h2>TEL por grupo <small>· toque para ver a evolução</small></h2>${tabGrupos(['Ofer.', '% TEL'],
-      gTEL.map(g => ({ nome: g.nome, dir: 'TEL', v: [fI(g.a.ofer), t.ofer ? fP(g.a.ofer / t.ofer * 100) : '—'] })),
-      { nome: 'Total TEL', v: [fI(t.ofer), t.ofer ? '100,0%' : '—'] })}
-      <p class="nota" style="margin-top:8px">A TEL é atendida em outro sistema: aqui aparece só o volume que a URA encaminhou (sem atendidas, abandono ou NS).</p></div>`;
-
+    const titulo = { TODOS: 'URA · Suporte B2C', CO: 'CO · Centro de Operações', TEL: 'TEL · Parceira' }[dir];
     $('#pgAgora').innerHTML = `
-      <h2 class="sec">CO · Centro de Operações<span class="sp"></span><span class="rt">acumulado do dia</span></h2>
-      ${hero}${k}
-      <h2 class="sec">Fila agora <span class="ct num">${fI(a.fila)}</span><span class="sp"></span><span class="rt">${esc(L.horario)}</span></h2>
-      ${filaHtml}
+      ${botoes}
+      <h2 class="sec">${titulo}<span class="sp"></span><span class="rt">acumulado do dia</span></h2>
+      ${dir === 'TEL' ? '' : hero}${k}
+      ${dir === 'TEL' ? '' : `<h2 class="sec">Fila agora <span class="ct num">${fI(a.fila)}</span><span class="sp"></span><span class="rt">${esc(L.horario)}</span></h2>${filaHtml}`}
       ${hora}
-      ${tabCO}
-      <h2 class="sec">TEL · Parceira<span class="sp"></span><span class="rt">acumulado do dia</span></h2>
-      ${kt}${tabTEL}`;
+      ${tab}`;
   }
 
-  // Tabela de grupos responsiva (grade, não <table>): na tela larga, uma linha por grupo; na estreita,
-  // TODAS as linhas viram duas — nome em cima (sem quebrar) e os números embaixo, nas mesmas colunas do cabeçalho.
-  function tabGrupos(cab, linhas, total) {
-    const lin = (r, cls, attrs) => `<div class="tg-r${cls}"${attrs}><span class="nm">${esc(r.nome)}</span>${r.v.map(x => `<span class="v">${x}</span>`).join('')}</div>`;
-    return `<div class="tg" style="--n:${cab.length}" role="table">
-      <div class="tg-r tg-h" role="row"><span class="nm">Grupo</span>${cab.map(c => `<span class="v">${c}</span>`).join('')}</div>
-      ${linhas.map(r => lin(r, ' tg-a', ` role="button" tabindex="0" data-grupo="${esc(r.nome)}" data-dir="${r.dir}"`)).join('')}
-      ${lin(total, ' tot', '')}</div>`;
-  }
-
-  // Hora atual na aba Agora: os MESMOS gráficos da Evolução, só da hora, de 5 em 5 min (logo depois da virada,
-  // a última hora fechada, de 15 em 15). As colunas que ainda não chegaram ficam vazias, com o previsto (mediana)
-  // já desenhado até o fim da hora; as barras vão preenchendo a cada coleta. Embaixo, o painel de grupos e skills
-  // da hora, com o mesmo poder de filtro (filtra só a aba Agora).
   function horaAgora(d) {
     const L = ultima();
     let desde = Math.floor(L.m / 60) * 60, passo = 5, nome = 'Hora atual · de 5 em 5 min';
@@ -415,18 +400,14 @@
       (cmp && passo === 5 ? '<span>de 5 em 5 min o histórico não tem o detalhe: cada bloco de 15 min é dividido em 3 partes iguais (aproximação); a fila prevista fica entre os retratos de 15 min</span>' : '');
     let html = `<h2 class="sec">${nome}<span class="sp"></span><span class="rt">${D.hhmm(desde)}–${D.hhmm(desde + 60)}</span></h2>`;
     if (hist) html += chaveCmp({ iso: d.dia });
-    html += graficos({ ivC, ivT, dir: 'TODOS', acum: false, passo, iSel, rot, tit, cmp, temFilaDia: true, vivo: true, filtroTx: textoFiltro(d, 'TODOS', ag),
+    html += graficos({ ivC, ivT, dir: ag.dir, acum: false, passo, iSel, rot, tit, cmp, temFilaDia: true, vivo: true, filtroTx: textoFiltro(d, ag.dir, ag),
       pre: 'agora', suf: '', gopt: { maxRot: 12, rotulos: true }, fixoOf: resumo, notaExtra, cmpTipo: evo.cmp });
-    html += painelGrupos(d, L, ivC, iSel, false, ag, { dir: 'TODOS', desde, id: 'agora-grupos' });
+    html += painelGrupos(d, L, ivC, iSel, false, ag, { dir: ag.dir, desde, id: 'agora-grupos' });
     return html;
   }
 
 
-  function grupos(d, skills, L) {
-    const m = new Map();
-    skills.forEach(s => { const g = d.trad[s].SKILL_GRUPO; if (!m.has(g)) m.set(g, []); m.get(g).push(s); });
-    return [...m.entries()].map(([nome, ss]) => ({ nome, ss, a: D.agregar(L, ss) })).sort((x, y) => y.a.ofer - x.a.ofer || x.nome.localeCompare(y.nome));
-  }
+
 
   // ---------------------------------------------------------------- EVOLUÇÃO
   // filtro da Evolução: atendimento + grupo + skill (nome simplificado; pode juntar várias skills do Pulse)
@@ -908,7 +889,8 @@
     return cartaoGraf(opt.id || 'evo-grupos', titulo, `<div class="gks">${corpo}</div>`, leg, '', '', 'painel');
   }
 
-  function tabelaIntervalos(ivC, ivT, dir, passo, iSel, acum) {
+  function tabelaIntervalos(ivC, ivT, dir, passo, iSel, acum, opt) {
+    opt = opt || {};
     const linhas = ivC.map((c, i) => {
       const t = ivT[i], r = `${D.hhmm(acum ? (c.andamento ? c.ateM : c.fim) : c.ini)}${c.andamento ? '*' : ''}`;
       const cls = i === iSel ? ' class="sel"' : '';
@@ -920,7 +902,7 @@
     const h1 = acum ? 'Até' : 'Início';
     const head = dir === 'TEL' ? `<th>${h1}</th><th>Oferecidas</th>` : dir === 'CO' ? `<th>${h1}</th><th>Ofer.</th><th>Atend.</th><th>Aband.</th><th>NS</th><th title="${acum ? 'maior fila do dia até o horário' : 'pico de técnicos em espera'}">Fila</th><th>TME</th>`
       : `<th>${h1}</th><th>CO</th><th>TEL</th><th>NS CO</th><th>Aband. CO</th>`;
-    return `<div class="card"><h2>${acum ? 'Acumulado do dia' : 'Intervalos de ' + PASSO_NOME[passo]} <small>· mais recente primeiro</small></h2><div class="tw"><table class="conf tsel" id="tIv"><thead><tr>${head}</tr></thead><tbody>${linhas}</tbody></table></div></div>`;
+    return `<div class="card"><h2>${acum ? 'Acumulado do dia' : 'Intervalos de ' + PASSO_NOME[passo]} <small>· mais recente primeiro</small></h2>${opt.filtro ? `<p class="tfil">${esc(opt.filtro)}</p>` : ''}<div class="tw"><table class="conf${opt.id ? '' : ' tsel'}" id="${opt.id || 'tIv'}"><thead><tr>${head}</tr></thead><tbody>${linhas}</tbody></table></div></div>`;
   }
 
   // ---------------------------------------------------------------- SKILLS
@@ -1035,7 +1017,7 @@
   // ---------------------------------------------------------------- eventos
   function irPara(p) { pagina = p; infoAberto = null; evo.ctl = false; if (p === 'evo') evo.fonteVista = null; fecharSheet(); render(); window.scrollTo(0, 0); }
   document.addEventListener('click', e => {
-    const b = e.target.closest('button, [data-grupo], tr[data-i], rect.hit');
+    const b = e.target.closest('button, tr[data-i], rect.hit');
     if (!b) { if (e.target.id === 'sheetBg') fecharSheet(); return; }
     if (b.closest('nav.tabs')) return irPara(b.dataset.v);
     if (b.id === 'btRefresh') { if (origem === 'arquivo') { origem = 'site'; } return carregar(true); }
@@ -1078,7 +1060,7 @@
       return redesenhar();
     }
     if (b.dataset.skdir) { sk.dir = b.dataset.skdir; sk.zeros = false; return render(); }
-    if (b.matches('[data-grupo]')) { evo.dir = b.dataset.dir; evo.grupo = b.dataset.grupo; evo.skill = null; evo.sel = null; return irPara('evo'); }
+    if (b.dataset.agdir) { ag.dir = b.dataset.agdir; ag.grupo = null; ag.skill = null; return redesenhar(); }
     if (b.matches('rect.hit') && b.closest('#pgEvo') || b.matches('#tIv tr[data-i]')) {
       const iv = ivAtuais(); const i = +b.dataset.i; const c = iv[i];
       if (c) { evo.sel = evo.sel === c.ini ? null : c.ini; redesenhar(b); }
@@ -1145,7 +1127,6 @@
   });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') fecharSheet();
-    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.tg-a[data-grupo]')) { e.preventDefault(); e.target.click(); }
   });
   $('#arq').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) abrirArquivo(f); e.target.value = ''; });
   let largAnt = window.innerWidth;

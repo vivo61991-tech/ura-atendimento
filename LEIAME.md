@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.15.0)
+# URA · Suporte B2C (v1.16.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -89,8 +89,17 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 - Um dia do histórico é convertido para o mesmo formato do `pulse.json` (leituras acumuladas a cada 15 min, 08:00–21:00),
   então todas as telas e contas servem para os dois. **O histórico não tem fila** (técnicos em espera): esse gráfico só aparece no dia ao vivo.
 
-## Aba Agora · hora atual
-- Os MESMOS 7 gráficos da Evolução (oferecidas, técnicos em espera, atendidos direto, NS, abandono, TME, TMA), só da hora
+## Aba Agora
+- No topo, os botões **Total URA · CO · TEL** (os mesmos da aba Skills, na ordem da Evolução); começa sempre em Total URA.
+  - Total URA: NS do CO, Oferecidas URA (CO e TEL), abandonadas, em espera, TME, últimos 15 min (CO + TEL), agentes.
+  - CO: os cards do CO. TEL: só o volume (sem NS, fila ou tempos — a TEL é atendida em outro sistema).
+- Embaixo da hora atual, a **tabela de intervalos** igual à da Evolução, de 15 em 15 min, do dia inteiro, mais recente
+  primeiro; segue o atendimento escolhido e o filtro do painel de grupos (escrito em cima da tabela).
+- Saíram as tabelas "CO por grupo"/"TEL por grupo" e a parte "TEL · Parceira" (o painel "Grupos e skills" e os botões
+  do topo cobrem o mesmo).
+
+### Hora atual
+- Os MESMOS gráficos da Evolução (oferecidas, técnicos em espera, atendidos direto, NS, abandono, TME, TMA), só da hora
   atual, de 5 em 5 min. Logo depois da virada (última coleta às HH:00), a última hora fechada, de 15 em 15.
 - As colunas que ainda não chegaram ficam vazias, com o previsto (mediana, mesma chave Previsto) já desenhado até o fim
   da hora; as barras vão preenchendo a cada coleta. De 5 em 5 min o previsto divide cada bloco de 15 min do histórico
@@ -98,7 +107,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 - 1º gráfico, sem seleção: a hora até agora × previsto até agora, e o previsto da hora inteira.
 - Toque numa coluna seleciona em todos os gráficos da hora (com a mediana daquela coluna); colunas futuras não selecionam.
 - Painel "Grupos e skills" da hora, igual ao da Evolução. O filtro (grupo/skill) vale só para a aba Agora; os cards
-  do topo e as tabelas "CO por grupo"/"TEL por grupo" continuam do dia inteiro.
+  do topo continuam do dia inteiro (mudam só com os botões Total URA · CO · TEL).
 
 ## Painel "Grupos e skills" (Evolução, depois dos gráficos)
 - Um grupo por linha: nome e quantidade (oferecidas, CO + TEL) na mesma linha; barra com a parte do volume
@@ -161,6 +170,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.16.0:** aba Agora com os botões Total URA · CO · TEL no topo e a tabela de intervalos de 15 min (igual à da Evolução); saem as tabelas por grupo e a parte TEL · Parceira.
 - **1.15.0:** aba Agora com os mesmos gráficos da Evolução na hora atual (previsto até o fim da hora, barras preenchendo) e o painel Grupos e skills da hora, com filtro próprio.
 - **1.14.0:** barra de data só com a data inteira, maior; domingo em vermelho escuro; origem (Pulse / Histórico · Genesys) como aviso no rodapé ao trocar.
 - **1.13.0:** painel "Grupos e skills" na Evolução: barra, volume, NS/abandono/TME/TMA, skills expansíveis e filtro por grupo ou skill sem mexer na rolagem.
