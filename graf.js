@@ -142,22 +142,26 @@
           todos.map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${n > 20 ? 1.5 : 2.2}" style="fill:var(--sAcum);stroke:var(--card);stroke-width:1"/>`).join('');
       }
     }
-    // referência (mediana do histórico): linha suave tracejada com marcadores vazados
+    // previsto (mediana do histórico): área com linha suave ATRÁS das barras, na cor do gráfico bem clarinha.
+    // Começa meia coluna antes da primeira e termina meia coluna depois da última, para cobrir as colunas das pontas.
     let ref = '';
     if (cfg.ref) {
-      const trechos = [[]], todos = [];
+      const cor = cfg.refCor || 'var(--p500)';
+      const trechos = [[]];
       cfg.ref.forEach((v, i) => {
         if (v == null) { if (trechos[trechos.length - 1].length) trechos.push([]); return; }
-        const pt = [L + i * bw + bw / 2, Y(v)]; trechos[trechos.length - 1].push(pt); todos.push(pt);
+        trechos[trechos.length - 1].push([L + i * bw + bw / 2, Y(v)]);
       });
-      const d = trechos.filter(t => t.length).map(curva).join('');
-      if (d) {
-        ref = `<path class="ref" d="${d}" style="fill:none;stroke:var(--sRef);stroke-width:2;stroke-dasharray:5 3;stroke-linejoin:round;stroke-linecap:round"/>` +
-          todos.map(p => `<circle class="refp" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${n > 20 ? 1.8 : 2.6}" style="fill:var(--card);stroke:var(--sRef);stroke-width:1.6"/>`).join('');
-      }
+      const base = (H - B).toFixed(1), f = v => v.toFixed(1);
+      trechos.filter(t => t.length).forEach(t => {
+        const pts = [[t[0][0] - bw / 2, t[0][1]]].concat(t, [[t[t.length - 1][0] + bw / 2, t[t.length - 1][1]]]);
+        const topo = curva(pts);
+        ref += `<path class="ref" d="${topo}L${f(pts[pts.length - 1][0])} ${base}L${f(pts[0][0])} ${base}Z" style="fill:color-mix(in srgb,${cor} 13%,var(--card));stroke:none"/>` +
+          `<path class="ref-l" d="${topo}" style="fill:none;stroke:color-mix(in srgb,${cor} 55%,var(--card));stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round"/>`;
+      });
     }
     const base = `<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" style="stroke:var(--line);stroke-width:1"/>`;
-    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(cfg.aria || 'gráfico')}">${defs}${band}${base}${corpo}${meta}${linha}${ref}${labs}${xs}${hit}</svg>`;
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(cfg.aria || 'gráfico')}">${defs}${band}${ref}${base}${corpo}${meta}${linha}${labs}${xs}${hit}</svg>`;
   }
 
   const api = { barras, topo, curva, W };

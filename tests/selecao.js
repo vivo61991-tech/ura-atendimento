@@ -32,7 +32,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   ok(dois[0] > 5 && dois[1] > 5, `quantidade embaixo do % em atendidos direto (${dois[0]}) e abandono (${dois[1]})`);
   // atendidos direto: altura das colunas = quantidade (não o %)
   const alt = await p.$$eval('#pgEvo .chart', cs => { const svg = cs[2].querySelector('svg');
-    const barras = [...svg.querySelectorAll('path[style*="sCO"]')].map(b => b.getBBox().height);
+    const barras = [...svg.querySelectorAll('path[style*="sCO"]:not(.ref):not(.ref-l)')].map(b => b.getBBox().height);
     const qt = [...svg.querySelectorAll('text')].filter(t => /font-weight:650/.test(t.getAttribute('style')) && +t.getAttribute('y') < 165).map(t => +t.textContent.replace(/\./g, ''));
     return { barras, qt }; });
   const qs = alt.qt.filter(q => q > 0);   // coluna com 0 não desenha barra

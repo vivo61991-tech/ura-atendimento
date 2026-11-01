@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.9.0';
+  const APP_VERSION = '1.9.1';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -35,9 +35,10 @@
   // ctl: controles da Evolução abertos (começam sempre recolhidos)
   // fixo: controles + faixa de grupos presos no topo ao rolar (escolha lembrada no aparelho; só se troca com os controles abertos)
   // dia: null = o mais recente (ao vivo) | 'aaaa-mm-dd' = dia escolhido na navegação
-  // cmp: comparação pela mediana — 'nao' | 'dias' (7 dias corridos) | 'sem' (7 mesmos dias da semana); lembrada no aparelho
+  // cmp: comparação pela mediana — 'sem' (7 mesmos dias da semana, padrão) | 'dias' (7 dias corridos); lembrada no aparelho.
+  //      Fica sempre ligada quando há histórico (área clara atrás das barras).
   const evo = { dir: 'CO', passo: lerPref('passo', 'auto'), grupo: null, sel: null, modo: 'int', ctl: false, fixo: lerPref('fixo', false) === true,
-    dia: null, cmp: ['nao', 'dias', 'sem'].includes(lerPref('cmp', 'nao')) ? lerPref('cmp', 'nao') : 'nao' };
+    dia: null, cmp: lerPref('cmp', 'sem') === 'dias' ? 'dias' : 'sem' };
   const sk = { dir: 'CO', q: '', zeros: false };
 
   const $ = s => document.querySelector(s);
@@ -357,14 +358,14 @@
 
   // ---------------------------------------------------------------- EVOLUÇÃO
   // ---------------------------------------------------------------- dia da Evolução (ao vivo ou do histórico)
-  // Dias disponíveis = os do histórico + o dia do Pulse. O dia do Pulse vem "ao vivo" (com fila); se ele já passou e o
-  // histórico tem o dia completo, vale o histórico (o Pulse pode ter parado no meio do dia).
+  // Dias disponíveis = o dia do Pulse (sempre do Pulse, com fila) + os dias do histórico ANTERIORES a ele.
+  // O histórico só vale "para trás": se ele tiver o próprio dia do Pulse (ou depois), esses dias ficam de fora.
   function diasDisp() {
-    const c = new Set(hist ? hist.lista : []);
+    const c = new Set(hist ? hist.lista.filter(x => !dados || x < dados.dia) : []);
     if (dados) c.add(dados.dia);
     return [...c].sort();
   }
-  const usaPulse = iso => !!dados && iso === dados.dia && !(dados.dia !== hojeISO() && hist && hist.dias.has(iso));
+  const usaPulse = iso => !!dados && iso === dados.dia;
   function diaEvo() {
     const lista = diasDisp();
     if (evo.dia && !lista.includes(evo.dia)) evo.dia = null;
@@ -381,7 +382,7 @@
   // Mediana do histórico para o dia em exibição: mesmos filtros, mesmo eixo e mesmo modo (intervalo/acumulado).
   // Lm: horário da última leitura do dia em exibição — os cards comparam "o dia até agora" com os outros dias até a mesma hora.
   function comparacao(iso, passo, acum, Lm) {
-    if (evo.cmp === 'nao' || !hist) return null;
+    if (!hist) return null;
     const refs = Hs.referencias(hist, iso, evo.cmp);
     const porRef = refs.map(r => {
       const dR = Hs.diaComoDados(hist, r, dados.trad);
@@ -403,6 +404,13 @@
     if (!ref) return '';
     const x = (atual / ref - 1) * 100;
     return `${x > 0 ? '+' : x < 0 ? '−' : '±'}${Math.abs(x).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}%`;
+  }
+
+  // chave acima do primeiro gráfico: com o que comparar (vale para todos os gráficos)
+  function chaveCmp(ctx) {
+    const w = Hs.diaSemana(ctx.iso);
+    return `<div class="cmpk" role="group" aria-label="Comparar com a mediana do histórico"><span class="cmpk-l">Previsto</span>
+      <div class="seg sm">${[['dias', '7 dias corridos'], ['sem', '7 ' + DS_PLURAL[w]]].map(([v, t]) => `<button data-cmp="${v}" class="${evo.cmp === v ? 'on' : ''}" aria-pressed="${evo.cmp === v}">${t}</button>`).join('')}</div></div>`;
   }
 
   // barra de data da Evolução: ‹ dia ›, seletor de data e "Hoje"/"Último"
@@ -465,9 +473,8 @@
     } else { grpsDisp.forEach(g => chipVol.set(g, volGrp.get(g))); chipTodos = volTodos; }
     const cmp = comparacao(ctx.iso, passo, acum, L.m);
     const temCmp = !!(cmp && cmp.porRef.length);
-    // controles recolhidos: só o que está escolhido, numa linha (com comparação, rótulos mais curtos para caber)
-    const resumoCtl = [{ CO: 'CO', TEL: 'TEL', TODOS: 'Total URA' }[dir], acum ? (cmp ? 'Acum.' : 'Acumulado') : (cmp ? 'Intervalo' : 'Por intervalo'),
-      evo.passo === 'auto' ? (cmp ? 'Auto' : 'Auto · ' + PASSO_NOME[passo]) : PASSO_NOME[passo]].concat(cmp ? ['vs ' + nomeCmp(ctx.iso, 7, true)] : []);
+    // controles recolhidos: só o que está escolhido, numa linha
+    const resumoCtl = [{ CO: 'CO', TEL: 'TEL', TODOS: 'Total URA' }[dir], acum ? 'Acumulado' : 'Por intervalo', evo.passo === 'auto' ? 'Auto · ' + PASSO_NOME[passo] : PASSO_NOME[passo]];
     // KPIs: sem seleção = acumulado do dia; com seleção = só o intervalo
     const aC = iSel >= 0 ? (ivC[iSel].v || null) : D.agregar(L, co);
     const aT = iSel >= 0 ? (ivT[iSel] && ivT[iSel].v || null) : D.agregar(L, tel);
@@ -510,7 +517,7 @@
     if (ivC.some(i => i.andamento)) notas.push('<span><i class="and"></i>* em andamento (até a última coleta)</span>');
     if (ivC.some(i => i.semColeta)) notas.push(`<span><i class="sd"></i>${acum ? 'sem coleta neste horário' : 'sem coleta (volume no intervalo seguinte)'}</span>`);
     if (cmp) notas.push(temCmp
-      ? `<span><i class="ref"></i>mediana ${evo.cmp === 'sem' ? 'das últimas ' : 'dos últimos '}${esc(cmp.nome)} do histórico (${cmp.refs.map(r => ddmmaaaa(r).slice(0, 5)).join(', ')})${ivC.some(i => i.andamento) ? ' · sem mediana na coluna em andamento' : ''}</span>`
+      ? `<span><i class="ref"></i>área clara: mediana ${evo.cmp === 'sem' ? 'das últimas ' : 'dos últimos '}${esc(cmp.nome)} do histórico (${cmp.refs.map(r => ddmmaaaa(r).slice(0, 5)).join(', ')}) — o previsto para o horário${ivC.some(i => i.andamento) ? ' · sem mediana na coluna em andamento' : ''}</span>`
       : '<span>sem dias anteriores no histórico para comparar</span>');
     const capPadrao = !acum && ivC.length && ivC[0].incluiAntes ? `A 1ª coluna (${rot(ivC[0])}) inclui o que entrou antes da primeira coleta do dia.` : 'Toque numa coluna para selecionar · toque de novo para limpar.';
     // o resumo do intervalo selecionado fica sempre à vista, centralizado, só com os valores DAQUELE gráfico;
@@ -527,6 +534,7 @@
     const fOf = (v, t) => dir === 'CO' ? v.ofer : dir === 'TEL' ? (t ? t.ofer : 0) : v.ofer + (t ? t.ofer : 0);
     const fAb = v => acum ? v.aband : v.abandPct;
     const refArr = f => temCmp ? ivC.map(c => medCol(cmp, c, f)) : null;
+    const corOf = dir === 'TEL' ? 'var(--sTEL)' : 'var(--sCO)';
     const dica = `<div class="cap">${acum ? 'Modo acumulado: cada coluna mostra o total do dia até o horário dela. ' : ''}${capPadrao}${!acum && ivC.length && ivC[0].incluiAntes ? ' Toque numa coluna para selecionar · toque de novo para limpar.' : ''}</div>`;
     let nGraf = 0;
     // filtro aplicado, mostrado no rodapé de cada gráfico:
@@ -540,7 +548,7 @@
     }
     const graf = (titulo, svg, leg, tipo, extra) => cartaoGraf('evo-' + tipo, titulo, svg, `<div class="legend">${leg}${notas.join('')}</div>${dica}`, selTx(tipo, extra), filtroTx);
 
-    let html = graf((acum ? 'Chamadas oferecidas' : 'Chamadas oferecidas por intervalo') + suf, G.barras({ cols: colsOf, sel: iSel, ref: refArr(fOf), aria: 'Chamadas oferecidas' }), legOf, 'of',
+    let html = graf((acum ? 'Chamadas oferecidas' : 'Chamadas oferecidas por intervalo') + suf, G.barras({ cols: colsOf, sel: iSel, ref: refArr(fOf), refCor: corOf, aria: 'Chamadas oferecidas' }), legOf, 'of',
       { refHtml: vS ? refSel(fOf, fI, fOf(vS, vT)) : null });
     if (temCO) {
       // técnicos em espera: pico do intervalo (retrato das coletas), cor pela espera mais longa
@@ -562,7 +570,7 @@
       const colsDir = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
         rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: c.v.a60 || 0, cor: 'var(--sCO)' }],
         lab: c.v.dir60 == null ? '' : Math.round(c.v.dir60) + '%', lab2: c.v.dir60 == null ? '' : fI(c.v.a60) });
-      html += graf('Técnicos atendidos direto' + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsDir, sel: iSel, ref: refArr(v => v.a60), aria: 'Atendidos em até 1 minuto' }),
+      html += graf('Técnicos atendidos direto' + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsDir, sel: iSel, ref: refArr(v => v.a60), refCor: 'var(--sCO)', aria: 'Atendidos em até 1 minuto' }),
         (acum ? '<span><i style="background:var(--sCO)"></i>altura: técnicos atendidos em até 1&nbsp;min, somados do início do dia até o horário</span>'
           : '<span><i style="background:var(--sCO)"></i>altura: técnicos atendidos em até 1&nbsp;min no intervalo</span>') +
         `<span>rótulo: % das atendidas ${acum ? 'no dia até o horário' : 'no intervalo'} (em cima) e quantidade de técnicos atendidos direto (embaixo)</span>`, 'dir',
@@ -576,29 +584,29 @@
         segs: [{ v: c.v.ns == null ? 0 : c.v.ns, cor: corSit(situacao(c.v.ns)) }],
         lab: c.v.ns == null ? '' : Math.round(c.v.ns) + '%' });
       html += graf((acum ? 'Nível de serviço (<span class="un">5 min</span>)' : 'Nível de serviço (<span class="un">5 min</span>) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf,
-        // com comparação, a linha do NS acumulado dá lugar à linha da mediana (duas linhas confundiriam)
-        G.barras({ cols: colsNS, max: 100, meta: META_NS, metaTx: META_NS + '%', linha: acum || temCmp ? null : linhaNS, ref: refArr(v => v.ns), sel: iSel, aria: 'Nível de serviço' }),
-        `<span><i style="background:var(--verdeS)"></i>Meta atingida</span><span><i style="background:var(--amareloS)"></i>Em atenção</span><span><i style="background:var(--vermelhoS)"></i>Crítico</span>${acum || temCmp ? '' : '<span><i class="ln"></i>NS acumulado do dia (÷ oferecidas, como no Pulse)</span>'}<span><i class="dash"></i>meta ${META_NS}%</span>` +
+        // a mediana fica como área clara atrás das barras; a linha do NS acumulado continua por cima
+        G.barras({ cols: colsNS, max: 100, meta: META_NS, metaTx: META_NS + '%', linha: acum ? null : linhaNS, ref: refArr(v => v.ns), refCor: 'var(--p500)', sel: iSel, aria: 'Nível de serviço' }),
+        `<span><i style="background:var(--verdeS)"></i>Meta atingida</span><span><i style="background:var(--amareloS)"></i>Em atenção</span><span><i style="background:var(--vermelhoS)"></i>Crítico</span>${acum ? '' : '<span><i class="ln"></i>NS acumulado do dia (÷ oferecidas, como no Pulse)</span>'}<span><i class="dash"></i>meta ${META_NS}%</span>` +
         (acum ? '<span>colunas: NS do dia até o horário — atendidas em até 5&nbsp;min ÷ oferecidas, como no Pulse</span>' : '<span>colunas: atendidas em até 5&nbsp;min ÷ chamadas finalizadas no intervalo (atendidas + abandonadas)</span>'),
         'ns', { acum: iSel >= 0 && !acum ? linhaNS[iSel] : null, refHtml: vS ? refSel(v => v.ns, x => fP(x), vS.ns, true) : null });
       // 3) abandono
       const colsAb = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
         rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: acum ? c.v.aband : (c.v.abandPct || 0), cor: 'var(--sAb)' }],
         lab: c.v.abandPct == null ? '' : Math.round(c.v.abandPct) + '%', lab2: c.v.abandPct == null ? '' : fI(c.v.aband) });
-      html += graf((acum ? 'Abandono' : 'Abandono por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsAb, sel: iSel, ref: refArr(fAb), aria: 'Abandono' }),
+      html += graf((acum ? 'Abandono' : 'Abandono por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsAb, sel: iSel, ref: refArr(fAb), refCor: 'var(--sAb)', aria: 'Abandono' }),
         (acum ? '<span><i style="background:var(--sAb)"></i>altura: chamadas abandonadas, somadas do início do dia até o horário</span><span>rótulo: abandonadas ÷ oferecidas do dia (em cima) e quantidade (embaixo)</span>'
           : '<span><i style="background:var(--sAb)"></i>altura: abandonadas ÷ chamadas finalizadas no intervalo</span><span>rótulo: % (em cima) e quantidade de abandonadas (embaixo)</span>'), 'ab',
         { refHtml: vS ? (acum ? refSel(v => v.aband, fI, vS.aband) : refSel(v => v.abandPct, x => fP(x), vS.abandPct, true)) : null });
       // 4) TME
       const colsT = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
         rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: c.v.tme || 0, cor: 'var(--sTme)' }], lab: c.v.tme == null ? '' : minCurto(c.v.tme) });
-      html += graf((acum ? 'Tempo médio de espera (TME)' : 'Tempo médio de espera (TME) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsT, sel: iSel, ref: refArr(v => v.tme), aria: 'TME' }),
+      html += graf((acum ? 'Tempo médio de espera (TME)' : 'Tempo médio de espera (TME) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsT, sel: iSel, ref: refArr(v => v.tme), refCor: 'var(--sTme)', aria: 'TME' }),
         `<span><i style="background:var(--sTme)"></i>TME das chamadas atendidas ${acum ? 'no dia até o horário' : 'no intervalo'}: tempo que o técnico esperou até ser atendido</span>`, 'tme',
         { refHtml: vS ? refSel(v => v.tme, fS, vS.tme) : null });
       // 5) TMA (média: no acumulado é a média do dia até ali, não soma)
       const colsTma = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
         rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: c.v.tma || 0, cor: 'var(--sTma)' }], lab: c.v.tma == null ? '' : minCurto(c.v.tma) });
-      html += graf((acum ? 'Tempo médio de atendimento (TMA)' : 'Tempo médio de atendimento (TMA) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsTma, sel: iSel, ref: refArr(v => v.tma), aria: 'TMA' }),
+      html += graf((acum ? 'Tempo médio de atendimento (TMA)' : 'Tempo médio de atendimento (TMA) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsTma, sel: iSel, ref: refArr(v => v.tma), refCor: 'var(--sTma)', aria: 'TMA' }),
         `<span><i style="background:var(--sTma)"></i>TMA das chamadas atendidas ${acum ? 'no dia até o horário' : 'no intervalo'}: duração do atendimento (média ponderada pelas atendidas)</span>`, 'tma',
         { refHtml: vS ? refSel(v => v.tma, fS, vS.tma) : null });
     } else {
@@ -613,7 +621,6 @@
         ${evo.ctl ? `<div class="seg" role="tablist" aria-label="Atendimento">${[['CO', 'CO'], ['TEL', 'TEL'], ['TODOS', 'Total URA']].map(([v, t]) => `<button data-dir="${v}" class="${dir === v ? 'on' : ''}">${t}</button>`).join('')}</div>
         <div class="seg sm" role="tablist" aria-label="Modo">${[['int', 'Por intervalo'], ['acum', 'Acumulado']].map(([v, t]) => `<button data-modo="${v}" class="${evo.modo === v ? 'on' : ''}" aria-pressed="${evo.modo === v}">${t}</button>`).join('')}</div>
         <div class="seg sm" role="tablist" aria-label="Intervalo do eixo">${['auto', 15, 30, 60, 120].map(p => `<button data-passo="${p}" class="${String(evo.passo) === String(p) ? 'on' : ''}">${PASSO_NOME[p]}</button>`).join('')}</div>
-        <div class="seg sm" role="tablist" aria-label="Comparar com a mediana do histórico">${[['nao', 'Sem comparação'], ['dias', '7 dias'], ['sem', '7 ' + DS_PLURAL[Hs ? Hs.diaSemana(ctx.iso) : 0]]].map(([v, t]) => `<button data-cmp="${v}" class="${evo.cmp === v ? 'on' : ''}" aria-pressed="${evo.cmp === v}"${!hist && v !== 'nao' ? ' disabled title="Histórico indisponível"' : ''}>${t}</button>`).join('')}</div>
         <div class="ctl-pe"><div class="meta-line"><span>${acum ? 'Acumulado · a cada ' + PASSO_NOME[passo] : 'Intervalos de ' + PASSO_NOME[passo]}${evo.passo === 'auto' ? ' (auto)' : ''}</span><span>08:00–${esc(L.horario)}</span></div>${pinoCtl()}${setaCtl(true)}</div>`
         : `<div class="ctl-pe"><button class="ctl-res" data-act="ctl" aria-label="Mostrar os controles: ${esc(resumoCtl.join(', '))}">${resumoCtl.map(t => `<span class="ctl-p">${esc(t)}</span>`).join('')}</button>${setaCtl(false)}</div>`}
         ${iSel >= 0 ? `<button class="selchip" data-act="limpar"><span>Selecionado: <b>${tit(ivC[iSel])}</b> · toque para limpar</span><span aria-hidden="true">✕</span></button>` : ''}
@@ -624,6 +631,7 @@
       }).join('')}</div>
       </div>
       <div class="kpis2">${k}</div>
+      ${hist ? chaveCmp(ctx) : ''}
       ${html}`;
   }
   // cor da fila pela espera mais longa (mesma régua da lista "Fila agora")
