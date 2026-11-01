@@ -11,7 +11,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await p.waitForFunction(() => window.__ura.estado().dados);
   const abertos = () => p.evaluate(() => [...document.querySelectorAll('.ch-info')].filter(x => !x.hidden && x.offsetParent).map(x => x.id));
   ok((await abertos()).length === 0, 'Agora: explicação escondida ao abrir');
-  ok(await p.locator('#pgAgora .chart .legend').isHidden(), 'Agora: legenda não aparece sem tocar no (i)');
+  ok(await p.$$eval('#pgAgora .chart .legend', ls => ls.length >= 7 && ls.every(l => !l.offsetParent)), 'Agora: legendas não aparecem sem tocar no (i)');
   await p.click('nav.tabs button[data-v="evo"]');
   const nInfo = await p.locator('#pgEvo button.info').count();
   ok(nInfo >= 5, `Evolução: botão (i) em todos os ${nInfo} gráficos`);
