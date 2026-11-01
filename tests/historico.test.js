@@ -99,4 +99,23 @@ t('desempenho: ler os 139 dias e converter 50 dias em menos de 1,5 s', () => {
   assert.ok(ms < 1500);
 });
 
+t('fila: lê só as marcas de 15 min, zera quem não aparece e respeita o período do arquivo', () => {
+  const H = Hs.parse(['DIA;HORARIO;SKILL;OFERECIDAS;ATENDIDAS;ABANDONADAS;ATEND_60S;ATEND_300S;SOMA_ESPERA_S;SOMA_TMA_S',
+    '01/10/2026;10:00;A;5;4;1;2;3;100;600', '02/10/2026;10:00;A;5;4;1;2;3;100;600', '03/10/2026;10:00;A;5;4;1;2;3;100;600'].join('\n'));
+  assert.ok(Hs.ehFila('DIA;MARCA;SKILL;EM_ESPERA;ESPERA_MAX_S') && !Hs.ehFila('DIA;HORARIO;SKILL'));
+  const F = Hs.parseFila(['\uFEFFDIA;MARCA;SKILL;EM_ESPERA;ESPERA_MAX_S', '02/10/2026;10:10;A;9;400', '02/10/2026;10:15;A;3;200', '2026-10-02;10:15;B;2;50', '02/10/2026;xx;A;1;1'].join('\n'));
+  assert.deepStrictEqual([F.inicio, F.fim, F.ruins], ['2026-10-02', '2026-10-02', 1]);
+  const trad = { A: { SKILL_GRUPO: 'G', DIRECIONAMENTO: 'CO' }, B: { SKILL_GRUPO: 'G', DIRECIONAMENTO: 'CO' } };
+  assert.strictEqual(Hs.diaComoDados(H, '2026-10-02', trad).temFila, false, 'sem anexar: sem fila');
+  Hs.anexarFila(H, F);
+  const d = Hs.diaComoDados(H, '2026-10-02', trad);
+  const l = d.leituras.find(x => x.m === 615), l0 = d.leituras.find(x => x.m === 600);
+  assert.ok(d.temFila);
+  assert.deepStrictEqual([l.v.A.Current_Calls, l.v.A.Curr_Max_Wait_Time, l.v.B.Current_Calls], [3, 200, 2], 'marca de 15 min');
+  assert.strictEqual(l0.v.A.Current_Calls, 0, 'sem linha = ninguém esperando (zero, não vazio)');
+  assert.strictEqual(D.espera(d.leituras, 600, 630, ['A', 'B']).pico, 5, 'pico soma as skills na marca (a de 10:10 fica de fora)');
+  assert.strictEqual(Hs.diaComoDados(H, '2026-10-01', trad).temFila, false, 'fora do período do arquivo: sem fila');
+  assert.throws(() => Hs.parseFila('DIA;MARCA;SKILL\n02/10/2026;10:15;A'), /EM_ESPERA/);
+});
+
 console.log(`\n${ok} teste(s) ok${process.exitCode ? ' — HÁ FALHAS' : ''}`);

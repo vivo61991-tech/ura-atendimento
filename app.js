@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.10.0';
+  const APP_VERSION = '1.11.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -10,6 +10,7 @@
   const PARAM = new URLSearchParams(location.search);
   const FONTE = PARAM.get('arquivo') || 'pulse.json';   // arquivo publicado na raiz do site, ao lado do index.html
   const HIST_FONTE = PARAM.get('historico') || 'historico.csv';   // base Genesys (somas por skill a cada 15 min)
+  const FILA_FONTE = PARAM.get('fila') || 'historico_fila.csv';     // fila do histórico (técnicos em espera a cada 5 min)
   const HIST_RECARGA_MIN = 60;                          // o histórico muda uma vez por dia: confere a cada 1 h
   const CK = 'ura-b2c:';                                // prefixo das chaves no localStorage
   const ATRASO_MIN = 15;                                // sem coleta nova há mais que isto (no expediente): aviso
@@ -31,6 +32,7 @@
   let histCarregando = false;
   let histEm = 0;              // quando o histórico foi conferido pela última vez (ms)
   let histOrigem = '';         // 'site' | 'arquivo'
+  let filaErro = null;         // historico_fila.csv ausente ou com problema (o app segue sem a fila nos dias do histórico)
   // modo: 'int' = por intervalo (padrão, sempre ao abrir) | 'acum' = acumulado do dia
   // ctl: controles da Evolução abertos (começam sempre recolhidos)
   // fixo: controles + faixa de grupos presos no topo ao rolar (escolha lembrada no aparelho; só se troca com os controles abertos)
@@ -107,6 +109,13 @@
       if (!r.ok) throw new Error(r.status === 404 ? 'arquivo ' + HIST_FONTE + ' não encontrado no site' : 'o site respondeu ' + r.status);
       const txt = await r.text();
       const novo = Hs.parse(txt);
+      // fila do histórico: opcional. Sem ela os dias do histórico ficam sem o gráfico de técnicos em espera.
+      // Se o arquivo novo falhar, continua a fila que já estava carregada.
+      try {
+        const rf = await fetch(FILA_FONTE, { cache: 'no-cache' });
+        if (!rf.ok) throw new Error(rf.status === 404 ? 'arquivo ' + FILA_FONTE + ' não encontrado no site' : 'o site respondeu ' + rf.status);
+        Hs.anexarFila(novo, Hs.parseFila(await rf.text())); filaErro = null;
+      } catch (ef) { filaErro = ef.message || 'falha ao ler a fila'; if (hist && hist.fila) Hs.anexarFila(novo, hist.fila); }
       hist = novo; histErro = null; histOrigem = 'site';
     } catch (e) {
       histErro = e.message || 'falha ao ler o histórico';
@@ -119,9 +128,16 @@
     const fr = new FileReader();
     const csv = /\.(csv|txt)$/i.test(file.name);
     fr.onload = () => {
+      if (csv && Hs.ehFila(fr.result)) {
+        // fila do histórico aberta do aparelho: liga ao histórico em uso
+        if (!hist) { toast('Abra primeiro o histórico; a fila é um complemento dele.'); return; }
+        try { const F = Hs.parseFila(String(fr.result)); Hs.anexarFila(hist, F); filaErro = null; toast(`Fila do histórico aberta: ${ddmmaaaa(F.inicio)} a ${ddmmaaaa(F.fim)}.`); }
+        catch (e) { toast('Este arquivo da fila não serve: ' + e.message + '.'); }
+        return render();
+      }
       if (csv) {
         // arquivo do histórico aberto do aparelho (para testes): vale até recarregar o app
-        try { hist = Hs.parse(String(fr.result)); histErro = null; histOrigem = 'arquivo'; evo.dia = null; toast(`Histórico aberto: ${hist.lista.length} dias (${ddmmaaaa(hist.inicio)} a ${ddmmaaaa(hist.fim)}).`); }
+        try { const F = hist && hist.fila; hist = Hs.parse(String(fr.result)); histErro = null; histOrigem = 'arquivo'; if (F) Hs.anexarFila(hist, F); evo.dia = null; toast(`Histórico aberto: ${hist.lista.length} dias (${ddmmaaaa(hist.inicio)} a ${ddmmaaaa(hist.fim)}).`); }
         catch (e) { toast('Este histórico não serve: ' + e.message + '.'); }
         return render();
       }
@@ -289,7 +305,7 @@
     const k = `<div class="kpis2 k3">
       ${kpi('Oferecidas CO', fI(a.ofer), `atendidas ${fI(a.atend)}`, '', linhaMed(cmp, mDia(x => x.ofer), fI, a.ofer))}
       ${kpi('Abandonadas', `<span class="${a.aband ? 'c-VERMELHO' : ''}">${fI(a.aband)}</span>`, a.abandPct == null ? '' : fP(a.abandPct) + ' das oferecidas', '', linhaMed(cmp, mDia(x => x.aband), fI, a.aband))}
-      ${kpi('Em espera agora', fI(a.fila), a.fila ? 'mais antiga ' + fS(a.espMax) : 'nenhuma na fila')}
+      ${kpi('Em espera agora', fI(a.fila), a.fila ? 'mais antiga ' + fS(a.espMax) : 'nenhuma na fila', '', linhaMed(cmp && cmp.porRef.some(r => r.dR.temFila) ? cmp : null, medAg(cmp, r => { if (!r.dR.temFila) return null; const l = [...r.dR.leituras].reverse().find(x => x.m <= L.m); return l ? D.agregar(l, r.coR).fila : null; }), fI, a.fila))}
       ${kpi('TME', fS(a.tme), 'TMA ' + fS(a.tma), '', linhaMed(cmp, mDia(x => x.tme), fS, a.tme))}
       ${kpi('Últimos 15 min', u15 ? fI(u15.v.ofer) : '—', u15 ? `${u15.rot}–${D.hhmm(u15.ateM)} · NS ${u15.v.ns == null ? '—' : fP(u15.v.ns)}` : '', '', u15 ? linhaMed(cmp, m15(u15, 'CO'), fI, u15.v.ofer) : '')}
       ${kpi('Agentes disponíveis', fI(a.dispMax), 'maior valor numa skill CO')}
@@ -442,6 +458,17 @@
     return Hs.mediana(cmp.porRef.map(r => { const x = r.ivC.get(c.ini), y = r.ivT.get(c.ini); return x && x.v ? f(x.v, y && y.v) : null; }));
   }
   const medDia = (cmp, f) => !cmp || !cmp.porRef.length ? null : Hs.mediana(cmp.porRef.map(r => f(r.diaC, r.diaT)));
+  // fila (técnicos em espera): pico das coletas. Dias de referência sem fila (fora do arquivo) ficam de fora da mediana.
+  function medEsp(cmp, c) {
+    if (!cmp || !cmp.porRef.length || !c || c.semColeta) return null;
+    return Hs.mediana(cmp.porRef.map(r => {
+      if (!r.dR.temFila) return null;
+      if (c.andamento) { const e = D.espera(r.dR.leituras, cmp.acum ? -1 : c.ini, c.ateM, r.coR); return e ? e.pico : null; }
+      const x = r.ivC.get(c.ini); return x && x.esp ? x.esp.pico : null;
+    }));
+  }
+  const medEspDia = (cmp, Lm) => !cmp || !cmp.porRef.length ? null :
+    Hs.mediana(cmp.porRef.map(r => { if (!r.dR.temFila) return null; const e = D.espera(r.dR.leituras, -1, Lm, r.coR); return e ? e.pico : null; }));
   // diferença para a mediana: % em volumes e tempos; pontos percentuais (p.p.) em percentuais
   function difTx(atual, ref, pp) {
     if (atual == null || ref == null) return '';
@@ -520,6 +547,7 @@
     } else { grpsDisp.forEach(g => chipVol.set(g, volGrp.get(g))); chipTodos = volTodos; }
     const cmp = comparacao(ctx.iso, passo, acum, L.m);
     const temCmp = !!(cmp && cmp.porRef.length);
+    const temFilaDia = ctx.vivo || !!d.temFila;      // o dia tem a fila? (Pulse sempre; histórico com o historico_fila.csv)
     // controles recolhidos: só o que está escolhido, numa linha
     const resumoCtl = [{ TODOS: 'Total URA', CO: 'CO', TEL: 'TEL' }[dir], acum ? 'Acumulado' : 'Por intervalo', evo.passo === 'auto' ? 'Auto · ' + PASSO_NOME[passo] : PASSO_NOME[passo]];
     // KPIs: sem seleção = acumulado do dia; com seleção = só o intervalo
@@ -534,9 +562,11 @@
     if (iSel >= 0 && ivC[iSel].semColeta) k = `<div class="banner warn">${rot(ivC[iSel])}: sem coleta neste horário${acum ? '.' : ' — o volume entra no intervalo seguinte.'}</div>`;
     else if (dir === 'CO') {
       const eD = iSel >= 0 ? ivC[iSel].esp : D.espera(d.leituras, -1, L.m, co);
-      // o histórico não tem fila: no lugar do "Pico em espera" entram as atendidas
-      const kFila = ctx.vivo
-        ? kpi('Pico em espera', eD ? fI(eD.pico) + (eD.pico === 1 ? ' técnico' : ' técnicos') : '—', eD && eD.pico ? 'às ' + D.hhmm(eD.picoM) + ' · até ' + minCurto(eD.espMax) : 'sem fila nas coletas', kc)
+      // dia do histórico sem a fila (fora do arquivo historico_fila): no lugar do "Pico em espera" entram as atendidas
+      const rEsp = !temCmp ? null : iSel >= 0 ? medEsp(cmp, ivC[iSel]) : medEspDia(cmp, L.m);
+      const kFila = temFilaDia
+        ? kpi('Pico em espera', eD ? fI(eD.pico) + (eD.pico === 1 ? ' técnico' : ' técnicos') : '—', eD && eD.pico ? 'às ' + D.hhmm(eD.picoM) + ' · até ' + minCurto(eD.espMax) : 'sem fila nas coletas', kc,
+          temCmp ? `med. ${esc(cmp.curto)}: <b>${rEsp == null ? '—' : fI(rEsp)}</b> <span class="df">${rEsp == null || !eD ? '' : difTx(eD.pico, rEsp)}</span>` : '')
         : kpi('Atendidas', fI(aC.atend), aC.ofer ? fP(aC.atend / aC.ofer * 100) + ' das oferecidas' : '', kc, kR(v => v.atend, fI, aC.atend));
       k = kpi('Oferecidas', fI(aC.ofer), `atendidas ${fI(aC.atend)} ${onde}`, kc, kR(v => v.ofer, fI, aC.ofer)) +
         kpi('NS 5 min', nsTx(aC.ns), `meta ${META_NS}%`, kc, kR(v => v.ns, x => fP(x), aC.ns, true)) +
@@ -598,22 +628,24 @@
       { refHtml: vS ? refSel(fOf, fI, fOf(vS, vT)) : null });
     if (temCO) {
       // técnicos em espera: pico do intervalo (retrato das coletas), cor pela espera mais longa
-      if (ctx.vivo) {
+      if (temFilaDia) {
       const colsEsp = ivC.map(c => {
         const base = { rot: rot(c), and: c.andamento, titulo: tit(c) };
         if (!c.esp) return Object.assign(base, { sd: true });
         return Object.assign(base, { segs: [{ v: c.esp.pico, cor: corEspera(c.esp.espMax) }], lab: c.esp.pico ? fI(c.esp.pico) : '', ok: c.esp.pico === 0 });
       });
       html += graf('Técnicos em espera' + (dir === 'TODOS' ? ' · CO' : '') + (acum ? ' <small>· maior fila do dia até o horário</small>' : ''),
-        G.barras({ cols: colsEsp, sel: iSel, aria: 'Técnicos em espera por intervalo' }),
+        G.barras({ cols: colsEsp, sel: iSel, ref: temCmp ? ivC.map(c => medEsp(cmp, c)) : null, refCor: 'var(--p500)', aria: 'Técnicos em espera por intervalo' }),
         `<span><i style="background:var(--okc);border-radius:50%"></i>sem fila</span><span><i style="background:var(--p300)"></i>espera mais longa até 2 min</span><span><i style="background:var(--laranja)"></i>2 a 5 min</span><span><i style="background:var(--rosa)"></i>acima de 5 min</span>` +
         (acum ? '<span>maior número de técnicos esperando ao mesmo tempo, do início do dia até o horário da coluna (a fila é um retrato: não se soma ao longo do tempo)</span>'
-          : `<span>maior número de técnicos esperando ao mesmo tempo nas coletas do intervalo (${passo < 15 ? 'de 5 em 5 min' : 'horas fechadas: uma coleta a cada 15 min'})</span>`), 'esp');
+          : `<span>maior número de técnicos esperando ao mesmo tempo nas coletas do intervalo (${passo < 15 ? 'de 5 em 5 min' : 'horas fechadas: uma coleta a cada 15 min'})</span>`) +
+        (ctx.vivo ? '' : '<span>dia do histórico: fila refeita chamada a chamada pelo Genesys (quem passou dos 120 s de URA e ainda não tinha sido atendido nem desistido), no mesmo retrato de 15 em 15 min do Pulse</span>'), 'esp',
+        { refHtml: temCmp && iSel >= 0 && ivC[iSel].esp ? (() => { const r = medEsp(cmp, ivC[iSel]); return `mediana ${esc(cmp.nome)}${ivC[iSel].andamento ? ' até ' + D.hhmm(ivC[iSel].ateM) : ''}: <b>${r == null ? '—' : fI(r)}</b>${r == null ? '' : ' ' + difTx(ivC[iSel].esp.pico, r)}`; })() : null });
       } else {
-        // dia do histórico: o Genesys não guarda a fila. O cartão fica no lugar (não "some"), explicando e levando ao dia do Pulse.
+        // dia do histórico fora do arquivo da fila (ou sem ele): o cartão fica no lugar, explicando e levando ao dia do Pulse.
         const diaP = dados ? ddmmaaaa(dados.dia).slice(0, 5) : '';
         html += `<div class="card chart semfila" data-ch="evo-esp"><h2>Técnicos em espera${dir === 'TODOS' ? ' · CO' : ''}</h2>
-          <p class="nota">A fila é um retrato tirado a cada coleta do Pulse. O histórico (Genesys) não guarda esse retrato, por isso este gráfico só existe no dia do Pulse${diaP ? ' (' + diaP + ')' : ''}.</p>
+          <p class="nota">${hist && hist.fila ? `Sem a fila deste dia: o arquivo da fila do histórico vai de ${ddmmaaaa(hist.fila.inicio).slice(0, 5)} a ${ddmmaaaa(hist.fila.fim).slice(0, 5)}.` : `A fila é um retrato tirado a cada coleta do Pulse. Sem o arquivo da fila do histórico (${esc(FILA_FONTE)}), este gráfico só existe no dia do Pulse${diaP ? ' (' + diaP + ')' : ''}.`}</p>
           <button class="bt sm" data-navdia="fim">Ver o dia do Pulse${diaP ? ' · ' + diaP : ''}</button></div>`;
       }
       // atendidos direto (em até 1 min)

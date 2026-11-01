@@ -8,7 +8,13 @@
  *
  * Um dia do histórico é convertido para o MESMO formato dos dados do Pulse (Dados.normalizar):
  * leituras acumuladas a cada 15 min, das 08:00 às 21:00. Assim todas as contas e telas do app servem
- * para os dois. A fila (técnicos em espera) não existe no histórico: vem vazia.
+ * para os dois.
+ *
+ * Fila (técnicos em espera) — arquivo historico_fila.csv (SELECT historico_fila, calibrado contra o Pulse):
+ *   DIA;MARCA;SKILL;EM_ESPERA;ESPERA_MAX_S — retrato a cada 5 min, só quando havia alguém esperando.
+ *   Entram as marcas de 15 em 15 min, nas mesmas leituras do dia: é o que o Pulse guarda nas horas fechadas,
+ *   então o dia ao vivo e o histórico comparam a mesma coisa. Sem o arquivo (ou fora do período dele),
+ *   a fila do dia vem vazia, como antes.
  */
 (function (root) {
   'use strict';
@@ -70,6 +76,45 @@
     return { dias, lista, inicio: lista[0], fim: lista[lista.length - 1], avisos, cache: new Map(), tradRef: null };
   }
 
+  // ---------------------------------------------------------------- fila (retratos)
+  const COLS_FILA = ['DIA', 'MARCA', 'SKILL', 'EM_ESPERA', 'ESPERA_MAX_S'];
+  const ehFila = txt => { const l = String(txt || '').replace(/^\uFEFF/, '').split(/\r?\n/, 1)[0].toUpperCase(); return l.includes('MARCA') && l.includes('EM_ESPERA'); };
+  function parseFila(txt) {
+    txt = String(txt || '').replace(/^\uFEFF/, '');
+    const linhas = txt.split(/\r?\n/);
+    while (linhas.length && !linhas[linhas.length - 1].trim()) linhas.pop();
+    if (linhas.length < 1) throw new Error('arquivo da fila vazio');
+    const sep = linhas[0].includes('\t') ? '\t' : ';';
+    const cab = linhas[0].split(sep).map(c => c.trim().toUpperCase().replace(/^"|"$/g, ''));
+    const pos = {};
+    COLS_FILA.forEach(c => { pos[c] = cab.indexOf(c); });
+    const faltam = COLS_FILA.filter(c => pos[c] < 0);
+    if (faltam.length) throw new Error('colunas ausentes no arquivo da fila: ' + faltam.join(', '));
+    const dias = new Map();
+    let ruins = 0, ini = null, fim = null;
+    for (let i = 1; i < linhas.length; i++) {
+      if (!linhas[i].trim()) continue;
+      const c = linhas[i].split(sep).map(x => x.trim().replace(/^"|"$/g, ''));
+      const iso = isoDe(c[pos.DIA]), hm = /^(\d{1,2}):(\d{2})$/.exec(c[pos.MARCA] || '');
+      const n = Number(c[pos.EM_ESPERA]), mx = Number(c[pos.ESPERA_MAX_S]);
+      if (!iso || !hm || !c[pos.SKILL] || !isFinite(n) || n < 0 || !isFinite(mx)) { ruins++; continue; }
+      if (!ini || iso < ini) ini = iso;
+      if (!fim || iso > fim) fim = iso;
+      const m = +hm[1] * 60 + +hm[2];
+      if (m % PASSO) continue;                         // só as marcas de 15 min (iguais às do Pulse nas horas fechadas)
+      if (!dias.has(iso)) dias.set(iso, new Map());
+      const dm = dias.get(iso);
+      if (!dm.has(m)) dm.set(m, new Map());
+      dm.get(m).set(c[pos.SKILL], [n, Math.max(0, mx)]);
+    }
+    if (!ini) throw new Error('nenhuma linha válida no arquivo da fila');
+    return { dias, inicio: ini, fim, ruins };
+  }
+  // liga a fila ao histórico (dias já convertidos são refeitos)
+  function anexarFila(H, F) { if (!H) return; H.fila = F || null; H.cache.clear(); }
+  // o dia tem fila? (dentro do período do arquivo: dia sem nenhuma linha = ninguém esperou)
+  const temFila = (H, iso) => !!(H && H.fila && iso >= H.fila.inicio && iso <= H.fila.fim);
+
   // ---------------------------------------------------------------- um dia no formato do Pulse
   // trad: tradutora em uso (a do pulse.json). Leitura das HH:MM = tudo que entrou ANTES das HH:MM
   // (blocos que começam até HH:MM − 15). A leitura das 08:00 junta o que entrou de madrugada.
@@ -86,26 +131,28 @@
     const acc = {};
     skills.forEach(s => { acc[s] = { o: 0, a: 0, b: 0, a60: 0, a300: 0, esp: 0, tma: 0 }; });
     const leituras = [];
+    const comFila = temFila(H, iso), fd = comFila ? (H.fila.dias.get(iso) || new Map()) : null;
     let i = 0;
     for (let m = INICIO; m <= FIM; m += PASSO) {
       while (i < linhas.length && linhas[i].m + PASSO <= m) {
         const r = linhas[i++], x = acc[r.sk];
         x.o += r.o; x.a += r.a; x.b += r.b; x.a60 += r.a60; x.a300 += r.a300; x.esp += r.esp; x.tma += r.tma;
       }
-      const v = {};
+      const v = {}, fm = fd ? fd.get(m) : null;
       skills.forEach(s => {
-        const x = acc[s];
+        const x = acc[s], f = fm ? fm.get(s) : null;
         v[s] = {
           Distinct_Entered: x.o, Answered: x.a, Abandoned: x.b, Answered_less_60s: x.a60, Answered_less_300s: x.a300,
           Average_Wait_Time: x.a ? x.esp / x.a : 0, Average_Handle_Time: x.a ? x.tma / x.a : 0,
-          // a fila e os agentes são retratos do momento: o histórico não tem
-          Current_Calls: null, Curr_Max_Wait_Time: null, Current_Logged_In: null, Current_Ready: null, EWT: null, Wait_Time: null
+          // fila: retrato da marca (arquivo historico_fila); sem o arquivo, vazia. Agentes: o histórico não tem
+          Current_Calls: comFila ? (f ? f[0] : 0) : null, Curr_Max_Wait_Time: comFila ? (f ? f[1] : 0) : null,
+          Current_Logged_In: null, Current_Ready: null, EWT: null, Wait_Time: null
         };
       });
       leituras.push({ m, horario: D.hhmm(m), col: null, dist: 0, origem: 'historico', v });
     }
     const avisos = semTrad.size ? [`${semTrad.size} skill(s) do histórico sem tradução neste dia.`] : [];
-    const d = { dia: iso, guid: '', trad: t, skills, leituras, avisos, descartadas: 0, metricas: [], historico: true };
+    const d = { dia: iso, guid: '', trad: t, skills, leituras, avisos, descartadas: 0, metricas: [], historico: true, temFila: comFila };
     H.cache.set(iso, d);
     return d;
   }
@@ -130,7 +177,7 @@
     return v.length % 2 ? v[h] : (v[h - 1] + v[h]) / 2;
   }
 
-  const api = { COLS, isoDe, somaDias, diaSemana, parse, diaComoDados, referencias, mediana };
+  const api = { COLS, COLS_FILA, isoDe, somaDias, diaSemana, parse, ehFila, parseFila, anexarFila, temFila, diaComoDados, referencias, mediana };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Historico = api;
 })(typeof self !== 'undefined' ? self : this);

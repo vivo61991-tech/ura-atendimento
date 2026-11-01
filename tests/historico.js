@@ -7,6 +7,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
 const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()) await p.click('#pgEvo .ctl-seta'); };
 // valores esperados calculados aqui, direto do arquivo (mesmos módulos, sem o navegador)
 const H = Hs.parse(fs.readFileSync(path.join(__dirname, 'historico_amostra.csv'), 'utf8'));
+Hs.anexarFila(H, Hs.parseFila(fs.readFileSync(path.join(__dirname, 'historico_fila_amostra.csv'), 'utf8')));
 const trad = require('./amostra.json').skills;
 const totCO = iso => { const d = Hs.diaComoDados(H, iso, trad); return D.agregar(d.leituras[d.leituras.length - 1], D.filtro(d, { dir: 'CO' })); };
 const refs = Hs.referencias(H, '2026-10-30', 'sem');
@@ -42,17 +43,27 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   n = await nav();
   ok(/qui, 29\/10 histórico · Genesys/.test(n.t) && n.hist && n.prox && n.hoje, 'seta ‹: qui, 29/10 do histórico (com "Hoje")');
   const t29 = await titulos();
-  ok(t29.length === 7 && await p.locator('#pgEvo .chart.semfila[data-ch="evo-esp"]').count() === 1 && await p.locator('#pgEvo .chart[data-ch="evo-esp"] rect.hit').count() === 0,
-    `histórico: o cartão de técnicos em espera continua no lugar, sem gráfico (${t29.length} cartões)`);
-  ok(/histórico \(Genesys\) não guarda/.test(await p.$eval('#pgEvo .semfila', x => x.textContent)), 'histórico: cartão da fila explica por que não há gráfico');
-  await p.click('#pgEvo .semfila button[data-navdia="fim"]'); await p.waitForTimeout(150);
-  ok(/30\/10/.test((await nav()).t) && await p.locator('#pgEvo .chart[data-ch="evo-esp"] rect.hit').count() > 0, 'botão "Ver o dia do Pulse" volta para 30/10 com o gráfico da fila');
-  await p.click('#pgEvo [data-navdia="-1"]'); await p.waitForTimeout(150);
+  // com o historico_fila.csv: o dia do histórico tem o gráfico de técnicos em espera (com o previsto)
+  const d29 = Hs.diaComoDados(H, '2026-10-29', trad), co29 = D.filtro(d29, { dir: 'CO' });
+  const esp29 = D.intervalos(d29, 60, co29).map(i => i.esp ? i.esp.pico : null);
+  ok(t29.length === 7 && await p.locator('#pgEvo .semfila').count() === 0 && await p.locator('#pgEvo .chart[data-ch="evo-esp"] rect.hit').count() > 0, 'histórico com o arquivo da fila: 29/10 com o gráfico de técnicos em espera');
+  const lab29 = await p.$$eval('#pgEvo .chart[data-ch="evo-esp"] svg text', ts => ts.map(t => t.textContent));
+  ok(lab29.includes(String(Math.max(...esp29.filter(x => x != null)))), `29/10: pico do dia no gráfico = ${Math.max(...esp29.filter(x => x != null))} (arquivo da fila)`);
+  ok(await p.locator('#pgEvo .chart[data-ch="evo-esp"] path.ref').count() === 1, '29/10: previsto (mediana) também na fila');
   ok(await kOf() === fI(totCO('2026-10-29').ofer), `oferecidas CO de 29/10 = ${fI(totCO('2026-10-29').ofer)} (arquivo)`);
-  const kp = await p.$$eval('#pgEvo .kpis2 .kpi .l', x => x.map(e => e.textContent));
-  ok(kp.includes('Atendidas') && !kp.includes('Pico em espera'), 'histórico: card "Atendidas" no lugar de "Pico em espera"');
+  const kp = await p.$$eval('#pgEvo .kpis2 .kpi', x => x.map(e => e.textContent.replace(/\s+/g, ' ')));
+  const kPico = kp.find(x => /Pico em espera/.test(x)) || '';
+  ok(kPico.includes(fI(D.espera(d29.leituras, -1, d29.leituras[d29.leituras.length - 1].m, co29).pico)) && /med\. 7 qui/.test(kPico), 'histórico com fila: card "Pico em espera" com a mediana: ' + kPico.trim());
   const filaTab = await p.$$eval('#tIv tbody tr', rs => rs.map(r => r.children[5] && r.children[5].textContent));
-  ok(filaTab.every(x => x === '—'), 'tabela: fila "—" no histórico (não zero)');
+  ok(filaTab.some(x => /^\d+$/.test(x) && +x > 0), 'tabela: coluna Fila com números no histórico');
+  // dia antes do arquivo da fila (14/06): cartão no lugar, sem gráfico, explicando o período
+  await p.$eval('#dnData', i => { i.value = '2026-06-14'; i.dispatchEvent(new Event('change', { bubbles: true })); }); await p.waitForTimeout(150);
+  ok(await p.locator('#pgEvo .chart.semfila[data-ch="evo-esp"]').count() === 1 && /arquivo da fila do histórico vai de 15\/06 a 31\/10/.test(await p.$eval('#pgEvo .semfila', x => x.textContent)), '14/06 (fora do arquivo da fila): cartão explica o período');
+  const kp14 = await p.$$eval('#pgEvo .kpis2 .kpi .l', x => x.map(e => e.textContent));
+  ok(kp14.includes('Atendidas') && !kp14.includes('Pico em espera'), 'sem fila: card "Atendidas" no lugar de "Pico em espera"');
+  await p.click('#pgEvo .semfila button[data-navdia="fim"]'); await p.waitForTimeout(150);
+  ok(/30\/10/.test((await nav()).t) && await p.locator('#pgEvo .chart[data-ch="evo-esp"] rect.hit').count() > 0, 'botão "Ver o dia do Pulse" volta para 30/10');
+  await p.click('#pgEvo [data-navdia="-1"]'); await p.waitForTimeout(150);
   // 3) seletor de data: dia de pico e dia sem dados
   await p.$eval('#dnData', i => { i.value = '2026-10-14'; i.dispatchEvent(new Event('change', { bubbles: true })); }); await p.waitForTimeout(150);
   ok(/qua, 14\/10/.test((await nav()).t) && await kOf() === fI(totCO('2026-10-14').ofer), `seletor de data: 14/10 com ${fI(totCO('2026-10-14').ofer)} oferecidas no CO`);
@@ -70,7 +81,7 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
     antes: k.getBoundingClientRect().bottom <= document.querySelector('#pgEvo .chart').getBoundingClientRect().top, fora: !k.closest('.topbar') }));
   ok(ch.bts.join('|') === '7 dias|7 sex*|Desligado' && ch.antes && ch.fora, 'chave "Previsto" acima do 1º gráfico, fora dos controles: ' + ch.bts.join(' · '));
   const nRef = await p.$$eval('#pgEvo .chart', cs => cs.map(c => c.querySelectorAll('path.ref').length));
-  ok(nRef.filter(x => x > 0).length === 6, `área do previsto em 6 dos 7 gráficos (fila não tem histórico): ${nRef.join(',')}`);
+  ok(nRef.every(x => x > 0) && nRef.length === 7, `área do previsto nos 7 gráficos (a fila também, com o arquivo da fila): ${nRef.join(',')}`);
   const atras = await p.$$eval('#pgEvo .chart svg', ss => ss.filter(s => s.querySelector('path.ref')).every(s => { const els = [...s.children]; const r = els.findIndex(e => e.matches('path.ref')); const bar = els.findIndex(e => e.tagName === 'path' && !e.matches('.ref,.ref-l')); return bar < 0 || r < bar; }));
   ok(atras, 'área desenhada atrás das barras');
   const cores = await p.$$eval('#pgEvo .chart svg path.ref', ps => [...new Set(ps.map(x => (x.getAttribute('style').match(/var\(--[a-zA-Z0-9]+\)/) || [''])[0]))]);
