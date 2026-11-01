@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.13.0)
+# URA · Suporte B2C (v1.14.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -130,9 +130,11 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   As trocas valem enquanto o app está aberto; reabrir volta para esse início. (Previsto e controles fixados continuam lembrados.)
 
 ## Navegação por dia e comparação (Evolução)
-- **Barra de data** acima dos controles: ‹ dia ›, toque na data para escolher no calendário, botão "Hoje" para voltar.
-  O dia do `pulse.json` vem **sempre do Pulse** ("ao vivo" quando é hoje); os outros vêm do histórico (borda roxa,
-  "histórico · Genesys"). O histórico só vale para trás: dias iguais ou posteriores ao dia do Pulse ficam de fora.
+- **Barra de data** acima dos controles: ‹ dia ›, a data inteira em destaque ("qui, 29/10/2026"; domingo em vermelho
+  escuro), toque na data para escolher no calendário, botão "Hoje" para voltar.
+  O dia do `pulse.json` vem **sempre do Pulse**; os outros vêm do histórico (borda roxa). A origem não fica na barra:
+  aparece no rodapé por alguns segundos ao entrar na Evolução e sempre que muda ("Ao vivo · Pulse", "Pulse",
+  "Histórico · Genesys"). O histórico só vale para trás: dias iguais ou posteriores ao dia do Pulse ficam de fora.
   A coluna selecionada continua ao trocar de dia, e a tela não pula: o gráfico que está à vista fica no mesmo lugar
   (se ele não existir no outro dia, como a fila no histórico, o seguinte ocupa o lugar dele).
 - **Previsto** (chave acima do primeiro gráfico, vale para todos, três botões da mesma largura):
@@ -148,6 +150,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.14.0:** barra de data só com a data inteira, maior; domingo em vermelho escuro; origem (Pulse / Histórico · Genesys) como aviso no rodapé ao trocar.
 - **1.13.0:** painel "Grupos e skills" na Evolução: barra, volume, NS/abandono/TME/TMA, skills expansíveis e filtro por grupo ou skill sem mexer na rolagem.
 - **1.12.0:** um SELECT só: a fila virou duas colunas do historico.csv (FILA, ESPERA_MAX_S); sai o historico_fila.sql/csv. Mesmo resultado do formato separado (conferido nos 139 dias: zero diferenças).
 - **1.11.0:** fila do histórico (historico_fila.csv, refeita pelo Genesys e calibrada contra o Pulse): gráfico de técnicos em espera nos dias do histórico, previsto na fila e mediana no "Pico em espera" e no "Em espera agora".

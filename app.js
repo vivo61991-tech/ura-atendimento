@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.13.0';
+  const APP_VERSION = '1.14.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -500,20 +500,27 @@
   function navDia(ctx) {
     const { lista, i } = ctx, ult = lista[lista.length - 1];
     const w = Hs ? Hs.diaSemana(ctx.iso) : 0;
-    const fonte = ctx.vivo ? (ctx.iso === hojeISO() ? 'ao vivo · Pulse' : 'Pulse') : 'histórico · Genesys';
-    const st = !hist && histCarregando ? 'carregando histórico…' : !hist && histErro ? 'sem histórico: ' + histErro : fonte;
+    // a origem dos dados (Pulse / histórico) não fica na barra: aparece no rodapé quando muda (avisoFonte).
+    // Embaixo da data só aparece algum problema com o histórico (carregando, ou não foi possível ler).
+    const st = !hist && histCarregando ? 'carregando histórico…' : !hist && histErro ? 'sem histórico: ' + histErro : '';
     const seta = dz => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${dz}"/></svg>`;
     return `<div class="dnav${ctx.vivo ? '' : ' hist'}">
       <button class="dn-b" data-navdia="-1"${i > 0 ? '' : ' disabled'} aria-label="Dia anterior">${seta('M15 6l-6 6 6 6')}</button>
-      <label class="dn-d"><span class="dn-t"><b>${DS_CURTO[w]}, ${ddmmaaaa(ctx.iso).slice(0, 5)}</b><small>${esc(st)}</small></span>
+      <label class="dn-d"><span class="dn-t"><b class="${w === 0 ? 'dom' : ''}">${DS_CURTO[w]}, ${ddmmaaaa(ctx.iso)}</b>${st ? `<small>${esc(st)}</small>` : ''}</span>
         <input type="date" id="dnData" min="${lista[0]}" max="${ult}" value="${ctx.iso}" aria-label="Escolher o dia"></label>
       <button class="dn-b" data-navdia="1"${i < lista.length - 1 ? '' : ' disabled'} aria-label="Próximo dia">${seta('M9 6l6 6-6 6')}</button>
       ${i < lista.length - 1 ? `<button class="dn-hoje" data-navdia="fim">${ult === hojeISO() ? 'Hoje' : 'Último'}</button>` : ''}
     </div>`;
   }
 
+  // Origem dos dados do dia em exibição: avisa no rodapé (some sozinho) ao entrar na Evolução e sempre que mudar.
+  function avisoFonte(ctx) {
+    const f = ctx.vivo ? (ctx.iso === hojeISO() ? 'Ao vivo · Pulse' : 'Pulse') : 'Histórico · Genesys';
+    if (evo.fonteVista !== f) { evo.fonteVista = f; toast(f); }
+  }
   function renderEvo() {
     const ctx = diaEvo(), d = ctx.d, L = d.leituras[d.leituras.length - 1];
+    avisoFonte(ctx);
     const filtroDir = dir => filtroEvo(d, dir);
     // grupos do atendimento escolhido, com as oferecidas do dia (prévia do volume): maior volume primeiro, zerados no fim
     const volGrp = new Map();
@@ -966,7 +973,7 @@
   function fecharSheet() { $('#sheet').classList.remove('show'); $('#sheetBg').classList.remove('show'); if (infoAberto && infoAberto.startsWith('sk-')) infoAberto = null; }
 
   // ---------------------------------------------------------------- eventos
-  function irPara(p) { pagina = p; infoAberto = null; evo.ctl = false; fecharSheet(); render(); window.scrollTo(0, 0); }
+  function irPara(p) { pagina = p; infoAberto = null; evo.ctl = false; if (p === 'evo') evo.fonteVista = null; fecharSheet(); render(); window.scrollTo(0, 0); }
   document.addEventListener('click', e => {
     const b = e.target.closest('button, [data-grupo], tr[data-i], rect.hit');
     if (!b) { if (e.target.id === 'sheetBg') fecharSheet(); return; }

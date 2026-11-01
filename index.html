@@ -328,13 +328,14 @@ table.tsel tbody tr.sel td:last-child{border-right-color:var(--selln)}
 .dn-b:disabled{opacity:.35;cursor:default}
 .dn-d{flex:1;min-width:0;position:relative;display:flex;justify-content:center;cursor:pointer;border-radius:10px;padding:2px 4px}
 .dn-t{display:flex;flex-direction:column;align-items:center;min-width:0;line-height:1.2}
-.dn-t b{font-size:15px;font-weight:800;color:var(--ink)}
+.dn-t b{font-size:18px;font-weight:800;color:var(--ink);letter-spacing:.2px;white-space:nowrap}
+.dn-t b.dom{color:#8B1A1A}
 .dn-t small{font-size:11.5px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.dnav.hist .dn-t small{color:var(--p700)}
+.dn-t small{color:var(--ink2)}
 .dn-d input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0}
 .dn-d:focus-within{outline:2px solid var(--p300);outline-offset:1px}
 .dn-hoje{flex:none;border:0;border-radius:11px;background:var(--p700);color:#fff;font-weight:750;font-size:12.5px;padding:0 10px;height:36px;cursor:pointer}
-@media (prefers-color-scheme: dark){.dn-b{background:#2a1c3d;color:#d3b5f0}.dn-hoje{background:#8549b5}.dnav.hist{box-shadow:var(--sh),0 0 0 1.5px #8549b5}.dnav.hist .dn-t small{color:#c9a3ee}}
+@media (prefers-color-scheme: dark){.dn-b{background:#2a1c3d;color:#d3b5f0}.dn-hoje{background:#8549b5}.dnav.hist{box-shadow:var(--sh),0 0 0 1.5px #8549b5}.dn-t b.dom{color:#ef6b6b}}
 .evo-ctl.fixo .dnav{margin-bottom:8px}
 /* mediana do histórico: linha extra nos cards e no resumo da seleção */
 .kpi .r{font-size:11.5px;line-height:1.35;color:var(--ink2);margin-top:3px;padding-top:3px;border-top:1px dashed var(--line)}
@@ -418,9 +419,9 @@ table.tsel tbody tr.sel td:last-child{border-right-color:var(--selln)}
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Detalhe"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="dados.js?v=1.13.0"></script>
-<script src="graf.js?v=1.13.0"></script>
-<script src="historico.js?v=1.13.0"></script>
-<script src="app.js?v=1.13.0"></script>
+<script src="dados.js?v=1.14.0"></script>
+<script src="graf.js?v=1.14.0"></script>
+<script src="historico.js?v=1.14.0"></script>
+<script src="app.js?v=1.14.0"></script>
 </body>
 </html>

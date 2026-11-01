@@ -35,12 +35,21 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   const kOf = () => p.$eval('#pgEvo .kpis2 .kpi .v', x => x.textContent);
   // 1) abre no dia ao vivo
   let n = await nav();
-  ok(/sex, 30\/10 ao vivo · Pulse/.test(n.t) && !n.hist && n.ant && !n.prox && !n.hoje, 'abre em "sex, 30/10 · ao vivo · Pulse" (sem próximo dia)');
+  const toastTx = () => p.$eval('#toast', t => t.classList.contains('show') ? t.textContent : '');
+  ok(n.t.trim() === 'sex, 30/10/2026' && !n.hist && n.ant && !n.prox && !n.hoje, 'barra só com a data inteira: "' + n.t.trim() + '" (sem próximo dia)');
+  ok(await toastTx() === 'Ao vivo · Pulse', 'ao entrar: aviso no rodapé "Ao vivo · Pulse"');
+  const fs18 = await p.$eval('#pgEvo .dn-t b', b => parseFloat(getComputedStyle(b).fontSize));
+  ok(fs18 >= 18, `data com mais destaque (${fs18}px)`);
   ok((await titulos()).some(t => /TÉCNICOS EM ESPERA/i.test(t)), 'ao vivo: tem o gráfico de técnicos em espera');
   // 2) dia anterior = histórico
   await p.click('#pgEvo [data-navdia="-1"]'); await p.waitForTimeout(150);
   n = await nav();
-  ok(/qui, 29\/10 histórico · Genesys/.test(n.t) && n.hist && n.prox && n.hoje, 'seta ‹: qui, 29/10 do histórico (com "Hoje")');
+  ok(n.t.trim() === 'qui, 29/10/2026' && n.hist && n.prox && n.hoje, 'seta ‹: qui, 29/10/2026 do histórico (com "Hoje")');
+  ok(await toastTx() === 'Histórico · Genesys', 'trocou de base: aviso "Histórico · Genesys"');
+  await p.evaluate(() => { const t = document.querySelector('#toast'); t.classList.remove('show'); t.textContent = ''; });
+  await p.click('#pgEvo [data-navdia="-1"]'); await p.waitForTimeout(150);
+  ok(await toastTx() === '', 'outro dia do histórico (mesma base): sem aviso');
+  await p.click('#pgEvo [data-navdia="1"]'); await p.waitForTimeout(150);
   const t29 = await titulos();
   // com o historico_fila.csv: o dia do histórico tem o gráfico de técnicos em espera (com o previsto)
   const d29 = Hs.diaComoDados(H, '2026-10-29', trad), co29 = D.filtro(d29, { dir: 'CO' });
@@ -73,7 +82,7 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   ok(!(await nav()).ant, 'primeiro dia do histórico (14/06): seta ‹ desativada');
   // 5) Hoje
   await p.click('#pgEvo .dn-hoje'); await p.waitForTimeout(150);
-  ok(/30\/10 ao vivo/.test((await nav()).t), '"Hoje" volta para o dia ao vivo');
+  ok((await nav()).t.trim() === 'sex, 30/10/2026' && await toastTx() === 'Ao vivo · Pulse', '"Hoje" volta para o dia ao vivo e avisa "Ao vivo · Pulse"');
   // 6) comparação: ligada por padrão com as 7 sextas; chave acima do primeiro gráfico
   await abrir(p); await p.click('#pgEvo button[data-passo="60"]');
   const ch = await p.$eval('#pgEvo .cmpk', k => ({ bts: [...k.querySelectorAll('button')].map(b => b.textContent + (b.classList.contains('on') ? '*' : '')),
@@ -128,8 +137,16 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   ok(larg.length === 3 && Math.max(...larg) - Math.min(...larg) <= 1, '360 px: os 3 botões da chave com a mesma largura: ' + larg.join('/'));
   // contorno da data no histórico: roxo (não azul)
   await q.click('#pgEvo [data-navdia="-1"]'); await q.waitForTimeout(100);
-  const cont = await q.$eval('#pgEvo .dnav.hist', x => getComputedStyle(x).boxShadow + ' ' + getComputedStyle(x.querySelector('.dn-t small')).color);
-  ok(!/1, 100, 201|0, 100, 201/.test(cont) && /100, 42, 144/.test(cont), 'dia do histórico: contorno e "histórico · Genesys" em roxo: ' + cont);
+  const cont = await q.$eval('#pgEvo .dnav.hist', x => getComputedStyle(x).boxShadow);
+  ok(!/1, 100, 201|0, 100, 201/.test(cont) && /100, 42, 144|0\.392157 0\.164706 0\.564706/.test(cont), 'dia do histórico: contorno roxo: ' + cont);
+  // domingo em vermelho bem escuro
+  await q.$eval('#dnData', i => { i.value = '2026-10-25'; i.dispatchEvent(new Event('change', { bubbles: true })); }); await q.waitForTimeout(100);
+  const dom = await q.$eval('#pgEvo .dn-t b', b => [b.textContent, getComputedStyle(b).color]);
+  ok(dom[0] === 'dom, 25/10/2026' && dom[1] === 'rgb(139, 26, 26)', 'domingo em vermelho bem escuro: ' + dom.join(' '));
+  await q.$eval('#dnData', i => { i.value = '2026-10-24'; i.dispatchEvent(new Event('change', { bubbles: true })); }); await q.waitForTimeout(100);
+  ok(await q.$eval('#pgEvo .dn-t b', b => getComputedStyle(b).color) !== 'rgb(139, 26, 26)', 'sábado na cor normal');
+  const caber = await q.$eval('#pgEvo .dn-t b', b => b.scrollWidth <= b.parentElement.parentElement.clientWidth + 1);
+  ok(caber, '360 px: data inteira cabe na barra (com "Último")');
   await q.click('#pgEvo .dn-hoje'); await q.waitForTimeout(100);
   await q.click('#pgEvo button[data-cmp="off"]');
   await q.reload(); await q.waitForFunction(() => window.__ura.estado().hist); await q.click('nav.tabs button[data-v="evo"]');
@@ -158,11 +175,12 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   await v.click('nav.tabs button[data-v="evo"]');
   await v.locator('#pgEvo .topbar.fechado').count() && await v.click('#pgEvo .ctl-seta'); await v.click('#pgEvo button[data-dir="CO"]'); await v.click('#pgEvo .ctl-seta'); // a Evolução abre no Total URA: estes testes usam o CO
   const nv = await v.$eval('#pgEvo .dnav', x => x.innerText.replace(/\s+/g, ' '));
-  ok(/sex, 30\/10 Pulse/.test(nv) && !/histórico/.test(nv), 'Pulse de 30/10 aberto em 31/10: 30/10 continua do Pulse (' + nv.trim() + ')');
+  ok(/sex, 30\/10\/2026/.test(nv) && await v.$eval('#toast', t => t.textContent) === 'Pulse', 'Pulse de 30/10 aberto em 31/10: 30/10 continua do Pulse, aviso "Pulse" (' + nv.trim() + ')');
   ok(await v.locator('#pgEvo .chart h2:has-text("TÉCNICOS EM ESPERA")').count() === 1, 'continua com a fila do Pulse');
   ok(await v.$eval('#dnData', i => i.max) === '2026-10-30', 'não há dia depois do dia do Pulse');
   await v.click('#pgEvo [data-navdia="-1"]');
-  ok(/qui, 29\/10 histórico/.test(await v.$eval('#pgEvo .dnav', x => x.innerText.replace(/\s+/g, ' '))), 'dia anterior vem do histórico');
+  await v.waitForTimeout(100);
+  ok(/qui, 29\/10\/2026/.test(await v.$eval('#pgEvo .dnav', x => x.innerText.replace(/\s+/g, ' '))) && await v.$eval('#toast', t => t.textContent) === 'Histórico · Genesys', 'dia anterior vem do histórico');
   await v.close();
   ok(erros.length === 0, 'sem erros de JavaScript' + (erros.length ? ': ' + erros.join(' | ') : ''));
   await b.close();
