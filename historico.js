@@ -10,11 +10,12 @@
  * leituras acumuladas a cada 15 min, das 08:00 às 21:00. Assim todas as contas e telas do app servem
  * para os dois.
  *
- * Fila (técnicos em espera) — arquivo historico_fila.csv (SELECT historico_fila, calibrado contra o Pulse):
- *   DIA;MARCA;SKILL;EM_ESPERA;ESPERA_MAX_S — retrato a cada 5 min, só quando havia alguém esperando.
- *   Entram as marcas de 15 em 15 min, nas mesmas leituras do dia: é o que o Pulse guarda nas horas fechadas,
- *   então o dia ao vivo e o histórico comparam a mesma coisa. Sem o arquivo (ou fora do período dele),
- *   a fila do dia vem vazia, como antes.
+ * Fila (técnicos em espera), calibrada contra o Pulse — duas colunas a mais no MESMO arquivo (um SELECT só):
+ *   ...;FILA;ESPERA_MAX_S = quantos esperavam no FIM do bloco (HORARIO + 15) e há quanto tempo o mais antigo.
+ *   É o retrato de 15 em 15 min que o Pulse guarda nas horas fechadas: o dia ao vivo e o histórico comparam
+ *   a mesma coisa. Coluna vazia no dia inteiro = sem fila naquele dia.
+ *   Ainda aceita o formato antigo, em arquivo separado (historico_fila.csv: DIA;MARCA;SKILL;EM_ESPERA;ESPERA_MAX_S).
+ *   Sem nenhum dos dois, a fila do dia vem vazia, como antes.
  */
 (function (root) {
   'use strict';
@@ -52,6 +53,9 @@
     COLS.forEach(c => { pos[c] = cab.indexOf(c); });
     const faltam = COLS.filter(c => pos[c] < 0);
     if (faltam.length) throw new Error('colunas ausentes no histórico: ' + faltam.join(', '));
+    pos.FILA = cab.indexOf('FILA'); pos.ESPERA_MAX_S = cab.indexOf('ESPERA_MAX_S');
+    const colsFila = pos.FILA >= 0 && pos.ESPERA_MAX_S >= 0;
+    const diasFila = new Set();          // dias com a coluna FILA preenchida
     const dias = new Map();
     let ruins = 0;
     for (let i = 1; i < linhas.length; i++) {
@@ -63,8 +67,14 @@
       const nums = COLS.slice(3).map(k => Number(c[pos[k]]));
       if (!iso || !hm || !c[pos.SKILL] || nums.some(n => !isFinite(n) || n < 0)) { ruins++; continue; }
       const m = +hm[1] * 60 + +hm[2];
+      let fila = null, fmx = null;
+      if (colsFila && String(c[pos.FILA] || '').trim() !== '') {
+        fila = Number(c[pos.FILA]); fmx = Number(c[pos.ESPERA_MAX_S] || 0);
+        if (!isFinite(fila) || fila < 0 || !isFinite(fmx)) { ruins++; continue; }
+        diasFila.add(iso);
+      }
       if (!dias.has(iso)) dias.set(iso, []);
-      dias.get(iso).push({ m, sk: c[pos.SKILL], o: nums[0], a: nums[1], b: nums[2], a60: nums[3], a300: nums[4], esp: nums[5], tma: nums[6] });
+      dias.get(iso).push({ m, sk: c[pos.SKILL], o: nums[0], a: nums[1], b: nums[2], a60: nums[3], a300: nums[4], esp: nums[5], tma: nums[6], fila, fmx: Math.max(0, fmx || 0) });
     }
     if (!dias.size) throw new Error('nenhuma linha válida no histórico');
     const lista = [...dias.keys()].sort();
@@ -73,7 +83,7 @@
     const faltando = [];
     for (let d = lista[0]; d < lista[lista.length - 1]; d = somaDias(d, 1)) if (!dias.has(d)) faltando.push(d);
     if (faltando.length) avisos.push(`${faltando.length} dia(s) sem dados no histórico.`);
-    return { dias, lista, inicio: lista[0], fim: lista[lista.length - 1], avisos, cache: new Map(), tradRef: null };
+    return { dias, lista, inicio: lista[0], fim: lista[lista.length - 1], avisos, cache: new Map(), tradRef: null, colsFila, diasFila };
   }
 
   // ---------------------------------------------------------------- fila (retratos)
@@ -112,8 +122,9 @@
   }
   // liga a fila ao histórico (dias já convertidos são refeitos)
   function anexarFila(H, F) { if (!H) return; H.fila = F || null; H.cache.clear(); }
-  // o dia tem fila? (dentro do período do arquivo: dia sem nenhuma linha = ninguém esperou)
-  const temFila = (H, iso) => !!(H && H.fila && iso >= H.fila.inicio && iso <= H.fila.fim);
+  // o dia tem fila? Colunas no próprio histórico: dia com a coluna preenchida. Arquivo separado: dentro do
+  // período dele (dia sem nenhuma linha = ninguém esperou).
+  const temFila = (H, iso) => !!H && (H.colsFila ? H.diasFila.has(iso) : !!(H.fila && iso >= H.fila.inicio && iso <= H.fila.fim));
 
   // ---------------------------------------------------------------- um dia no formato do Pulse
   // trad: tradutora em uso (a do pulse.json). Leitura das HH:MM = tudo que entrou ANTES das HH:MM
@@ -131,7 +142,13 @@
     const acc = {};
     skills.forEach(s => { acc[s] = { o: 0, a: 0, b: 0, a60: 0, a300: 0, esp: 0, tma: 0 }; });
     const leituras = [];
-    const comFila = temFila(H, iso), fd = comFila ? (H.fila.dias.get(iso) || new Map()) : null;
+    const comFila = temFila(H, iso);
+    let fd = null;
+    if (comFila && H.colsFila) {
+      // coluna FILA da linha do bloco HH:MM = retrato da leitura HH:MM + 15
+      fd = new Map();
+      linhas.forEach(r => { if (r.fila == null) return; const mm = r.m + PASSO; if (!fd.has(mm)) fd.set(mm, new Map()); fd.get(mm).set(r.sk, [r.fila, r.fmx]); });
+    } else if (comFila) fd = H.fila.dias.get(iso) || new Map();
     let i = 0;
     for (let m = INICIO; m <= FIM; m += PASSO) {
       while (i < linhas.length && linhas[i].m + PASSO <= m) {

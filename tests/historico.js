@@ -6,8 +6,7 @@ const URL = process.env.URL || 'http://localhost:8765/ura/';
 const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1; } else console.log('ok  ', m); };
 const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()) await p.click('#pgEvo .ctl-seta'); };
 // valores esperados calculados aqui, direto do arquivo (mesmos módulos, sem o navegador)
-const H = Hs.parse(fs.readFileSync(path.join(__dirname, 'historico_amostra.csv'), 'utf8'));
-Hs.anexarFila(H, Hs.parseFila(fs.readFileSync(path.join(__dirname, 'historico_fila_amostra.csv'), 'utf8')));
+const H = Hs.parse(fs.readFileSync(path.join(__dirname, 'historico_amostra.csv'), 'utf8'));   // já traz as colunas FILA
 const trad = require('./amostra.json').skills;
 const totCO = iso => { const d = Hs.diaComoDados(H, iso, trad); return D.agregar(d.leituras[d.leituras.length - 1], D.filtro(d, { dir: 'CO' })); };
 const refs = Hs.referencias(H, '2026-10-30', 'sem');
@@ -58,7 +57,7 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   ok(filaTab.some(x => /^\d+$/.test(x) && +x > 0), 'tabela: coluna Fila com números no histórico');
   // dia antes do arquivo da fila (14/06): cartão no lugar, sem gráfico, explicando o período
   await p.$eval('#dnData', i => { i.value = '2026-06-14'; i.dispatchEvent(new Event('change', { bubbles: true })); }); await p.waitForTimeout(150);
-  ok(await p.locator('#pgEvo .chart.semfila[data-ch="evo-esp"]').count() === 1 && /arquivo da fila do histórico vai de 15\/06 a 31\/10/.test(await p.$eval('#pgEvo .semfila', x => x.textContent)), '14/06 (fora do arquivo da fila): cartão explica o período');
+  ok(await p.locator('#pgEvo .chart.semfila[data-ch="evo-esp"]').count() === 1 && /veio sem a coluna FILA/.test(await p.$eval('#pgEvo .semfila', x => x.textContent)), '14/06 (sem a coluna FILA): cartão explica');
   const kp14 = await p.$$eval('#pgEvo .kpis2 .kpi .l', x => x.map(e => e.textContent));
   ok(kp14.includes('Atendidas') && !kp14.includes('Pico em espera'), 'sem fila: card "Atendidas" no lugar de "Pico em espera"');
   await p.click('#pgEvo .semfila button[data-navdia="fim"]'); await p.waitForTimeout(150);

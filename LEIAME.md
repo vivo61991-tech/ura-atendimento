@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.11.0)
+# URA · Suporte B2C (v1.12.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -90,17 +90,18 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   então todas as telas e contas servem para os dois. **O histórico não tem fila** (técnicos em espera): esse gráfico só aparece no dia ao vivo.
 
 ## Fila do histórico (técnicos em espera)
-- Arquivo `historico_fila.csv` ao lado do `historico.csv` (SELECT `sql/historico_fila.sql`; outro nome: `?fila=`).
-  `DIA;MARCA;SKILL;EM_ESPERA;ESPERA_MAX_S`, retrato a cada 5 min, só quando havia alguém esperando.
+- **Um SELECT só** (`sql/historico_ura_b2c.sql`) gera o `historico.csv` com volumes, tempos E a fila:
+  duas colunas no fim, `FILA;ESPERA_MAX_S` = técnicos esperando no FIM do bloco (HORARIO + 15) e há quanto tempo
+  o mais antigo esperava. Só no CO (na TEL vêm 0). Linha também quando só havia fila (volumes 0).
 - Regra (calibrada contra o Pulse em 30/10, chamada a chamada): a espera termina no INICIO_INTERACAO_PERNA (atendida)
   ou no FIM_INTERACAO_PERNA (abandonada) e dura MEDIATION_DURATION; os primeiros 120 s são URA e não contam como fila.
   Resultado no CO: total 100%, erro médio 0,8 técnico por coleta, correlação 0,997; espera mais longa ±26 s.
-- O app usa as marcas de 15 em 15 min, as mesmas que o Pulse guarda nas horas fechadas: o dia ao vivo e o histórico
-  comparam a mesma coisa. Dia sem nenhuma linha dentro do período do arquivo = ninguém esperou (zero).
-- Com o arquivo: gráfico de técnicos em espera também nos dias do histórico, card "Pico em espera", coluna Fila na
-  tabela e previsto (mediana) na fila — inclusive no dia ao vivo e no "Em espera agora" da aba Agora.
-  Sem o arquivo (ou fora do período dele) fica o cartão explicando, como antes. Pelo botão de pasta também dá para
-  abrir o arquivo da fila (depois do histórico).
+- É o retrato de 15 em 15 min que o Pulse guarda nas horas fechadas: o dia ao vivo e o histórico comparam a mesma coisa.
+- Com a fila: gráfico de técnicos em espera nos dias do histórico, card "Pico em espera", coluna Fila na tabela e
+  previsto (mediana) na fila — inclusive no dia ao vivo e no "Em espera agora" da aba Agora.
+  Dia com a coluna FILA vazia (ou histórico no formato antigo, sem as colunas) fica com o cartão explicando.
+- Compatível com o formato antigo (fila em `historico_fila.csv` separado), que só é procurado se o
+  `historico.csv` não tiver as colunas.
 
 ## Previsto até agora (coluna em andamento e aba Agora)
 - O histórico é de 15 em 15 min; o Pulse anda de 5 em 5. Para comparar "até agora", os outros dias são cortados no MESMO
@@ -138,6 +139,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.12.0:** um SELECT só: a fila virou duas colunas do historico.csv (FILA, ESPERA_MAX_S); sai o historico_fila.sql/csv. Mesmo resultado do formato separado (conferido nos 139 dias: zero diferenças).
 - **1.11.0:** fila do histórico (historico_fila.csv, refeita pelo Genesys e calibrada contra o Pulse): gráfico de técnicos em espera nos dias do histórico, previsto na fila e mediana no "Pico em espera" e no "Em espera agora".
 - **1.10.0:** previsto proporcional até o minuto da última coleta: coluna em andamento da Evolução, cards do dia; aba Agora com chave Previsto, "med." nos cards e área do previsto na hora atual inteira, com resumo até agora × previsto e previsto da hora.
 - **1.9.4:** num dia do histórico, o cartão "Técnicos em espera" continua no lugar explicando que o Genesys não guarda a fila, com botão para ir ao dia do Pulse (antes o gráfico simplesmente sumia).

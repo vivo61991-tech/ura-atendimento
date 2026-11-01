@@ -33,7 +33,6 @@ const AGORA = 19 * 60 + 15;
   const kTel = await p.$$eval(`${pg} .kpis2 .kpi`, ks => { const k = ks.find(x => /Oferecidas TEL/.test(x.textContent)); return k && k.querySelector('.r') ? k.querySelector('.r').textContent : ''; });
   ok(kTel.includes(fI(telM)), `Oferecidas TEL: mediana até 19:15 = ${fI(telM)}`);
   ok(await p.$$eval(`${pg} .kpis2 .kpi`, ks => { const k = ks.find(x => /Agentes/.test(x.textContent)); return !k.querySelector('.r'); }), 'agentes sem mediana (o histórico não tem)');
-  Hs.anexarFila(H, Hs.parseFila(fs.readFileSync(path.join(__dirname, 'historico_fila_amostra.csv'), 'utf8')));
   const filaM = med('sem', (d, co) => { const l = [...d.leituras].reverse().find(x => x.m <= AGORA); return D.agregar(l, co).fila; });
   const kEsp = await p.$$eval(`${pg} .kpis2 .kpi`, ks => { const k = ks.find(x => /Em espera agora/.test(x.textContent)); return k.querySelector('.r') ? k.querySelector('.r').textContent : ''; });
   ok(kEsp.includes('med. 7 sex: ' + fI(filaM)), `Em espera agora: mediana das sextas às 19:15 = ${fI(filaM)} (${kEsp.trim()})`);

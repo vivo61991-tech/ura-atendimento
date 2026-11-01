@@ -55,8 +55,8 @@ t('dia convertido: intervalos de 15 min = linhas de cada bloco', () => {
   assert.ok(iv.every(i => !i.andamento && !i.semColeta));
 });
 
-t('dia do histórico não tem fila (null, não zero)', () => {
-  const d = Hs.diaComoDados(H, '2026-10-30', trad);
+t('dia do histórico sem a coluna FILA não tem fila (null, não zero)', () => {
+  const d = Hs.diaComoDados(H, '2026-06-14', trad);
   const iv = D.intervalos(d, 60, D.filtro(d, { dir: 'CO' }));
   assert.ok(iv.every(i => i.esp === null));
   assert.ok(D.acumulados(d, iv, D.filtro(d, { dir: 'CO' })).every(i => i.esp === null));
@@ -116,6 +116,21 @@ t('fila: lê só as marcas de 15 min, zera quem não aparece e respeita o perío
   assert.strictEqual(D.espera(d.leituras, 600, 630, ['A', 'B']).pico, 5, 'pico soma as skills na marca (a de 10:10 fica de fora)');
   assert.strictEqual(Hs.diaComoDados(H, '2026-10-01', trad).temFila, false, 'fora do período do arquivo: sem fila');
   assert.throws(() => Hs.parseFila('DIA;MARCA;SKILL\n02/10/2026;10:15;A'), /EM_ESPERA/);
+});
+
+t('fila nas colunas do próprio histórico (um SELECT só): FILA do bloco HH:MM = retrato da leitura HH:MM + 15', () => {
+  const H = Hs.parse(['DIA;HORARIO;SKILL;OFERECIDAS;ATENDIDAS;ABANDONADAS;ATEND_60S;ATEND_300S;SOMA_ESPERA_S;SOMA_TMA_S;FILA;ESPERA_MAX_S',
+    '2026-10-01;10:00;A;5;4;1;2;3;100;600;;', '2026-10-02;10:00;A;5;4;1;2;3;100;600;3;200', '2026-10-02;10:00;B;0;0;0;0;0;0;0;2;50',
+    '2026-10-02;10:15;A;1;1;0;1;1;10;60;0;0'].join('\n'));
+  const trad = { A: { SKILL_GRUPO: 'G', DIRECIONAMENTO: 'CO' }, B: { SKILL_GRUPO: 'G', DIRECIONAMENTO: 'CO' } };
+  assert.ok(H.colsFila && H.diasFila.has('2026-10-02') && !H.diasFila.has('2026-10-01'));
+  const d = Hs.diaComoDados(H, '2026-10-02', trad), l = d.leituras.find(x => x.m === 615);
+  assert.ok(d.temFila);
+  assert.deepStrictEqual([l.v.A.Current_Calls, l.v.A.Curr_Max_Wait_Time, l.v.B.Current_Calls], [3, 200, 2]);
+  assert.strictEqual(l.v.B.Distinct_Entered, 0, 'linha só de fila não soma volume');
+  assert.strictEqual(d.leituras.find(x => x.m === 630).v.A.Current_Calls, 0);
+  assert.strictEqual(Hs.diaComoDados(H, '2026-10-01', trad).temFila, false, 'coluna vazia no dia: sem fila');
+  assert.strictEqual(Hs.parse('DIA;HORARIO;SKILL;OFERECIDAS;ATENDIDAS;ABANDONADAS;ATEND_60S;ATEND_300S;SOMA_ESPERA_S;SOMA_TMA_S\n2026-10-01;10:00;A;1;1;0;1;1;1;1').colsFila, false, 'formato antigo continua valendo');
 });
 
 console.log(`\n${ok} teste(s) ok${process.exitCode ? ' — HÁ FALHAS' : ''}`);

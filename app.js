@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.11.0';
+  const APP_VERSION = '1.12.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -10,7 +10,7 @@
   const PARAM = new URLSearchParams(location.search);
   const FONTE = PARAM.get('arquivo') || 'pulse.json';   // arquivo publicado na raiz do site, ao lado do index.html
   const HIST_FONTE = PARAM.get('historico') || 'historico.csv';   // base Genesys (somas por skill a cada 15 min)
-  const FILA_FONTE = PARAM.get('fila') || 'historico_fila.csv';     // fila do histórico (técnicos em espera a cada 5 min)
+  const FILA_FONTE = PARAM.get('fila') || 'historico_fila.csv';     // formato ANTIGO (fila em arquivo separado): só se o historico.csv não tiver as colunas FILA
   const HIST_RECARGA_MIN = 60;                          // o histórico muda uma vez por dia: confere a cada 1 h
   const CK = 'ura-b2c:';                                // prefixo das chaves no localStorage
   const ATRASO_MIN = 15;                                // sem coleta nova há mais que isto (no expediente): aviso
@@ -111,11 +111,12 @@
       const novo = Hs.parse(txt);
       // fila do histórico: opcional. Sem ela os dias do histórico ficam sem o gráfico de técnicos em espera.
       // Se o arquivo novo falhar, continua a fila que já estava carregada.
-      try {
+      if (!novo.colsFila) try {
         const rf = await fetch(FILA_FONTE, { cache: 'no-cache' });
         if (!rf.ok) throw new Error(rf.status === 404 ? 'arquivo ' + FILA_FONTE + ' não encontrado no site' : 'o site respondeu ' + rf.status);
         Hs.anexarFila(novo, Hs.parseFila(await rf.text())); filaErro = null;
       } catch (ef) { filaErro = ef.message || 'falha ao ler a fila'; if (hist && hist.fila) Hs.anexarFila(novo, hist.fila); }
+      else filaErro = null;   // a fila já veio nas colunas do próprio historico.csv
       hist = novo; histErro = null; histOrigem = 'site';
     } catch (e) {
       histErro = e.message || 'falha ao ler o histórico';
@@ -131,13 +132,14 @@
       if (csv && Hs.ehFila(fr.result)) {
         // fila do histórico aberta do aparelho: liga ao histórico em uso
         if (!hist) { toast('Abra primeiro o histórico; a fila é um complemento dele.'); return; }
+        if (hist.colsFila) { toast('Este histórico já traz a fila nas colunas FILA e ESPERA_MAX_S.'); return; }
         try { const F = Hs.parseFila(String(fr.result)); Hs.anexarFila(hist, F); filaErro = null; toast(`Fila do histórico aberta: ${ddmmaaaa(F.inicio)} a ${ddmmaaaa(F.fim)}.`); }
         catch (e) { toast('Este arquivo da fila não serve: ' + e.message + '.'); }
         return render();
       }
       if (csv) {
         // arquivo do histórico aberto do aparelho (para testes): vale até recarregar o app
-        try { const F = hist && hist.fila; hist = Hs.parse(String(fr.result)); histErro = null; histOrigem = 'arquivo'; if (F) Hs.anexarFila(hist, F); evo.dia = null; toast(`Histórico aberto: ${hist.lista.length} dias (${ddmmaaaa(hist.inicio)} a ${ddmmaaaa(hist.fim)}).`); }
+        try { const F = hist && hist.fila; hist = Hs.parse(String(fr.result)); histErro = null; histOrigem = 'arquivo'; if (F && !hist.colsFila) Hs.anexarFila(hist, F); evo.dia = null; toast(`Histórico aberto: ${hist.lista.length} dias (${ddmmaaaa(hist.inicio)} a ${ddmmaaaa(hist.fim)}).`); }
         catch (e) { toast('Este histórico não serve: ' + e.message + '.'); }
         return render();
       }
@@ -645,7 +647,9 @@
         // dia do histórico fora do arquivo da fila (ou sem ele): o cartão fica no lugar, explicando e levando ao dia do Pulse.
         const diaP = dados ? ddmmaaaa(dados.dia).slice(0, 5) : '';
         html += `<div class="card chart semfila" data-ch="evo-esp"><h2>Técnicos em espera${dir === 'TODOS' ? ' · CO' : ''}</h2>
-          <p class="nota">${hist && hist.fila ? `Sem a fila deste dia: o arquivo da fila do histórico vai de ${ddmmaaaa(hist.fila.inicio).slice(0, 5)} a ${ddmmaaaa(hist.fila.fim).slice(0, 5)}.` : `A fila é um retrato tirado a cada coleta do Pulse. Sem o arquivo da fila do histórico (${esc(FILA_FONTE)}), este gráfico só existe no dia do Pulse${diaP ? ' (' + diaP + ')' : ''}.`}</p>
+          <p class="nota">${hist && hist.colsFila ? 'O histórico deste dia veio sem a coluna FILA.'
+            : hist && hist.fila ? `Sem a fila deste dia: o arquivo da fila do histórico vai de ${ddmmaaaa(hist.fila.inicio).slice(0, 5)} a ${ddmmaaaa(hist.fila.fim).slice(0, 5)}.`
+            : `A fila é um retrato tirado a cada coleta do Pulse. O histórico em uso não traz a fila (colunas FILA e ESPERA_MAX_S), por isso este gráfico só existe no dia do Pulse${diaP ? ' (' + diaP + ')' : ''}.`}</p>
           <button class="bt sm" data-navdia="fim">Ver o dia do Pulse${diaP ? ' · ' + diaP : ''}</button></div>`;
       }
       // atendidos direto (em até 1 min)
