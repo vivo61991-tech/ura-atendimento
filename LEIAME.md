@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.9.4)
+# URA · Suporte B2C (v1.10.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -89,6 +89,18 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 - Um dia do histórico é convertido para o mesmo formato do `pulse.json` (leituras acumuladas a cada 15 min, 08:00–21:00),
   então todas as telas e contas servem para os dois. **O histórico não tem fila** (técnicos em espera): esse gráfico só aparece no dia ao vivo.
 
+## Previsto até agora (coluna em andamento e aba Agora)
+- O histórico é de 15 em 15 min; o Pulse anda de 5 em 5. Para comparar "até agora", os outros dias são cortados no MESMO
+  minuto da última coleta, **proporcional** dentro do bloco de 15 min (19:20 = até 19:15 + 1/3 do bloco 19:15–19:30).
+  Percentuais e tempos saem das somas parciais (não da média das médias).
+- **Evolução:** a coluna em andamento também tem previsto (a área vai até ela); ao tocar, "mediana 7 sextas até 19:15".
+  Os cards do dia comparam com os outros dias até o mesmo minuto.
+- **Agora:** chave Previsto (a mesma da Evolução) acima da hora atual; "med." no NS do dia, Oferecidas CO, Abandonadas, TME,
+  Últimos 15 min e na TEL. Fila e agentes não têm (o histórico não guarda).
+  Hora atual: área do previsto na hora INTEIRA (CO + TEL), já desenhada até o fim; as barras vão preenchendo.
+  De 5 em 5 min cada bloco de 15 é dividido em 3 partes iguais (aproximação, avisada no (i)).
+  Embaixo: oferecidas até agora × previsto até agora e o previsto para a hora inteira.
+
 ## Seleção inicial da Evolução
 - Ao abrir o app, a Evolução começa sempre nas primeiras opções de cada linha (as da esquerda):
   **Total URA** · **Por intervalo** · **Auto**. Ordem dos botões de atendimento: Total URA, CO, TEL.
@@ -113,6 +125,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.10.0:** previsto proporcional até o minuto da última coleta: coluna em andamento da Evolução, cards do dia; aba Agora com chave Previsto, "med." nos cards e área do previsto na hora atual inteira, com resumo até agora × previsto e previsto da hora.
 - **1.9.4:** num dia do histórico, o cartão "Técnicos em espera" continua no lugar explicando que o Genesys não guarda a fila, com botão para ir ao dia do Pulse (antes o gráfico simplesmente sumia).
 - **1.9.3:** Evolução abre sempre em Total URA · Por intervalo · Auto; botões na ordem Total URA, CO, TEL (o eixo não fica mais lembrado).
 - **1.9.2:** sem a linha do NS acumulado no gráfico de NS; trocar a data (ou o previsto, ou tocar numa coluna) não mexe na rolagem; chave Previsto com 3 botões iguais: 7 dias · 7 dom/seg… · Desligado; barra de data do histórico em roxo (sem o azul).

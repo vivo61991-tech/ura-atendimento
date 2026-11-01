@@ -158,6 +158,24 @@
     a.dir60 = a.atend > 0 && a.temA60 ? Math.min(100, a.a60 / a.atend * 100) : null;
     return a;
   }
+  // Acumulado do dia num minuto qualquer, interpolando entre as duas leituras em volta (proporcional ao tempo).
+  // Serve para o histórico (leituras de 15 em 15 min) comparar com a coleta do Pulse no meio de um bloco:
+  // 19:20 = leitura das 19:15 + 1/3 do que entrou entre 19:15 e 19:30. Os retratos (fila, agentes) não se interpolam.
+  const SOMAS = ['ofer', 'atend', 'aband', 'a300', 'a60', 'tmaS', 'tmeS', 'espTot'];
+  function agregarEm(d, m, skills) {
+    const ls = d.leituras;
+    let ant = null, pos = null;
+    for (const l of ls) { if (l.m <= m) ant = l; if (l.m >= m && !pos) pos = l; }
+    if (!ant) return agregar(null, skills);
+    if (!pos || pos === ant || ant.m === m) { const a = agregar(ant, skills); a.m = m; return a; }
+    const A = agregar(ant, skills), B = agregar(pos, skills), f = (m - ant.m) / (pos.m - ant.m);
+    const r = Object.assign({}, A, { m });
+    SOMAS.forEach(k => { r[k] = A[k] + (B[k] - A[k]) * f; });
+    return derivar(r);
+  }
+  // um intervalo qualquer [ini, fim] com a mesma regra (volumes = fim − início; NS e abandono ÷ finalizadas)
+  const intervaloEm = (d, ini, fim, skills) => delta(agregarEm(d, fim, skills), agregarEm(d, ini, skills));
+
   // diferença entre dois acumulados (fim − início); os instantâneos (fila, espera máx., agentes) são os do fim
   function delta(fim, ini) {
     const d = { ofer: fim.ofer - ini.ofer, atend: fim.atend - ini.atend, aband: fim.aband - ini.aband,
@@ -274,7 +292,7 @@
   const fmtRel = s => s == null ? '—' : pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s % 3600 / 60)) + ':' + pad(Math.round(s % 60));
 
   const api = { OBRIGATORIAS, EWT_SEM_AGENTE, INICIO, FIM, PASSOS, normalizar, filtro, agregar, delta, intervalos,
-    passoAuto, acumulados, espera: esperaNoIntervalo, curto, minDe, hhmm, msDe, fmtInt, fmtPct, fmtSeg, fmtRel };
+    passoAuto, acumulados, agregarEm, intervaloEm, espera: esperaNoIntervalo, curto, minDe, hhmm, msDe, fmtInt, fmtPct, fmtSeg, fmtRel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Dados = api;
 })(typeof self !== 'undefined' ? self : this);

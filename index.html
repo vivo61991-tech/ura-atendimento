@@ -215,6 +215,7 @@ h2.sec .rt{white-space:nowrap;font-size:12.5px;text-transform:none;letter-spacin
 .legend i{display:inline-block;width:12px;height:10px;border-radius:3px}
 .legend i.ref{height:10px;width:16px;border-radius:3px 3px 0 0;background:color-mix(in srgb,var(--p500) 13%,var(--card));border-top:1.6px solid color-mix(in srgb,var(--p500) 55%,var(--card))}
 /* chave "Previsto" acima do primeiro gráfico: 7 dias corridos | 7 mesmos dias da semana */
+.hero .meta.hr{margin-top:4px;padding-top:4px;border-top:1px dashed var(--line)}.hero .meta.hr b{color:var(--ink)}.hero .meta.hr .df{white-space:nowrap}
 .cmpk{display:flex;align-items:center;gap:10px;margin:0 2px 12px}
 .cmpk-l{flex:none;font-size:12px;font-weight:750;text-transform:uppercase;letter-spacing:.5px;color:var(--ink2)}
 .cmpk .seg{flex:1;display:grid;grid-template-columns:repeat(3,1fr)}
@@ -240,6 +241,8 @@ h2.sec .rt{white-space:nowrap;font-size:12.5px;text-transform:none;letter-spacin
 .csel span{font-weight:600}
 .csel span b{font-weight:800}
 .csel small{font-size:11.5px;font-weight:500;opacity:.85}
+.ch-pe .csel.hres{color:var(--ink2)}.csel.hres > b{color:var(--p700)}.csel.hres span{color:var(--ink)}
+@media (prefers-color-scheme: dark){.csel.hres > b{color:#c9a3ee}}
 .info{flex:none;margin-left:auto;width:26px;height:26px;margin-right:-4px;border-radius:50%;border:0;padding:0;background:var(--p50);color:var(--p700);display:grid;place-items:center;cursor:pointer;transition:background .15s,color .15s}
 .info svg{width:17px;height:17px}
 .info:active{transform:scale(.94)}
@@ -393,9 +396,9 @@ table.tsel tbody tr.sel td:last-child{border-right-color:var(--selln)}
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Detalhe"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="dados.js?v=1.9.4"></script>
-<script src="graf.js?v=1.9.4"></script>
-<script src="historico.js?v=1.9.4"></script>
-<script src="app.js?v=1.9.4"></script>
+<script src="dados.js?v=1.10.0"></script>
+<script src="graf.js?v=1.10.0"></script>
+<script src="historico.js?v=1.10.0"></script>
+<script src="app.js?v=1.10.0"></script>
 </body>
 </html>

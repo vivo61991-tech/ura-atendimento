@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.9.4';
+  const APP_VERSION = '1.10.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -112,7 +112,7 @@
       histErro = e.message || 'falha ao ler o histórico';
     } finally {
       histCarregando = false; histEm = Date.now();
-      if (dados && pagina === 'evo') redesenhar(); else renderBanners();
+      if (dados && pagina !== 'skills') redesenhar(); else renderBanners();   // Evolução e Agora usam o histórico (previsto)
     }
   }
   function abrirArquivo(file) {
@@ -249,6 +249,18 @@
   const nsTx = (ns, cls) => ns == null ? '—' : `<span class="${cls === false ? '' : 'c-' + situacao(ns)}">${fP(ns)}</span>`;
 
   // ---------------------------------------------------------------- AGORA
+  // Previsto da aba Agora: o dia do Pulse contra os dias anteriores do histórico (mesma chave da Evolução).
+  // "Até agora" = até o mesmo minuto da última coleta, proporcional dentro do bloco de 15 min do histórico.
+  function cmpAgora() {
+    if (!hist || evo.cmp === 'off' || !dados) return null;
+    const refs = Hs.referencias(hist, dados.dia, evo.cmp);
+    if (!refs.length) return null;
+    const porRef = refs.map(r => { const dR = Hs.diaComoDados(hist, r, dados.trad); return { dR, coR: D.filtro(dR, { dir: 'CO' }), telR: D.filtro(dR, { dir: 'TEL' }) }; });
+    return { refs, porRef, nome: nomeCmp(dados.dia, refs.length), curto: nomeCmp(dados.dia, refs.length, true) };
+  }
+  const medAg = (cmp, f) => cmp ? Hs.mediana(cmp.porRef.map(f)) : null;
+  const linhaMed = (cmp, r, fmt, atual, pp) => !cmp ? '' : `med. ${esc(cmp.curto)}: <b>${r == null ? '—' : fmt(r)}</b> <span class="df">${r == null ? '' : difTx(atual, r, pp)}</span>`;
+
   function renderAgora() {
     const d = dados, L = ultima();
     const co = D.filtro(d, { dir: 'CO' }), tel = D.filtro(d, { dir: 'TEL' });
@@ -258,6 +270,10 @@
     const iv15t = D.intervalos(d, 15, tel), u15t = iv15t.filter(i => i.v).pop();
     const totURA = a.ofer + t.ofer;
     const pctBar = a.ns == null ? 0 : Math.min(100, a.ns);
+    const cmp = cmpAgora();
+    const dC = r => D.agregarEm(r.dR, L.m, r.coR), dT = r => D.agregarEm(r.dR, L.m, r.telR);
+    const mDia = f => medAg(cmp, r => f(dC(r), dT(r)));
+    const m15 = (u, k) => !u ? null : medAg(cmp, r => D.intervaloEm(r.dR, u.ini, u.ateM, k === 'CO' ? r.coR : r.telR).ofer);
 
     const hero = `<div class="card">
       <div class="hero">
@@ -266,15 +282,16 @@
           <div>${sit ? `<span class="pill st-${sit}">${STATUS[sit]}</span>` : '<span class="pill" style="background:var(--grid)">Sem chamadas</span>'}</div>
           <div class="prog" aria-hidden="true"><i style="width:${pctBar}%;background:${corSit(sit)}"></i><b style="left:calc(${META_NS}% - 1px)"></b></div>
           <div class="meta">meta ${META_NS}% · ${fI(a.a300)} de ${fI(a.ofer)} oferecidas atendidas em até 5&nbsp;min</div>
+          ${cmp ? `<div class="meta hr">${linhaMed(cmp, mDia(x => x.ns), x => fP(x), a.ns, true)}</div>` : ''}
         </div>
       </div></div>`;
 
     const k = `<div class="kpis2 k3">
-      ${kpi('Oferecidas CO', fI(a.ofer), `atendidas ${fI(a.atend)}`)}
-      ${kpi('Abandonadas', `<span class="${a.aband ? 'c-VERMELHO' : ''}">${fI(a.aband)}</span>`, a.abandPct == null ? '' : fP(a.abandPct) + ' das oferecidas')}
+      ${kpi('Oferecidas CO', fI(a.ofer), `atendidas ${fI(a.atend)}`, '', linhaMed(cmp, mDia(x => x.ofer), fI, a.ofer))}
+      ${kpi('Abandonadas', `<span class="${a.aband ? 'c-VERMELHO' : ''}">${fI(a.aband)}</span>`, a.abandPct == null ? '' : fP(a.abandPct) + ' das oferecidas', '', linhaMed(cmp, mDia(x => x.aband), fI, a.aband))}
       ${kpi('Em espera agora', fI(a.fila), a.fila ? 'mais antiga ' + fS(a.espMax) : 'nenhuma na fila')}
-      ${kpi('TME', fS(a.tme), 'TMA ' + fS(a.tma))}
-      ${kpi('Últimos 15 min', u15 ? fI(u15.v.ofer) : '—', u15 ? `${u15.rot}–${D.hhmm(u15.ateM)} · NS ${u15.v.ns == null ? '—' : fP(u15.v.ns)}` : '')}
+      ${kpi('TME', fS(a.tme), 'TMA ' + fS(a.tma), '', linhaMed(cmp, mDia(x => x.tme), fS, a.tme))}
+      ${kpi('Últimos 15 min', u15 ? fI(u15.v.ofer) : '—', u15 ? `${u15.rot}–${D.hhmm(u15.ateM)} · NS ${u15.v.ns == null ? '—' : fP(u15.v.ns)}` : '', '', u15 ? linhaMed(cmp, m15(u15, 'CO'), fI, u15.v.ofer) : '')}
       ${kpi('Agentes disponíveis', fI(a.dispMax), 'maior valor numa skill CO')}
     </div>`;
 
@@ -291,7 +308,7 @@
       : `<div class="okcard"><span class="okb"><svg viewBox="0 0 24 24"><path d="m6.5 12.3 3.6 3.6L17.5 8.6"/></svg></span><div>Nenhuma chamada em espera no CO<small>na coleta das ${esc(L.horario)}</small></div></div>`;
 
     // hora atual de 5 em 5 min (CO + TEL empilhados)
-    const hora = horaAtual(d, co, tel);
+    const hora = horaAtual(d, co, tel, cmp);
 
     // grupos CO
     const gCO = grupos(d, co, L);
@@ -302,8 +319,8 @@
     // TEL
     const gTEL = grupos(d, tel, L);
     const kt = `<div class="kpis2">
-      ${kpi('Oferecidas TEL', fI(t.ofer), totURA ? fP(t.ofer / totURA * 100) + ' do volume da URA' : '')}
-      ${kpi('Últimos 15 min', u15t ? fI(u15t.v.ofer) : '—', u15t ? `${u15t.rot}–${D.hhmm(u15t.ateM)}` : '')}
+      ${kpi('Oferecidas TEL', fI(t.ofer), totURA ? fP(t.ofer / totURA * 100) + ' do volume da URA' : '', '', linhaMed(cmp, mDia((x, y) => y.ofer), fI, t.ofer))}
+      ${kpi('Últimos 15 min', u15t ? fI(u15t.v.ofer) : '—', u15t ? `${u15t.rot}–${D.hhmm(u15t.ateM)}` : '', '', u15t ? linhaMed(cmp, m15(u15t, 'TEL'), fI, u15t.v.ofer) : '')}
     </div>`;
     const tabTEL = `<div class="card"><h2>TEL por grupo <small>· toque para ver a evolução</small></h2>${tabGrupos(['Ofer.', '% TEL'],
       gTEL.map(g => ({ nome: g.nome, dir: 'TEL', v: [fI(g.a.ofer), t.ofer ? fP(g.a.ofer / t.ofer * 100) : '—'] })),
@@ -315,6 +332,7 @@
       ${hero}${k}
       <h2 class="sec">Fila agora <span class="ct num">${fI(a.fila)}</span><span class="sp"></span><span class="rt">${esc(L.horario)}</span></h2>
       ${filaHtml}
+      ${hist ? chaveCmp({ iso: d.dia }) : ''}
       ${hora}
       ${tabCO}
       <h2 class="sec">TEL · Parceira<span class="sp"></span><span class="rt">acumulado do dia</span></h2>
@@ -331,7 +349,7 @@
       ${lin(total, ' tot', '')}</div>`;
   }
 
-  function horaAtual(d, co, tel) {
+  function horaAtual(d, co, tel, cmp) {
     const L = ultima();
     let desde = Math.floor(L.m / 60) * 60, passo = 5, tit = 'Hora atual · de 5 em 5 min';
     if (desde === L.m) { desde -= 60; passo = 15; tit = 'Última hora · de 15 em 15 min'; }
@@ -346,9 +364,26 @@
       else if (c && c.semColeta) cols.push({ rot: (m - desde) % 15 === 0 ? D.hhmm(m) : '', sd: true });
       else cols.push({ rot: (m - desde) % 15 === 0 ? D.hhmm(m) : '', segs: [] });
     }
-    return cartaoGraf('agora-hora', tit, G.barras({ cols, maxRot: 12, rotulos: true, aria: 'Chamadas oferecidas na hora atual' }),
-      '<div class="legend"><span><i style="background:var(--sCO)"></i>CO</span><span><i style="background:var(--sTEL)"></i>TEL</span><span><i class="and"></i>intervalo em andamento</span></div>' +
-      '<div class="cap">Chamadas oferecidas em cada intervalo. As horas anteriores ficam guardadas de 15 em 15 min (aba Evolução).</div>');
+    // previsto: a hora inteira, do início ao fim (as colunas ainda vazias também), CO + TEL.
+    // De 5 em 5 min o histórico não tem o detalhe: cada bloco de 15 min é dividido em 3 partes iguais.
+    const urA = (r, i, f) => D.intervaloEm(r.dR, i, f, r.coR).ofer + D.intervaloEm(r.dR, i, f, r.telR).ofer;
+    let ref = null, resumo = '';
+    if (cmp) {
+      ref = [];
+      for (let m = desde; m < desde + 60; m += passo) ref.push(medAg(cmp, r => urA(r, m, m + passo)));
+      const ateM = Math.min(L.m, desde + 60);
+      const atual = ic.concat(it).reduce((s, c) => s + (c && c.v ? c.v.ofer : 0), 0);
+      const pAte = medAg(cmp, r => urA(r, desde, ateM)), pHora = medAg(cmp, r => urA(r, desde, desde + 60));
+      const fecha = ateM >= desde + 60;
+      resumo = `<div class="cap capsel csel hres"><b>${D.hhmm(desde)}–${D.hhmm(ateM)}${fecha ? '' : ' · até agora'}</b>` +
+        `<span>${fI(atual)} oferecidas · previsto ${pAte == null ? '—' : fI(pAte)} ${pAte == null ? '' : difTx(atual, pAte)}</span>` +
+        (fecha ? '' : `<small>previsto para a hora inteira (${D.hhmm(desde)}–${D.hhmm(desde + 60)}): <b>${pHora == null ? '—' : fI(pHora)}</b></small>`) +
+        `<small class="cref">mediana ${esc(cmp.nome)}</small></div>`;
+    }
+    return cartaoGraf('agora-hora', tit, G.barras({ cols, maxRot: 12, rotulos: true, ref, refCor: 'var(--sCO)', aria: 'Chamadas oferecidas na hora atual' }),
+      '<div class="legend"><span><i style="background:var(--sCO)"></i>CO</span><span><i style="background:var(--sTEL)"></i>TEL</span><span><i class="and"></i>intervalo em andamento</span>' +
+      (cmp ? `<span><i class="ref"></i>área clara: previsto para cada intervalo da hora (CO + TEL), mediana ${evo.cmp === 'sem' ? 'das últimas ' : 'dos últimos '}${esc(cmp.nome)} do histórico (${cmp.refs.map(r => ddmmaaaa(r).slice(0, 5)).join(', ')})${passo === 5 ? '. O histórico é de 15 em 15 min: cada bloco é dividido em 3 partes iguais para os intervalos de 5 min (aproximação)' : ''}</span>` : '') + '</div>' +
+      '<div class="cap">Chamadas oferecidas em cada intervalo. As horas anteriores ficam guardadas de 15 em 15 min (aba Evolução).</div>', resumo);
   }
 
   function grupos(d, skills, L) {
@@ -390,13 +425,22 @@
       const coR = D.filtro(dR, { dir: 'CO', grupo: evo.grupo }), telR = D.filtro(dR, { dir: 'TEL', grupo: evo.grupo });
       let ivC = D.intervalos(dR, passo, coR), ivT = D.intervalos(dR, passo, telR);
       if (acum) { ivC = D.acumulados(dR, ivC, coR); ivT = D.acumulados(dR, ivT, telR); }
-      const lAte = [...dR.leituras].reverse().find(l => l.m <= Lm) || dR.leituras[0];
-      return { ivC: new Map(ivC.map(c => [c.ini, c])), ivT: new Map(ivT.map(c => [c.ini, c])), diaC: D.agregar(lAte, coR), diaT: D.agregar(lAte, telR) };
+      // "o dia até agora" nos outros dias = até o MESMO minuto, proporcional dentro do bloco de 15 min
+      return { dR, coR, telR, ivC: new Map(ivC.map(c => [c.ini, c])), ivT: new Map(ivT.map(c => [c.ini, c])), diaC: D.agregarEm(dR, Lm, coR), diaT: D.agregarEm(dR, Lm, telR) };
     });
-    return { refs, porRef, nome: nomeCmp(iso, refs.length), curto: nomeCmp(iso, refs.length, true) };
+    return { refs, porRef, acum, nome: nomeCmp(iso, refs.length), curto: nomeCmp(iso, refs.length, true) };
   }
-  const medCol = (cmp, c, f) => !cmp || !cmp.porRef.length || !c || c.andamento || c.semColeta ? null :
-    Hs.mediana(cmp.porRef.map(r => { const x = r.ivC.get(c.ini), y = r.ivT.get(c.ini); return x && x.v ? f(x.v, y && y.v) : null; }));
+  // mediana de uma coluna. Coluna em andamento: os outros dias no MESMO trecho (ex.: 19:00–19:20), proporcional
+  // dentro do bloco de 15 min do histórico; no acumulado, o dia até o mesmo minuto.
+  function medCol(cmp, c, f) {
+    if (!cmp || !cmp.porRef.length || !c || c.semColeta) return null;
+    if (c.andamento) return Hs.mediana(cmp.porRef.map(r => {
+      const x = cmp.acum ? D.agregarEm(r.dR, c.ateM, r.coR) : D.intervaloEm(r.dR, c.ini, c.ateM, r.coR);
+      const y = cmp.acum ? D.agregarEm(r.dR, c.ateM, r.telR) : D.intervaloEm(r.dR, c.ini, c.ateM, r.telR);
+      return f(x, y);
+    }));
+    return Hs.mediana(cmp.porRef.map(r => { const x = r.ivC.get(c.ini), y = r.ivT.get(c.ini); return x && x.v ? f(x.v, y && y.v) : null; }));
+  }
   const medDia = (cmp, f) => !cmp || !cmp.porRef.length ? null : Hs.mediana(cmp.porRef.map(r => f(r.diaC, r.diaT)));
   // diferença para a mediana: % em volumes e tempos; pontos percentuais (p.p.) em percentuais
   function difTx(atual, ref, pp) {
@@ -520,7 +564,7 @@
     if (ivC.some(i => i.andamento)) notas.push('<span><i class="and"></i>* em andamento (até a última coleta)</span>');
     if (ivC.some(i => i.semColeta)) notas.push(`<span><i class="sd"></i>${acum ? 'sem coleta neste horário' : 'sem coleta (volume no intervalo seguinte)'}</span>`);
     if (cmp) notas.push(temCmp
-      ? `<span><i class="ref"></i>área clara: mediana ${evo.cmp === 'sem' ? 'das últimas ' : 'dos últimos '}${esc(cmp.nome)} do histórico (${cmp.refs.map(r => ddmmaaaa(r).slice(0, 5)).join(', ')}) — o previsto para o horário${ivC.some(i => i.andamento) ? ' · sem mediana na coluna em andamento' : ''}</span>`
+      ? `<span><i class="ref"></i>área clara: mediana ${evo.cmp === 'sem' ? 'das últimas ' : 'dos últimos '}${esc(cmp.nome)} do histórico (${cmp.refs.map(r => ddmmaaaa(r).slice(0, 5)).join(', ')}) — o previsto para o horário${ivC.some(i => i.andamento) ? ' · na coluna em andamento, o previsto vai até o mesmo minuto da última coleta (proporcional dentro do bloco de 15 min do histórico)' : ''}</span>`
       : '<span>sem dias anteriores no histórico para comparar</span>');
     const capPadrao = !acum && ivC.length && ivC[0].incluiAntes ? `A 1ª coluna (${rot(ivC[0])}) inclui o que entrou antes da primeira coleta do dia.` : 'Toque numa coluna para selecionar · toque de novo para limpar.';
     // o resumo do intervalo selecionado fica sempre à vista, centralizado, só com os valores DAQUELE gráfico;
@@ -530,8 +574,7 @@
     const refSel = (f, fmt, atual, pp) => {
       if (!temCmp || iSel < 0) return null;
       const c = ivC[iSel], r = medCol(cmp, c, f);
-      if (c.andamento) return `mediana ${esc(cmp.nome)}: só para colunas fechadas`;
-      return `mediana ${esc(cmp.nome)}: <b>${r == null ? '—' : fmt(r)}</b>${r == null ? '' : ' ' + difTx(atual, r, pp)}`;
+      return `mediana ${esc(cmp.nome)}${c.andamento ? ' até ' + D.hhmm(c.ateM) : ''}: <b>${r == null ? '—' : fmt(r)}</b>${r == null ? '' : ' ' + difTx(atual, r, pp)}`;
     };
     const cS = iSel >= 0 ? ivC[iSel] : null, tS = iSel >= 0 ? ivT[iSel] : null, vS = cS && cS.v, vT = tS && tS.v;
     const fOf = (v, t) => dir === 'CO' ? v.ofer : dir === 'TEL' ? (t ? t.ofer : 0) : v.ofer + (t ? t.ofer : 0);

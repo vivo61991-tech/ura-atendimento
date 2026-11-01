@@ -157,6 +157,21 @@ t('modo acumulado: cada coluna = total do dia até o fim dela; fila = maior do d
   assert.ok(!iv[0].acum && iv[0].incluiAntes);
 });
 
+t('proporcional: agregarEm interpola entre leituras e intervaloEm fecha com os intervalos', () => {
+  const d = D.normalizar(amostra());
+  const co = D.filtro(d, { dir: 'CO' });
+  const l10 = d.leituras.find(x => x.m === 600), l1015 = d.leituras.find(x => x.m === 615);
+  const A = D.agregar(l10, co), B = D.agregar(l1015, co);
+  assert.strictEqual(D.agregarEm(d, 600, co).ofer, A.ofer, 'na leitura: igual');
+  const m = D.agregarEm(d, 605, co);
+  assert.ok(Math.abs(m.ofer - (A.ofer + (B.ofer - A.ofer) / 3)) < 1e-9, '10:05 = 10:00 + 1/3 do bloco');
+  assert.ok(Math.abs(m.tme - (A.tmeS + (B.tmeS - A.tmeS) / 3) / (A.atend + (B.atend - A.atend) / 3)) < 1e-9, 'TME pelas somas, não pela média');
+  const iv = D.intervalos(d, 15, co).find(i => i.ini === 600);
+  assert.strictEqual(D.intervaloEm(d, 600, 615, co).ofer, iv.v.ofer, 'bloco inteiro = intervalo de 15 min');
+  const tres = [600, 605, 610].reduce((s, x) => s + D.intervaloEm(d, x, x + 5, co).ofer, 0);
+  assert.ok(Math.abs(tres - iv.v.ofer) < 1e-9, 'três pedaços de 5 min somam o bloco');
+});
+
 t('formatação pt-BR', () => {
   assert.strictEqual(D.fmtInt(1562), '1.562');
   assert.strictEqual(D.fmtPct(61.2), '61,2%');

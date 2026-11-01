@@ -85,10 +85,15 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   await p.locator('#pgEvo .chart').first().locator('rect.hit').nth(3).click(); await p.waitForTimeout(150);
   const cap = await p.$eval('#pgEvo .chart .csel', x => x.innerText.replace(/\s+/g, ' '));
   ok(/mediana 7 sextas: 173/.test(cap), 'coluna 11h: "mediana 7 sextas: 173" (conferido em Python)');
-  // coluna em andamento: sem mediana
   const ult = await p.$$eval('#pgEvo .chart', cs => cs[0].querySelectorAll('rect.hit').length);
   await p.locator('#pgEvo .chart').first().locator('rect.hit').nth(ult - 1).click(); await p.waitForTimeout(150);
-  ok(/só para colunas fechadas/.test(await p.$eval('#pgEvo .chart .csel', x => x.innerText)), 'coluna em andamento: sem mediana (só colunas fechadas)');
+  // coluna em andamento (19:00–19:15): os outros dias no mesmo trecho
+  const espAnd = Hs.mediana(refs.map(r => { const d = Hs.diaComoDados(H, r, trad); return D.intervaloEm(d, 19 * 60, 19 * 60 + 15, D.filtro(d, { dir: 'CO' })).ofer; }));
+  const capAnd = await p.$eval('#pgEvo .chart .csel', x => x.innerText.replace(/\s+/g, ' '));
+  ok(capAnd.includes('mediana 7 sextas até 19:15: ' + fI(espAnd)), `coluna em andamento: mediana até 19:15 = ${fI(espAnd)} (${capAnd})`);
+  const ateFim = await p.$eval('#pgEvo .chart', c => { const r = c.querySelector('path.ref').getBBox(), hs = c.querySelectorAll('rect.hit'), u = hs[hs.length - 1];
+    return r.x + r.width >= +u.getAttribute('x') + +u.getAttribute('width') / 2; });
+  ok(ateFim, 'área do previsto vai até a coluna em andamento');
   // 7 dias corridos (a chave troca em todos os gráficos)
   await p.click('#pgEvo button[data-cmp="dias"]');
   ok(/mediana dos últimos 7 dias do histórico \(29\/10, 28\/10, 27\/10, 26\/10, 25\/10, 24\/10, 23\/10\)/.test(await p.$eval('#inf-evo-of', x => x.textContent)), '7 dias corridos: 29/10 a 23/10');
