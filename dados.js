@@ -217,8 +217,9 @@
     const r = { n: 0, pico: 0, picoM: null, espMax: 0, espMaxM: null, comFila: 0 };
     ls.forEach(l => {
       if (l.m <= ini || l.m > fim) return;
-      let fila = 0, mx = 0;
-      skills.forEach(k => { const v = l.v[k]; if (!v) return; fila += v.Current_Calls || 0; mx = Math.max(mx, v.Curr_Max_Wait_Time || 0); });
+      let fila = 0, mx = 0, tem = false;
+      skills.forEach(k => { const v = l.v[k]; if (!v || v.Current_Calls == null) return; tem = true; fila += v.Current_Calls || 0; mx = Math.max(mx, v.Curr_Max_Wait_Time || 0); });
+      if (!tem) return;   // leitura sem fila (ex.: dia do histórico): não conta como coleta
       r.n++;
       if (fila > 0) r.comFila++;
       if (fila > r.pico || r.picoM == null) { r.pico = fila; r.picoM = l.m; }

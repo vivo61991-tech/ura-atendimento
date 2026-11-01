@@ -1,18 +1,22 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.8.4';
-  const D = window.Dados, G = window.Graf;
+  const APP_VERSION = '1.9.0';
+  const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
   const META_NS = 90;          // meta do NS (%) — mesma do painel de Nível de Serviço do B2C
   const LIM_ATENCAO = 70;      // abaixo da meta e acima disto: "Em atenção"; abaixo: "Crítico"
   const PARAM = new URLSearchParams(location.search);
   const FONTE = PARAM.get('arquivo') || 'pulse.json';   // arquivo publicado na raiz do site, ao lado do index.html
+  const HIST_FONTE = PARAM.get('historico') || 'historico.csv';   // base Genesys (somas por skill a cada 15 min)
+  const HIST_RECARGA_MIN = 60;                          // o histórico muda uma vez por dia: confere a cada 1 h
   const CK = 'ura-b2c:';                                // prefixo das chaves no localStorage
   const ATRASO_MIN = 15;                                // sem coleta nova há mais que isto (no expediente): aviso
   const STATUS = { VERDE: 'Meta atingida', AMARELO: 'Em atenção', VERMELHO: 'Crítico' };
   const PASSO_NOME = { auto: 'Auto', 15: '15 min', 30: '30 min', 60: '1 h', 120: '2 h' };
+  const DS_CURTO = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const DS_PLURAL = ['domingos', 'segundas', 'terças', 'quartas', 'quintas', 'sextas', 'sábados'];
 
   // ---------------------------------------------------------------- estado
   let dados = null;            // dados normalizados em uso (sempre o último arquivo VÁLIDO)
@@ -22,10 +26,18 @@
   let erroDados = null;        // arquivo recebido com problema (estrutura)
   let carregando = false;
   let pagina = 'agora';
+  let hist = null;             // histórico lido (Historico.parse) — o último VÁLIDO
+  let histErro = null;         // falha ao ler/entender o historico.csv
+  let histCarregando = false;
+  let histEm = 0;              // quando o histórico foi conferido pela última vez (ms)
+  let histOrigem = '';         // 'site' | 'arquivo'
   // modo: 'int' = por intervalo (padrão, sempre ao abrir) | 'acum' = acumulado do dia
   // ctl: controles da Evolução abertos (começam sempre recolhidos)
   // fixo: controles + faixa de grupos presos no topo ao rolar (escolha lembrada no aparelho; só se troca com os controles abertos)
-  const evo = { dir: 'CO', passo: lerPref('passo', 'auto'), grupo: null, sel: null, modo: 'int', ctl: false, fixo: lerPref('fixo', false) === true };
+  // dia: null = o mais recente (ao vivo) | 'aaaa-mm-dd' = dia escolhido na navegação
+  // cmp: comparação pela mediana — 'nao' | 'dias' (7 dias corridos) | 'sem' (7 mesmos dias da semana); lembrada no aparelho
+  const evo = { dir: 'CO', passo: lerPref('passo', 'auto'), grupo: null, sel: null, modo: 'int', ctl: false, fixo: lerPref('fixo', false) === true,
+    dia: null, cmp: ['nao', 'dias', 'sem'].includes(lerPref('cmp', 'nao')) ? lerPref('cmp', 'nao') : 'nao' };
   const sk = { dir: 'CO', q: '', zeros: false };
 
   const $ = s => document.querySelector(s);
@@ -82,9 +94,35 @@
       render();
     }
   }
+  // Histórico: baixado no início e conferido a cada 1 h (o arquivo muda uma vez por dia). Se o arquivo novo vier com
+  // problema, continua o último válido. Sem histórico o app funciona igual, só sem navegação e comparação.
+  async function carregarHist(forcar) {
+    if (histCarregando || histOrigem === 'arquivo' || !Hs) return;
+    if (!forcar && hist && Date.now() - histEm < HIST_RECARGA_MIN * 60000) return;
+    histCarregando = true;
+    try {
+      const r = await fetch(HIST_FONTE, { cache: 'no-cache' });
+      if (!r.ok) throw new Error(r.status === 404 ? 'arquivo ' + HIST_FONTE + ' não encontrado no site' : 'o site respondeu ' + r.status);
+      const txt = await r.text();
+      const novo = Hs.parse(txt);
+      hist = novo; histErro = null; histOrigem = 'site';
+    } catch (e) {
+      histErro = e.message || 'falha ao ler o histórico';
+    } finally {
+      histCarregando = false; histEm = Date.now();
+      if (dados && pagina === 'evo') redesenhar(); else renderBanners();
+    }
+  }
   function abrirArquivo(file) {
     const fr = new FileReader();
+    const csv = /\.(csv|txt)$/i.test(file.name);
     fr.onload = () => {
+      if (csv) {
+        // arquivo do histórico aberto do aparelho (para testes): vale até recarregar o app
+        try { hist = Hs.parse(String(fr.result)); histErro = null; histOrigem = 'arquivo'; evo.dia = null; toast(`Histórico aberto: ${hist.lista.length} dias (${ddmmaaaa(hist.inicio)} a ${ddmmaaaa(hist.fim)}).`); }
+        catch (e) { toast('Este histórico não serve: ' + e.message + '.'); }
+        return render();
+      }
       try { aplicarTexto(String(fr.result), 'arquivo', file.name); erroFonte = null; toast('Arquivo aberto: ' + file.name); }
       catch (e) { toast('Este arquivo não serve: ' + e.message + '.'); }
       render();
@@ -128,7 +166,8 @@
     const at = atrasado();
     if (at && origem !== 'arquivo') b.push(aviso('atraso:' + dados.dia + ultima().horario, `Sem coleta nova há ${at} min. Os números podem estar desatualizados.`));
     $('#banners').innerHTML = b.filter(Boolean).join('');
-    $('#avisos').innerHTML = dados && dados.avisos.length ? `<div class="banner warn"><b>Avisos do arquivo</b><br>${dados.avisos.map(esc).join('<br>')}</div>` : '';
+    const av = (dados ? dados.avisos : []).concat(hist ? hist.avisos : []);
+    $('#avisos').innerHTML = av.length ? `<div class="banner warn"><b>Avisos do arquivo</b><br>${av.map(esc).join('<br>')}</div>` : '';
     $('#footDia').textContent = dados ? ' · dados de ' + ddmmaaaa(dados.dia) : '';
   }
 
@@ -204,7 +243,7 @@
       const p = document.getElementById('inf-' + b.dataset.info); if (p) p.hidden = !ab;
     });
   }
-  const kpi = (l, v, s, cls) => `<div class="kpi${cls ? ' ' + cls : ''}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s || '&nbsp;'}</div></div>`;
+  const kpi = (l, v, s, cls, r) => `<div class="kpi${cls ? ' ' + cls : ''}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s || '&nbsp;'}</div>${r ? `<div class="r">${r}</div>` : ''}</div>`;
   const nsTx = (ns, cls) => ns == null ? '—' : `<span class="${cls === false ? '' : 'c-' + situacao(ns)}">${fP(ns)}</span>`;
 
   // ---------------------------------------------------------------- AGORA
@@ -317,8 +356,73 @@
   }
 
   // ---------------------------------------------------------------- EVOLUÇÃO
+  // ---------------------------------------------------------------- dia da Evolução (ao vivo ou do histórico)
+  // Dias disponíveis = os do histórico + o dia do Pulse. O dia do Pulse vem "ao vivo" (com fila); se ele já passou e o
+  // histórico tem o dia completo, vale o histórico (o Pulse pode ter parado no meio do dia).
+  function diasDisp() {
+    const c = new Set(hist ? hist.lista : []);
+    if (dados) c.add(dados.dia);
+    return [...c].sort();
+  }
+  const usaPulse = iso => !!dados && iso === dados.dia && !(dados.dia !== hojeISO() && hist && hist.dias.has(iso));
+  function diaEvo() {
+    const lista = diasDisp();
+    if (evo.dia && !lista.includes(evo.dia)) evo.dia = null;
+    const alvo = evo.dia || lista[lista.length - 1];
+    if (!hist || usaPulse(alvo)) return { d: dados, iso: dados.dia, vivo: true, lista, i: lista.indexOf(dados.dia) };
+    return { d: Hs.diaComoDados(hist, alvo, dados.trad), iso: alvo, vivo: false, lista, i: lista.indexOf(alvo) };
+  }
+  // nome da comparação: "7 sextas", "5 sextas" (perto do início do histórico), "7 dias"
+  function nomeCmp(iso, n, curto) {
+    if (evo.cmp === 'dias') return n + ' dias';
+    const w = Hs.diaSemana(iso);
+    return n + ' ' + (curto ? DS_CURTO[w] : n === 1 ? DS_PLURAL[w].slice(0, -1) : DS_PLURAL[w]);
+  }
+  // Mediana do histórico para o dia em exibição: mesmos filtros, mesmo eixo e mesmo modo (intervalo/acumulado).
+  // Lm: horário da última leitura do dia em exibição — os cards comparam "o dia até agora" com os outros dias até a mesma hora.
+  function comparacao(iso, passo, acum, Lm) {
+    if (evo.cmp === 'nao' || !hist) return null;
+    const refs = Hs.referencias(hist, iso, evo.cmp);
+    const porRef = refs.map(r => {
+      const dR = Hs.diaComoDados(hist, r, dados.trad);
+      const coR = D.filtro(dR, { dir: 'CO', grupo: evo.grupo }), telR = D.filtro(dR, { dir: 'TEL', grupo: evo.grupo });
+      let ivC = D.intervalos(dR, passo, coR), ivT = D.intervalos(dR, passo, telR);
+      if (acum) { ivC = D.acumulados(dR, ivC, coR); ivT = D.acumulados(dR, ivT, telR); }
+      const lAte = [...dR.leituras].reverse().find(l => l.m <= Lm) || dR.leituras[0];
+      return { ivC: new Map(ivC.map(c => [c.ini, c])), ivT: new Map(ivT.map(c => [c.ini, c])), diaC: D.agregar(lAte, coR), diaT: D.agregar(lAte, telR) };
+    });
+    return { refs, porRef, nome: nomeCmp(iso, refs.length), curto: nomeCmp(iso, refs.length, true) };
+  }
+  const medCol = (cmp, c, f) => !cmp || !cmp.porRef.length || !c || c.andamento || c.semColeta ? null :
+    Hs.mediana(cmp.porRef.map(r => { const x = r.ivC.get(c.ini), y = r.ivT.get(c.ini); return x && x.v ? f(x.v, y && y.v) : null; }));
+  const medDia = (cmp, f) => !cmp || !cmp.porRef.length ? null : Hs.mediana(cmp.porRef.map(r => f(r.diaC, r.diaT)));
+  // diferença para a mediana: % em volumes e tempos; pontos percentuais (p.p.) em percentuais
+  function difTx(atual, ref, pp) {
+    if (atual == null || ref == null) return '';
+    if (pp) { const x = atual - ref; return `${x > 0 ? '+' : x < 0 ? '−' : '±'}${Math.abs(x).toLocaleString('pt-BR', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} p.p.`; }
+    if (!ref) return '';
+    const x = (atual / ref - 1) * 100;
+    return `${x > 0 ? '+' : x < 0 ? '−' : '±'}${Math.abs(x).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}%`;
+  }
+
+  // barra de data da Evolução: ‹ dia ›, seletor de data e "Hoje"/"Último"
+  function navDia(ctx) {
+    const { lista, i } = ctx, ult = lista[lista.length - 1];
+    const w = Hs ? Hs.diaSemana(ctx.iso) : 0;
+    const fonte = ctx.vivo ? (ctx.iso === hojeISO() ? 'ao vivo · Pulse' : 'Pulse') : 'histórico · Genesys';
+    const st = !hist && histCarregando ? 'carregando histórico…' : !hist && histErro ? 'sem histórico: ' + histErro : fonte;
+    const seta = dz => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${dz}"/></svg>`;
+    return `<div class="dnav${ctx.vivo ? '' : ' hist'}">
+      <button class="dn-b" data-navdia="-1"${i > 0 ? '' : ' disabled'} aria-label="Dia anterior">${seta('M15 6l-6 6 6 6')}</button>
+      <label class="dn-d"><span class="dn-t"><b>${DS_CURTO[w]}, ${ddmmaaaa(ctx.iso).slice(0, 5)}</b><small>${esc(st)}</small></span>
+        <input type="date" id="dnData" min="${lista[0]}" max="${ult}" value="${ctx.iso}" aria-label="Escolher o dia"></label>
+      <button class="dn-b" data-navdia="1"${i < lista.length - 1 ? '' : ' disabled'} aria-label="Próximo dia">${seta('M9 6l6 6-6 6')}</button>
+      ${i < lista.length - 1 ? `<button class="dn-hoje" data-navdia="fim">${ult === hojeISO() ? 'Hoje' : 'Último'}</button>` : ''}
+    </div>`;
+  }
+
   function renderEvo() {
-    const d = dados, L = ultima();
+    const ctx = diaEvo(), d = ctx.d, L = d.leituras[d.leituras.length - 1];
     const filtroDir = dir => D.filtro(d, { dir, grupo: evo.grupo });
     // grupos do atendimento escolhido, com as oferecidas do dia (prévia do volume): maior volume primeiro, zerados no fim
     const volGrp = new Map();
@@ -359,25 +463,36 @@
         chipTodos = [...chipVol.values()].reduce((a, b) => a + b, 0);
       }
     } else { grpsDisp.forEach(g => chipVol.set(g, volGrp.get(g))); chipTodos = volTodos; }
-    // controles recolhidos: só o que está escolhido, numa linha
-    const resumoCtl = [{ CO: 'CO', TEL: 'TEL', TODOS: 'Total URA' }[dir], acum ? 'Acumulado' : 'Por intervalo', evo.passo === 'auto' ? 'Auto · ' + PASSO_NOME[passo] : PASSO_NOME[passo]];
+    const cmp = comparacao(ctx.iso, passo, acum, L.m);
+    const temCmp = !!(cmp && cmp.porRef.length);
+    // controles recolhidos: só o que está escolhido, numa linha (com comparação, rótulos mais curtos para caber)
+    const resumoCtl = [{ CO: 'CO', TEL: 'TEL', TODOS: 'Total URA' }[dir], acum ? (cmp ? 'Acum.' : 'Acumulado') : (cmp ? 'Intervalo' : 'Por intervalo'),
+      evo.passo === 'auto' ? (cmp ? 'Auto' : 'Auto · ' + PASSO_NOME[passo]) : PASSO_NOME[passo]].concat(cmp ? ['vs ' + nomeCmp(ctx.iso, 7, true)] : []);
     // KPIs: sem seleção = acumulado do dia; com seleção = só o intervalo
     const aC = iSel >= 0 ? (ivC[iSel].v || null) : D.agregar(L, co);
     const aT = iSel >= 0 ? (ivT[iSel] && ivT[iSel].v || null) : D.agregar(L, tel);
     const kc = iSel >= 0 ? 'ksel' : '';
     const onde = iSel >= 0 ? (acum ? 'até ' + D.hhmm(fimDe(ivC[iSel])) : 'no intervalo') : 'no dia';
+    // mediana para os cards: com coluna selecionada, a da coluna; sem seleção, a do dia até o mesmo horário
+    const kRef = f => !temCmp ? null : iSel >= 0 ? medCol(cmp, ivC[iSel], f) : medDia(cmp, f);
+    const kR = (f, fmt, atual, pp) => { if (!temCmp) return ''; const r = kRef(f); return `med. ${esc(cmp.curto)}: <b>${r == null ? '—' : fmt(r)}</b> <span class="df">${r == null ? '' : difTx(atual, r, pp)}</span>`; };
     let k = '';
     if (iSel >= 0 && ivC[iSel].semColeta) k = `<div class="banner warn">${rot(ivC[iSel])}: sem coleta neste horário${acum ? '.' : ' — o volume entra no intervalo seguinte.'}</div>`;
     else if (dir === 'CO') {
       const eD = iSel >= 0 ? ivC[iSel].esp : D.espera(d.leituras, -1, L.m, co);
-      k = kpi('Oferecidas', fI(aC.ofer), `atendidas ${fI(aC.atend)} ${onde}`, kc) + kpi('NS 5 min', nsTx(aC.ns), `meta ${META_NS}%`, kc) +
-        kpi('Abandonadas', fI(aC.aband), aC.abandPct == null ? '' : fP(aC.abandPct) + (iSel >= 0 && !acum ? ' das finalizadas' : ' das oferecidas'), kc) + kpi('TME', fS(aC.tme), 'TMA ' + fS(aC.tma), kc) +
-        kpi('Pico em espera', eD ? fI(eD.pico) + (eD.pico === 1 ? ' técnico' : ' técnicos') : '—', eD && eD.pico ? 'às ' + D.hhmm(eD.picoM) + ' · até ' + minCurto(eD.espMax) : 'sem fila nas coletas', kc) +
-        kpi('Atendidos direto', aC.dir60 == null ? '—' : fP(aC.dir60), 'em até 1&nbsp;min ' + onde, kc);
+      // o histórico não tem fila: no lugar do "Pico em espera" entram as atendidas
+      const kFila = ctx.vivo
+        ? kpi('Pico em espera', eD ? fI(eD.pico) + (eD.pico === 1 ? ' técnico' : ' técnicos') : '—', eD && eD.pico ? 'às ' + D.hhmm(eD.picoM) + ' · até ' + minCurto(eD.espMax) : 'sem fila nas coletas', kc)
+        : kpi('Atendidas', fI(aC.atend), aC.ofer ? fP(aC.atend / aC.ofer * 100) + ' das oferecidas' : '', kc, kR(v => v.atend, fI, aC.atend));
+      k = kpi('Oferecidas', fI(aC.ofer), `atendidas ${fI(aC.atend)} ${onde}`, kc, kR(v => v.ofer, fI, aC.ofer)) +
+        kpi('NS 5 min', nsTx(aC.ns), `meta ${META_NS}%`, kc, kR(v => v.ns, x => fP(x), aC.ns, true)) +
+        kpi('Abandonadas', fI(aC.aband), aC.abandPct == null ? '' : fP(aC.abandPct) + (iSel >= 0 && !acum ? ' das finalizadas' : ' das oferecidas'), kc, kR(v => v.aband, fI, aC.aband)) +
+        kpi('TME', fS(aC.tme), 'TMA ' + fS(aC.tma), kc, kR(v => v.tme, fS, aC.tme)) + kFila +
+        kpi('Atendidos direto', aC.dir60 == null ? '—' : fP(aC.dir60), 'em até 1&nbsp;min ' + onde, kc, kR(v => v.dir60, x => fP(x), aC.dir60, true));
     }
-    else if (dir === 'TEL') k = kpi('Oferecidas TEL', fI(aT.ofer), onde, kc) + kpi('Média por intervalo', fI(media(ivT)), `${n} intervalo(s) de ${PASSO_NOME[passo]}`, kc);
-    else k = kpi('Oferecidas URA', fI((aC ? aC.ofer : 0) + (aT ? aT.ofer : 0)), onde, kc) + kpi('CO', fI(aC.ofer), `NS ${aC.ns == null ? '—' : fP(aC.ns)}`, kc) +
-      kpi('TEL', fI(aT.ofer), (aC.ofer + aT.ofer) ? fP(aT.ofer / (aC.ofer + aT.ofer) * 100) + ' do volume' : '', kc) + kpi('Abandonadas CO', fI(aC.aband), aC.abandPct == null ? '' : fP(aC.abandPct), kc);
+    else if (dir === 'TEL') k = kpi('Oferecidas TEL', fI(aT.ofer), onde, kc, kR((v, t) => t ? t.ofer : 0, fI, aT.ofer)) + kpi('Média por intervalo', fI(media(ivT)), `${n} intervalo(s) de ${PASSO_NOME[passo]}`, kc);
+    else k = kpi('Oferecidas URA', fI((aC ? aC.ofer : 0) + (aT ? aT.ofer : 0)), onde, kc, kR((v, t) => v.ofer + (t ? t.ofer : 0), fI, (aC ? aC.ofer : 0) + (aT ? aT.ofer : 0))) + kpi('CO', fI(aC.ofer), `NS ${aC.ns == null ? '—' : fP(aC.ns)}`, kc, kR(v => v.ofer, fI, aC.ofer)) +
+      kpi('TEL', fI(aT.ofer), (aC.ofer + aT.ofer) ? fP(aT.ofer / (aC.ofer + aT.ofer) * 100) + ' do volume' : '', kc, kR((v, t) => t ? t.ofer : 0, fI, aT.ofer)) + kpi('Abandonadas CO', fI(aC.aband), aC.abandPct == null ? '' : fP(aC.abandPct), kc, kR(v => v.aband, fI, aC.aband));
 
     // 1) oferecidas
     const colsOf = ivC.map((c, i) => {
@@ -394,10 +509,24 @@
     const notas = [];
     if (ivC.some(i => i.andamento)) notas.push('<span><i class="and"></i>* em andamento (até a última coleta)</span>');
     if (ivC.some(i => i.semColeta)) notas.push(`<span><i class="sd"></i>${acum ? 'sem coleta neste horário' : 'sem coleta (volume no intervalo seguinte)'}</span>`);
+    if (cmp) notas.push(temCmp
+      ? `<span><i class="ref"></i>mediana ${evo.cmp === 'sem' ? 'das últimas ' : 'dos últimos '}${esc(cmp.nome)} do histórico (${cmp.refs.map(r => ddmmaaaa(r).slice(0, 5)).join(', ')})${ivC.some(i => i.andamento) ? ' · sem mediana na coluna em andamento' : ''}</span>`
+      : '<span>sem dias anteriores no histórico para comparar</span>');
     const capPadrao = !acum && ivC.length && ivC[0].incluiAntes ? `A 1ª coluna (${rot(ivC[0])}) inclui o que entrou antes da primeira coleta do dia.` : 'Toque numa coluna para selecionar · toque de novo para limpar.';
     // o resumo do intervalo selecionado fica sempre à vista, centralizado, só com os valores DAQUELE gráfico;
     // legenda e explicações ficam no botão (i)
     const selTx = (tipo, extra) => iSel >= 0 ? capGraf(tipo, ivC[iSel], ivT[iSel], dir, extra) : '';
+    // mediana da coluna selecionada no resumo de cada gráfico
+    const refSel = (f, fmt, atual, pp) => {
+      if (!temCmp || iSel < 0) return null;
+      const c = ivC[iSel], r = medCol(cmp, c, f);
+      if (c.andamento) return `mediana ${esc(cmp.nome)}: só para colunas fechadas`;
+      return `mediana ${esc(cmp.nome)}: <b>${r == null ? '—' : fmt(r)}</b>${r == null ? '' : ' ' + difTx(atual, r, pp)}`;
+    };
+    const cS = iSel >= 0 ? ivC[iSel] : null, tS = iSel >= 0 ? ivT[iSel] : null, vS = cS && cS.v, vT = tS && tS.v;
+    const fOf = (v, t) => dir === 'CO' ? v.ofer : dir === 'TEL' ? (t ? t.ofer : 0) : v.ofer + (t ? t.ofer : 0);
+    const fAb = v => acum ? v.aband : v.abandPct;
+    const refArr = f => temCmp ? ivC.map(c => medCol(cmp, c, f)) : null;
     const dica = `<div class="cap">${acum ? 'Modo acumulado: cada coluna mostra o total do dia até o horário dela. ' : ''}${capPadrao}${!acum && ivC.length && ivC[0].incluiAntes ? ' Toque numa coluna para selecionar · toque de novo para limpar.' : ''}</div>`;
     let nGraf = 0;
     // filtro aplicado, mostrado no rodapé de cada gráfico:
@@ -409,11 +538,13 @@
       const ds = [...new Set(D.filtro(d, { dir: 'TODOS', grupo: evo.grupo }).map(s => d.trad[s].DIRECIONAMENTO))];
       filtroTx = (ds.length === 1 ? ds[0] + ' – ' : '') + evo.grupo;
     }
-    const graf = (titulo, svg, leg, tipo, extra) => cartaoGraf('evo-' + (++nGraf), titulo, svg, `<div class="legend">${leg}${notas.join('')}</div>${dica}`, selTx(tipo, extra), filtroTx);
+    const graf = (titulo, svg, leg, tipo, extra) => cartaoGraf('evo-' + tipo, titulo, svg, `<div class="legend">${leg}${notas.join('')}</div>${dica}`, selTx(tipo, extra), filtroTx);
 
-    let html = graf((acum ? 'Chamadas oferecidas' : 'Chamadas oferecidas por intervalo') + suf, G.barras({ cols: colsOf, sel: iSel, aria: 'Chamadas oferecidas' }), legOf, 'of');
+    let html = graf((acum ? 'Chamadas oferecidas' : 'Chamadas oferecidas por intervalo') + suf, G.barras({ cols: colsOf, sel: iSel, ref: refArr(fOf), aria: 'Chamadas oferecidas' }), legOf, 'of',
+      { refHtml: vS ? refSel(fOf, fI, fOf(vS, vT)) : null });
     if (temCO) {
       // técnicos em espera: pico do intervalo (retrato das coletas), cor pela espera mais longa
+      if (ctx.vivo) {
       const colsEsp = ivC.map(c => {
         const base = { rot: rot(c), and: c.andamento, titulo: tit(c) };
         if (!c.esp) return Object.assign(base, { sd: true });
@@ -424,16 +555,18 @@
         `<span><i style="background:var(--okc);border-radius:50%"></i>sem fila</span><span><i style="background:var(--p300)"></i>espera mais longa até 2 min</span><span><i style="background:var(--laranja)"></i>2 a 5 min</span><span><i style="background:var(--rosa)"></i>acima de 5 min</span>` +
         (acum ? '<span>maior número de técnicos esperando ao mesmo tempo, do início do dia até o horário da coluna (a fila é um retrato: não se soma ao longo do tempo)</span>'
           : `<span>maior número de técnicos esperando ao mesmo tempo nas coletas do intervalo (${passo < 15 ? 'de 5 em 5 min' : 'horas fechadas: uma coleta a cada 15 min'})</span>`), 'esp');
+      }   // (o histórico não tem fila: o gráfico de técnicos em espera só aparece no dia ao vivo)
       // atendidos direto (em até 1 min)
       // altura = QUANTIDADE de técnicos atendidos em até 1 min (no intervalo, ou somada no dia no Acumulado);
       // rótulo: % das atendidas em cima (maior) e a quantidade embaixo (menor)
       const colsDir = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
         rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: c.v.a60 || 0, cor: 'var(--sCO)' }],
         lab: c.v.dir60 == null ? '' : Math.round(c.v.dir60) + '%', lab2: c.v.dir60 == null ? '' : fI(c.v.a60) });
-      html += graf('Técnicos atendidos direto' + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsDir, sel: iSel, aria: 'Atendidos em até 1 minuto' }),
+      html += graf('Técnicos atendidos direto' + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsDir, sel: iSel, ref: refArr(v => v.a60), aria: 'Atendidos em até 1 minuto' }),
         (acum ? '<span><i style="background:var(--sCO)"></i>altura: técnicos atendidos em até 1&nbsp;min, somados do início do dia até o horário</span>'
           : '<span><i style="background:var(--sCO)"></i>altura: técnicos atendidos em até 1&nbsp;min no intervalo</span>') +
-        `<span>rótulo: % das atendidas ${acum ? 'no dia até o horário' : 'no intervalo'} (em cima) e quantidade de técnicos atendidos direto (embaixo)</span>`, 'dir');
+        `<span>rótulo: % das atendidas ${acum ? 'no dia até o horário' : 'no intervalo'} (em cima) e quantidade de técnicos atendidos direto (embaixo)</span>`, 'dir',
+        { refHtml: vS ? refSel(v => v.a60, fI, vS.a60) : null });
       // 2) NS do intervalo + NS acumulado do dia
       // linha do NS acumulado: só no modo por intervalo (no acumulado as próprias colunas já são o acumulado)
       const linhaNS = [];
@@ -443,27 +576,31 @@
         segs: [{ v: c.v.ns == null ? 0 : c.v.ns, cor: corSit(situacao(c.v.ns)) }],
         lab: c.v.ns == null ? '' : Math.round(c.v.ns) + '%' });
       html += graf((acum ? 'Nível de serviço (<span class="un">5 min</span>)' : 'Nível de serviço (<span class="un">5 min</span>) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf,
-        G.barras({ cols: colsNS, max: 100, meta: META_NS, metaTx: META_NS + '%', linha: acum ? null : linhaNS, sel: iSel, aria: 'Nível de serviço' }),
-        `<span><i style="background:var(--verdeS)"></i>Meta atingida</span><span><i style="background:var(--amareloS)"></i>Em atenção</span><span><i style="background:var(--vermelhoS)"></i>Crítico</span>${acum ? '' : '<span><i class="ln"></i>NS acumulado do dia (÷ oferecidas, como no Pulse)</span>'}<span><i class="dash"></i>meta ${META_NS}%</span>` +
+        // com comparação, a linha do NS acumulado dá lugar à linha da mediana (duas linhas confundiriam)
+        G.barras({ cols: colsNS, max: 100, meta: META_NS, metaTx: META_NS + '%', linha: acum || temCmp ? null : linhaNS, ref: refArr(v => v.ns), sel: iSel, aria: 'Nível de serviço' }),
+        `<span><i style="background:var(--verdeS)"></i>Meta atingida</span><span><i style="background:var(--amareloS)"></i>Em atenção</span><span><i style="background:var(--vermelhoS)"></i>Crítico</span>${acum || temCmp ? '' : '<span><i class="ln"></i>NS acumulado do dia (÷ oferecidas, como no Pulse)</span>'}<span><i class="dash"></i>meta ${META_NS}%</span>` +
         (acum ? '<span>colunas: NS do dia até o horário — atendidas em até 5&nbsp;min ÷ oferecidas, como no Pulse</span>' : '<span>colunas: atendidas em até 5&nbsp;min ÷ chamadas finalizadas no intervalo (atendidas + abandonadas)</span>'),
-        'ns', { acum: iSel >= 0 && !acum ? linhaNS[iSel] : null });
+        'ns', { acum: iSel >= 0 && !acum ? linhaNS[iSel] : null, refHtml: vS ? refSel(v => v.ns, x => fP(x), vS.ns, true) : null });
       // 3) abandono
       const colsAb = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
         rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: acum ? c.v.aband : (c.v.abandPct || 0), cor: 'var(--sAb)' }],
         lab: c.v.abandPct == null ? '' : Math.round(c.v.abandPct) + '%', lab2: c.v.abandPct == null ? '' : fI(c.v.aband) });
-      html += graf((acum ? 'Abandono' : 'Abandono por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsAb, sel: iSel, aria: 'Abandono' }),
+      html += graf((acum ? 'Abandono' : 'Abandono por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsAb, sel: iSel, ref: refArr(fAb), aria: 'Abandono' }),
         (acum ? '<span><i style="background:var(--sAb)"></i>altura: chamadas abandonadas, somadas do início do dia até o horário</span><span>rótulo: abandonadas ÷ oferecidas do dia (em cima) e quantidade (embaixo)</span>'
-          : '<span><i style="background:var(--sAb)"></i>altura: abandonadas ÷ chamadas finalizadas no intervalo</span><span>rótulo: % (em cima) e quantidade de abandonadas (embaixo)</span>'), 'ab');
+          : '<span><i style="background:var(--sAb)"></i>altura: abandonadas ÷ chamadas finalizadas no intervalo</span><span>rótulo: % (em cima) e quantidade de abandonadas (embaixo)</span>'), 'ab',
+        { refHtml: vS ? (acum ? refSel(v => v.aband, fI, vS.aband) : refSel(v => v.abandPct, x => fP(x), vS.abandPct, true)) : null });
       // 4) TME
       const colsT = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
         rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: c.v.tme || 0, cor: 'var(--sTme)' }], lab: c.v.tme == null ? '' : minCurto(c.v.tme) });
-      html += graf((acum ? 'Tempo médio de espera (TME)' : 'Tempo médio de espera (TME) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsT, sel: iSel, aria: 'TME' }),
-        `<span><i style="background:var(--sTme)"></i>TME das chamadas atendidas ${acum ? 'no dia até o horário' : 'no intervalo'}: tempo que o técnico esperou até ser atendido</span>`, 'tme');
+      html += graf((acum ? 'Tempo médio de espera (TME)' : 'Tempo médio de espera (TME) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsT, sel: iSel, ref: refArr(v => v.tme), aria: 'TME' }),
+        `<span><i style="background:var(--sTme)"></i>TME das chamadas atendidas ${acum ? 'no dia até o horário' : 'no intervalo'}: tempo que o técnico esperou até ser atendido</span>`, 'tme',
+        { refHtml: vS ? refSel(v => v.tme, fS, vS.tme) : null });
       // 5) TMA (média: no acumulado é a média do dia até ali, não soma)
       const colsTma = ivC.map(c => c.semColeta ? { rot: rot(c), sd: true, titulo: tit(c) } : {
         rot: rot(c), and: c.andamento, titulo: tit(c), segs: [{ v: c.v.tma || 0, cor: 'var(--sTma)' }], lab: c.v.tma == null ? '' : minCurto(c.v.tma) });
-      html += graf((acum ? 'Tempo médio de atendimento (TMA)' : 'Tempo médio de atendimento (TMA) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsTma, sel: iSel, aria: 'TMA' }),
-        `<span><i style="background:var(--sTma)"></i>TMA das chamadas atendidas ${acum ? 'no dia até o horário' : 'no intervalo'}: duração do atendimento (média ponderada pelas atendidas)</span>`, 'tma');
+      html += graf((acum ? 'Tempo médio de atendimento (TMA)' : 'Tempo médio de atendimento (TMA) por intervalo') + (dir === 'TODOS' ? ' · CO' : '') + suf, G.barras({ cols: colsTma, sel: iSel, ref: refArr(v => v.tma), aria: 'TMA' }),
+        `<span><i style="background:var(--sTma)"></i>TMA das chamadas atendidas ${acum ? 'no dia até o horário' : 'no intervalo'}: duração do atendimento (média ponderada pelas atendidas)</span>`, 'tma',
+        { refHtml: vS ? refSel(v => v.tma, fS, vS.tma) : null });
     } else {
       html += `<div class="card"><p class="nota">A TEL é atendida em outro sistema: a URA registra só o volume encaminhado. Por isso não há NS, abandono nem tempos para a TEL.</p></div>`;
     }
@@ -471,10 +608,12 @@
 
     el.innerHTML = `
       <div class="evo-ctl${evo.fixo ? ' fixo' : ''}">
+      ${navDia(ctx)}
       <div class="card topbar ${evo.ctl ? 'aberto' : 'fechado'}">
         ${evo.ctl ? `<div class="seg" role="tablist" aria-label="Atendimento">${[['CO', 'CO'], ['TEL', 'TEL'], ['TODOS', 'Total URA']].map(([v, t]) => `<button data-dir="${v}" class="${dir === v ? 'on' : ''}">${t}</button>`).join('')}</div>
         <div class="seg sm" role="tablist" aria-label="Modo">${[['int', 'Por intervalo'], ['acum', 'Acumulado']].map(([v, t]) => `<button data-modo="${v}" class="${evo.modo === v ? 'on' : ''}" aria-pressed="${evo.modo === v}">${t}</button>`).join('')}</div>
         <div class="seg sm" role="tablist" aria-label="Intervalo do eixo">${['auto', 15, 30, 60, 120].map(p => `<button data-passo="${p}" class="${String(evo.passo) === String(p) ? 'on' : ''}">${PASSO_NOME[p]}</button>`).join('')}</div>
+        <div class="seg sm" role="tablist" aria-label="Comparar com a mediana do histórico">${[['nao', 'Sem comparação'], ['dias', '7 dias'], ['sem', '7 ' + DS_PLURAL[Hs ? Hs.diaSemana(ctx.iso) : 0]]].map(([v, t]) => `<button data-cmp="${v}" class="${evo.cmp === v ? 'on' : ''}" aria-pressed="${evo.cmp === v}"${!hist && v !== 'nao' ? ' disabled title="Histórico indisponível"' : ''}>${t}</button>`).join('')}</div>
         <div class="ctl-pe"><div class="meta-line"><span>${acum ? 'Acumulado · a cada ' + PASSO_NOME[passo] : 'Intervalos de ' + PASSO_NOME[passo]}${evo.passo === 'auto' ? ' (auto)' : ''}</span><span>08:00–${esc(L.horario)}</span></div>${pinoCtl()}${setaCtl(true)}</div>`
         : `<div class="ctl-pe"><button class="ctl-res" data-act="ctl" aria-label="Mostrar os controles: ${esc(resumoCtl.join(', '))}">${resumoCtl.map(t => `<span class="ctl-p">${esc(t)}</span>`).join('')}</button>${setaCtl(false)}</div>`}
         ${iSel >= 0 ? `<button class="selchip" data-act="limpar"><span>Selecionado: <b>${tit(ivC[iSel])}</b> · toque para limpar</span><span aria-hidden="true">✕</span></button>` : ''}
@@ -504,7 +643,8 @@
   function capGraf(tipo, c, t, dir, extra) {
     const ac = !!c.acum, fim = D.hhmm(c.andamento ? c.ateM : c.fim);
     const per = (ac ? `Acumulado até ${fim}` : `${D.hhmm(c.ini)}–${fim}`) + (c.andamento ? ' · em andamento' : '');
-    const caixa = (val, nota) => `<div class="cap capsel csel"><b>${per}</b><span>${val}</span>${nota ? `<small>${nota}</small>` : ''}</div>`;
+    const ref = extra && extra.refHtml ? `<small class="cref">${extra.refHtml}</small>` : '';
+    const caixa = (val, nota) => `<div class="cap capsel csel"><b>${per}</b><span>${val}</span>${nota ? `<small>${nota}</small>` : ''}${ref}</div>`;
     const pl = (n, um, varios) => fI(n) + ' ' + (n === 1 ? um : varios);
     if (tipo === 'esp') {
       const e = c.esp;
@@ -678,6 +818,15 @@
     if (b.dataset.sk) return abrirSkill(b.dataset.sk, b.dataset.skd);
     if (b.dataset.dir && b.closest('#pgEvo')) { evo.dir = b.dataset.dir; evo.grupo = null; evo.sel = null; return redesenhar(); }
     if (b.dataset.modo) { evo.modo = b.dataset.modo; return redesenhar(); }
+    if (b.dataset.cmp) { evo.cmp = b.dataset.cmp; gravarPref('cmp', evo.cmp); return redesenhar(); }
+    if (b.dataset.navdia) {
+      // navegar entre os dias: a coluna selecionada continua (mesmo horário em outro dia)
+      const lista = diasDisp(), atual = evo.dia || lista[lista.length - 1];
+      let i = lista.indexOf(atual);
+      if (b.dataset.navdia === 'fim') i = lista.length - 1; else i = Math.max(0, Math.min(lista.length - 1, i + +b.dataset.navdia));
+      evo.dia = i === lista.length - 1 ? null : lista[i];
+      return redesenhar();
+    }
     if (b.dataset.passo) { evo.passo = b.dataset.passo === 'auto' ? 'auto' : +b.dataset.passo; gravarPref('passo', evo.passo); evo.sel = null; return redesenhar(); }
     if (b.dataset.grp != null && b.classList.contains('chip')) {
       // tocar no grupo já selecionado desmarca e volta para "Todos os grupos"
@@ -694,11 +843,21 @@
     }
   });
   function ivAtuais() {
-    const co = D.filtro(dados, { dir: 'CO', grupo: evo.grupo });
-    const passo = evo.passo === 'auto' ? D.passoAuto(dados, maxColunas($('#pgEvo'))) : +evo.passo;
-    return D.intervalos(dados, passo, co);
+    const d = diaEvo().d;
+    const co = D.filtro(d, { dir: 'CO', grupo: evo.grupo });
+    const passo = evo.passo === 'auto' ? D.passoAuto(d, maxColunas($('#pgEvo'))) : +evo.passo;
+    return D.intervalos(d, passo, co);
   }
   function redesenhar() { const y = window.scrollY; render(); window.scrollTo(0, y); }
+  // seletor de data: escolher um dia sem dados avisa e não muda
+  document.addEventListener('change', e => {
+    if (e.target.id !== 'dnData') return;
+    const v = e.target.value, lista = diasDisp();
+    if (!v) return;
+    if (!lista.includes(v)) { toast(`Sem dados de ${ddmmaaaa(v)}.`); return redesenhar(); }
+    evo.dia = v === lista[lista.length - 1] ? null : v;
+    redesenhar();
+  });
   document.addEventListener('input', e => {
     if (e.target.id === 'skQ') {
       sk.q = e.target.value;
@@ -727,8 +886,9 @@
   }
   usarCopia();
   render();
-  carregar(false);
+  carregar(false).then(() => carregarHist(true));
+  setInterval(() => { if (!document.hidden) carregarHist(false); }, 5 * 60000);
 
   // para testes
-  window.__ura = { versao: APP_VERSION, estado: () => ({ dados, origem, erroFonte, erroDados, pagina, evo, sk }) };
+  window.__ura = { versao: APP_VERSION, estado: () => ({ dados, origem, erroFonte, erroDados, pagina, evo, sk, hist, histErro, histOrigem }) };
 })();

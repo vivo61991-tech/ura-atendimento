@@ -35,7 +35,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
     // abrir pela seta
     await p.click('#pgEvo .ctl-seta');
     e = await est();
-    ok(!e.fechado && e.segs === 3 && e.seta === 'true', `${larg}px: a seta abre os controles`);
+    ok(!e.fechado && e.segs === 4 && e.seta === 'true', `${larg}px: a seta abre os controles`);
     const seta2 = await p.$eval('#pgEvo .ctl-seta', s => { const r = s.getBoundingClientRect(), c = s.closest('.topbar').getBoundingClientRect(); return Math.round(c.bottom - r.bottom); });
     ok(seta2 <= 20, `${larg}px: aberta, a seta continua embaixo à direita`);
     // trocar opções mantém aberto

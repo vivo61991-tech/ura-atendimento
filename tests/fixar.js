@@ -14,7 +14,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await p.click('nav.tabs button[data-v="evo"]');
   const vis = async () => p.evaluate(() => {
     const h = document.querySelector('header.top').getBoundingClientRect().bottom;
-    const t = document.querySelector('#pgEvo .topbar').getBoundingClientRect(), c = document.querySelector('#pgEvo .chips').getBoundingClientRect();
+    const t = document.querySelector('#pgEvo .evo-ctl > :first-child').getBoundingClientRect(), c = document.querySelector('#pgEvo .chips').getBoundingClientRect();
     return { topo: Math.round(t.top - h), chipsVis: c.top >= h - 1 && c.bottom <= innerHeight, fixo: !!document.querySelector('#pgEvo .evo-ctl.fixo') };
   });
   ok(await p.locator('#pgEvo .ctl-pino').count() === 0, 'recolhido: sem o alfinete');

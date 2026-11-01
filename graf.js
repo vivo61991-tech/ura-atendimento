@@ -65,6 +65,7 @@
     let mx = 0;
     cols.forEach(c => { const s = (c.segs || []).reduce((a, g) => a + (g.v > 0 ? g.v : 0), 0); if (s > mx) mx = s; });
     (cfg.linha || []).forEach(v => { if (v != null && v > mx) mx = v; });
+    (cfg.ref || []).forEach(v => { if (v != null && v > mx) mx = v; });
     if (cfg.meta != null && cfg.meta > mx) mx = cfg.meta;
     const max = cfg.max || topo(mx * 1.08);
     const Y = v => H - B - Math.max(0, Math.min(v, max)) / max * hh;
@@ -141,8 +142,22 @@
           todos.map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${n > 20 ? 1.5 : 2.2}" style="fill:var(--sAcum);stroke:var(--card);stroke-width:1"/>`).join('');
       }
     }
+    // referência (mediana do histórico): linha suave tracejada com marcadores vazados
+    let ref = '';
+    if (cfg.ref) {
+      const trechos = [[]], todos = [];
+      cfg.ref.forEach((v, i) => {
+        if (v == null) { if (trechos[trechos.length - 1].length) trechos.push([]); return; }
+        const pt = [L + i * bw + bw / 2, Y(v)]; trechos[trechos.length - 1].push(pt); todos.push(pt);
+      });
+      const d = trechos.filter(t => t.length).map(curva).join('');
+      if (d) {
+        ref = `<path class="ref" d="${d}" style="fill:none;stroke:var(--sRef);stroke-width:2;stroke-dasharray:5 3;stroke-linejoin:round;stroke-linecap:round"/>` +
+          todos.map(p => `<circle class="refp" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${n > 20 ? 1.8 : 2.6}" style="fill:var(--card);stroke:var(--sRef);stroke-width:1.6"/>`).join('');
+      }
+    }
     const base = `<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" style="stroke:var(--line);stroke-width:1"/>`;
-    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(cfg.aria || 'gráfico')}">${defs}${band}${base}${corpo}${meta}${linha}${labs}${xs}${hit}</svg>`;
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(cfg.aria || 'gráfico')}">${defs}${band}${base}${corpo}${meta}${linha}${ref}${labs}${xs}${hit}</svg>`;
   }
 
   const api = { barras, topo, curva, W };

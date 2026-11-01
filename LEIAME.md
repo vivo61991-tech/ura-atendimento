@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.8.4)
+# URA · Suporte B2C (v1.9.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -76,7 +76,35 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
    - CO ou TEL, agrupadas pelo **nome simplificado da tradutora**, com busca;
    - o detalhe mostra os números do dia, o gráfico, as skills do Pulse que formam o grupo e os campos da tradutora.
 
+## Histórico (base Genesys)
+- **Arquivo:** `historico.csv` na raiz do site, gerado pelo SELECT `historico_ura_b2c` (Oracle, tabela `GENESYS_DAGENT_HIST_V3`).
+  - Período: **139 dias fechados** = 90 dias para navegar com comparação completa + 49 dias (7 semanas) de base. Cerca de 7,5 MB.
+  - Colunas: `DIA;HORARIO;SKILL;OFERECIDAS;ATENDIDAS;ABANDONADAS;ATEND_60S;ATEND_300S;SOMA_ESPERA_S;SOMA_TMA_S`.
+  - Separador `;` ou tabulação; data `dd/mm/aaaa` ou `aaaa-mm-dd`; uma linha por dia × bloco de 15 min × skill.
+  - Atualizar uma vez por dia (subir o arquivo novo no lugar do anterior). Para testar outro nome: `?historico=nome.csv`.
+- **Regras do SELECT** (validadas contra o Pulse em 30/10): só a entrada na fila (`PAPEL = 'RoutedTo'`), só as skills da grade,
+  atendida = `ACDCALLS = 1`, abandonada = `ABANDONED = 1`, espera com desconto de 120 s de URA (`ESPERA − 120`).
+- **No app:** o histórico é baixado no início e conferido a cada 1 h; se vier com problema, continua o último válido.
+  Sem o arquivo, o app funciona igual, só sem navegação e comparação. O botão de pasta também abre um `.csv` de histórico (testes).
+- Um dia do histórico é convertido para o mesmo formato do `pulse.json` (leituras acumuladas a cada 15 min, 08:00–21:00),
+  então todas as telas e contas servem para os dois. **O histórico não tem fila** (técnicos em espera): esse gráfico só aparece no dia ao vivo.
+
+## Navegação por dia e comparação (Evolução)
+- **Barra de data** acima dos controles: ‹ dia ›, toque na data para escolher no calendário, botão "Hoje" para voltar.
+  O dia do Pulse aparece "ao vivo"; os outros vêm do histórico (borda azul, "histórico · Genesys"). Se o dia do Pulse já passou
+  e o histórico tem esse dia completo, vale o histórico. A coluna selecionada continua ao trocar de dia.
+- **Comparar** (nos controles): Sem comparação · 7 dias (os 7 dias corridos anteriores) · 7 sextas (os 7 mesmos dias da semana
+  anteriores). A escolha fica lembrada no aparelho.
+- **Mediana**, não média: um feriado ou um dia de pico não puxa a referência.
+  - Gráficos: linha tracejada com a mediana de cada coluna (no NS ela substitui a linha do NS acumulado).
+  - Cards: "med. 7 sex" com a diferença (% em volume e tempo; p.p. em percentual). Sem seleção, o dia até a hora da última
+    coleta contra os outros dias até a mesma hora; com coluna selecionada, a coluna.
+  - Resumo da coluna selecionada: "mediana 7 sextas: X".
+  - A coluna em andamento não tem mediana (comparar parte do intervalo com o intervalo inteiro enganaria).
+  - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
+
 ## Versões
+- **1.9.0:** histórico da base Genesys (139 dias): navegação por dia na Evolução e comparação pela mediana dos 7 dias corridos ou dos 7 mesmos dias da semana (linha nos gráficos, cards e resumo da seleção).
 - **1.8.4:** técnicos atendidos direto: a altura das colunas passa a ser a QUANTIDADE de técnicos atendidos em até 1 min também no modo Por intervalo (antes era o %); o rótulo continua com o % em cima e a quantidade embaixo.
 - **1.8.3:** texto do filtro no rodapé dos gráficos centralizado no cartão; o (i) continua no canto direito.
 - **1.8.2:** rodapé dos gráficos da Evolução mostra, discreto e na linha do (i), o filtro aplicado: "CO"/"TEL", "CO – GRUPO"; no Total URA nada, ou só o grupo (com "CO –"/"TEL –" quando o grupo só existe num dos atendimentos). Com coluna selecionada, o resumo fica em cima e essa linha embaixo.
@@ -105,11 +133,13 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 |---|---|
 | `index.html` | estrutura e estilos (paleta, modo escuro), CSP |
 | `dados.js` | leitura, validação e contas (roda no Node para os testes) |
+| `historico.js` | leitura do `historico.csv`, dia do histórico no formato do Pulse, referências e mediana |
+| `historico.csv` | histórico (base Genesys) — trocado uma vez por dia |
 | `graf.js` | gráfico de colunas em SVG |
 | `app.js` | telas, atualização automática, cópia no aparelho |
 | `sw.js` | cache offline só deste app (caches `ura-b2c-v…`); o `.json` de dados nunca passa pelo cache |
 | `manifest.webmanifest`, `icons/` | instalação no celular |
-| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `grupos.js`, `controles.js`, `fixar.js`, `chipsel.js`, `skills.js`, `avisos.js` e `filtro.js` (Playwright) |
+| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `grupos.js`, `controles.js`, `fixar.js`, `chipsel.js`, `skills.js`, `avisos.js`, `filtro.js` e `historico.js` (Playwright), `historico.test.js` (contas do histórico) |
 
 ## Antes de publicar
 1. **Mesma versão** em `APP_VERSION` (`app.js`), `VERSION` (`sw.js`) e nos `?v=` do `index.html`. O teste confere.
