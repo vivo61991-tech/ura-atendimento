@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.9.3';
+  const APP_VERSION = '1.9.4';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -566,7 +566,13 @@
         `<span><i style="background:var(--okc);border-radius:50%"></i>sem fila</span><span><i style="background:var(--p300)"></i>espera mais longa até 2 min</span><span><i style="background:var(--laranja)"></i>2 a 5 min</span><span><i style="background:var(--rosa)"></i>acima de 5 min</span>` +
         (acum ? '<span>maior número de técnicos esperando ao mesmo tempo, do início do dia até o horário da coluna (a fila é um retrato: não se soma ao longo do tempo)</span>'
           : `<span>maior número de técnicos esperando ao mesmo tempo nas coletas do intervalo (${passo < 15 ? 'de 5 em 5 min' : 'horas fechadas: uma coleta a cada 15 min'})</span>`), 'esp');
-      }   // (o histórico não tem fila: o gráfico de técnicos em espera só aparece no dia ao vivo)
+      } else {
+        // dia do histórico: o Genesys não guarda a fila. O cartão fica no lugar (não "some"), explicando e levando ao dia do Pulse.
+        const diaP = dados ? ddmmaaaa(dados.dia).slice(0, 5) : '';
+        html += `<div class="card chart semfila" data-ch="evo-esp"><h2>Técnicos em espera${dir === 'TODOS' ? ' · CO' : ''}</h2>
+          <p class="nota">A fila é um retrato tirado a cada coleta do Pulse. O histórico (Genesys) não guarda esse retrato, por isso este gráfico só existe no dia do Pulse${diaP ? ' (' + diaP + ')' : ''}.</p>
+          <button class="bt sm" data-navdia="fim">Ver o dia do Pulse${diaP ? ' · ' + diaP : ''}</button></div>`;
+      }
       // atendidos direto (em até 1 min)
       // altura = QUANTIDADE de técnicos atendidos em até 1 min (no intervalo, ou somada no dia no Acumulado);
       // rótulo: % das atendidas em cima (maior) e a quantidade embaixo (menor)

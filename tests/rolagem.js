@@ -26,7 +26,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await rolarAte(p, 'evo-ns', 420);
   const y0 = await topo(p, 'evo-ns');
   await p.click('#pgEvo [data-navdia="-1"]'); await p.waitForTimeout(150);
-  ok(await p.locator('#pgEvo .chart[data-ch="evo-esp"]').count() === 0, 'dia anterior (histórico): sem o gráfico de técnicos em espera acima');
+  ok(await p.locator('#pgEvo .chart[data-ch="evo-esp"] rect.hit').count() === 0, 'dia anterior (histórico): cartão da fila sem gráfico (mais baixo) acima');
   let y = await topo(p, 'evo-ns');
   ok(Math.abs(y - y0) <= 1, `‹ dia anterior: gráfico de NS parado na tela (${y0} → ${y} px)`);
   await p.click('#pgEvo [data-navdia="-1"]'); await p.waitForTimeout(150);
@@ -36,7 +36,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   y = await topo(p, 'evo-ns');
   ok(Math.abs(y - y0) <= 1, `seletor de data (15/09): continua parado (${y} px)`);
   await p.click('#pgEvo .dn-hoje'); await p.waitForTimeout(150);
-  ok(await p.locator('#pgEvo .chart[data-ch="evo-esp"]').count() === 1, 'de volta ao dia do Pulse: técnicos em espera voltou acima');
+  ok(await p.locator('#pgEvo .chart[data-ch="evo-esp"] rect.hit').count() > 0, 'de volta ao dia do Pulse: gráfico da fila voltou acima');
   y = await topo(p, 'evo-ns');
   ok(Math.abs(y - y0) <= 1, `"Hoje": gráfico de NS no mesmo lugar (${y} px)`);
   // trocar o previsto também não mexe
@@ -45,12 +45,12 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await p.evaluate(() => document.querySelector('#pgEvo button[data-cmp="off"]').click()); await p.waitForTimeout(150);
   y = await topo(p, 'evo-tma');
   ok(Math.abs(y - t0) <= 1, `previsto desligado: gráfico de TMA parado (${t0} → ${y} px)`);
-  // o gráfico de fila está na tela e o dia novo não tem: fica no lugar dele o seguinte
+  // o gráfico de fila está na tela e o dia novo não tem fila: o cartão dela fica no mesmo lugar
   await p.evaluate(() => document.querySelector('#pgEvo button[data-cmp="sem"]').click()); await p.waitForTimeout(100);
   await rolarAte(p, 'evo-esp', 300);
   await p.click('#pgEvo [data-navdia="-1"]'); await p.waitForTimeout(150);
-  y = await topo(p, 'evo-dir');
-  ok(Math.abs(y - 300) <= 1, `fila na tela e dia sem fila: "atendidos direto" ocupa o lugar dela (${y} px)`);
+  y = await topo(p, 'evo-esp');
+  ok(Math.abs(y - 300) <= 1, `fila na tela e dia sem fila: o cartão da fila continua no mesmo lugar (${y} px)`);
   await p.close();
 
   // 2) sem fixar, no topo da tela: continua no topo

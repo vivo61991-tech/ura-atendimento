@@ -42,7 +42,12 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   n = await nav();
   ok(/qui, 29\/10 histórico · Genesys/.test(n.t) && n.hist && n.prox && n.hoje, 'seta ‹: qui, 29/10 do histórico (com "Hoje")');
   const t29 = await titulos();
-  ok(!t29.some(t => /TÉCNICOS EM ESPERA/i.test(t)) && t29.length === 6, `histórico: sem o gráfico de fila (${t29.length} gráficos)`);
+  ok(t29.length === 7 && await p.locator('#pgEvo .chart.semfila[data-ch="evo-esp"]').count() === 1 && await p.locator('#pgEvo .chart[data-ch="evo-esp"] rect.hit').count() === 0,
+    `histórico: o cartão de técnicos em espera continua no lugar, sem gráfico (${t29.length} cartões)`);
+  ok(/histórico \(Genesys\) não guarda/.test(await p.$eval('#pgEvo .semfila', x => x.textContent)), 'histórico: cartão da fila explica por que não há gráfico');
+  await p.click('#pgEvo .semfila button[data-navdia="fim"]'); await p.waitForTimeout(150);
+  ok(/30\/10/.test((await nav()).t) && await p.locator('#pgEvo .chart[data-ch="evo-esp"] rect.hit').count() > 0, 'botão "Ver o dia do Pulse" volta para 30/10 com o gráfico da fila');
+  await p.click('#pgEvo [data-navdia="-1"]'); await p.waitForTimeout(150);
   ok(await kOf() === fI(totCO('2026-10-29').ofer), `oferecidas CO de 29/10 = ${fI(totCO('2026-10-29').ofer)} (arquivo)`);
   const kp = await p.$$eval('#pgEvo .kpis2 .kpi .l', x => x.map(e => e.textContent));
   ok(kp.includes('Atendidas') && !kp.includes('Pico em espera'), 'histórico: card "Atendidas" no lugar de "Pico em espera"');

@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.9.3)
+# URA · Suporte B2C (v1.9.4)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -113,6 +113,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.9.4:** num dia do histórico, o cartão "Técnicos em espera" continua no lugar explicando que o Genesys não guarda a fila, com botão para ir ao dia do Pulse (antes o gráfico simplesmente sumia).
 - **1.9.3:** Evolução abre sempre em Total URA · Por intervalo · Auto; botões na ordem Total URA, CO, TEL (o eixo não fica mais lembrado).
 - **1.9.2:** sem a linha do NS acumulado no gráfico de NS; trocar a data (ou o previsto, ou tocar numa coluna) não mexe na rolagem; chave Previsto com 3 botões iguais: 7 dias · 7 dom/seg… · Desligado; barra de data do histórico em roxo (sem o azul).
 - **1.9.1:** dia do Pulse sempre do Pulse (histórico só para trás); previsto como área clara atrás das barras; chave "Previsto" (7 dias corridos / 7 mesmos dias da semana) acima do primeiro gráfico, fora dos controles.
