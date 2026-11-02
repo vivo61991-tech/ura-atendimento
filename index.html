@@ -70,6 +70,14 @@ header.top{position:sticky;top:0;z-index:30;box-shadow:0 2px 10px rgba(31,12,48,
 
 main{max-width:760px;margin:0 auto;padding:12px 12px calc(86px + var(--safe-b))}
 .page[hidden]{display:none}
+/* arrastar para o lado troca de aba: o navegador cuida só da rolagem vertical; faixas que rolam para o lado continuam */
+main{touch-action:pan-y pinch-zoom}
+.chips,.tw{touch-action:pan-x pan-y pinch-zoom}
+@keyframes entraD{from{transform:translateX(26%);opacity:.25}to{transform:none;opacity:1}}
+@keyframes entraE{from{transform:translateX(-26%);opacity:.25}to{transform:none;opacity:1}}
+.page.entra-d{animation:entraD .24s cubic-bezier(.2,.7,.3,1)}
+.page.entra-e{animation:entraE .24s cubic-bezier(.2,.7,.3,1)}
+@media (prefers-reduced-motion: reduce){.page.entra-d,.page.entra-e{animation:none}}
 
 /* menu de baixo */
 nav.tabs{position:fixed;bottom:0;left:0;right:0;z-index:25;background:var(--nav);box-shadow:0 -8px 24px rgba(58,22,88,.06);display:flex;padding-bottom:var(--safe-b)}
@@ -416,9 +424,9 @@ table.conf tr.aberto td{--lst:color-mix(in srgb,var(--p500) 9%,var(--card));back
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Detalhe"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="dados.js?v=1.22.4"></script>
-<script src="graf.js?v=1.22.4"></script>
-<script src="historico.js?v=1.22.4"></script>
-<script src="app.js?v=1.22.4"></script>
+<script src="dados.js?v=1.23.0"></script>
+<script src="graf.js?v=1.23.0"></script>
+<script src="historico.js?v=1.23.0"></script>
+<script src="app.js?v=1.23.0"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.22.4';
+  const APP_VERSION = '1.23.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -1131,6 +1131,52 @@
     evo.dir = ag.dir = sk.dir = v;
   }
   function irPara(p) { pagina = p; infoAberto = null; evo.menu = null; if (p === 'evo') evo.fonteVista = null; fecharSheet(); render(); window.scrollTo(0, 0); }
+
+  // ---------------------------------------------------------------- arrastar para o lado troca de aba
+  // Agora ⇄ Evolução ⇄ Skills. A tela acompanha o dedo; soltando depois de ~70 px (ou num arrasto rápido) entra a aba
+  // vizinha deslizando do lado certo; antes disso, volta para o lugar. Não vale quando o gesto começa em algo que já
+  // rola para o lado (faixa de grupos, tabelas largas), num menu aberto ou com o detalhe da skill aberto.
+  const ORDEM_ABAS = ['agora', 'evo', 'skills'];
+  const elAba = p => $('#pg' + p[0].toUpperCase() + p.slice(1));
+  const semMovimento = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let arr = null;
+  function irParaDeslizando(p, lado) {
+    irPara(p);
+    if (semMovimento()) return;
+    const el = elAba(p);
+    el.classList.remove('entra-d', 'entra-e'); void el.offsetWidth;
+    el.classList.add(lado > 0 ? 'entra-d' : 'entra-e');
+    setTimeout(() => el.classList.remove('entra-d', 'entra-e'), 320);
+  }
+  const mainEl = document.querySelector('main');
+  mainEl.addEventListener('touchstart', e => {
+    arr = null;
+    if (e.touches.length !== 1 || $('#sheet').classList.contains('show') || evo.menu) return;
+    if (e.target.closest('.chips, .tw, .ctl-menu, input, select, textarea')) return;
+    const t = e.touches[0];
+    arr = { x: t.clientX, y: t.clientY, t: Date.now(), dir: null, dx: 0, el: elAba(pagina) };
+  }, { passive: true });
+  mainEl.addEventListener('touchmove', e => {
+    if (!arr) return;
+    const t = e.touches[0], dx = t.clientX - arr.x, dy = t.clientY - arr.y;
+    if (!arr.dir && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) arr.dir = Math.abs(dx) > Math.abs(dy) * 1.3 ? 'h' : 'v';
+    if (arr.dir !== 'h') return;
+    const i = ORDEM_ABAS.indexOf(pagina), tem = dx < 0 ? i < ORDEM_ABAS.length - 1 : i > 0;
+    arr.dx = dx;
+    if (!semMovimento()) { arr.el.style.transition = 'none'; arr.el.style.transform = `translateX(${(tem ? dx * 0.45 : dx * 0.12).toFixed(1)}px)`; arr.el.style.opacity = String(Math.max(0.55, 1 - Math.abs(dx) / 700)); }
+  }, { passive: true });
+  mainEl.addEventListener('touchend', () => {
+    if (!arr) return;
+    const a = arr; arr = null;
+    const volta = () => { a.el.style.transition = 'transform .18s ease, opacity .18s ease'; a.el.style.transform = ''; a.el.style.opacity = ''; setTimeout(() => { a.el.style.transition = ''; }, 200); };
+    if (a.dir !== 'h') return volta();
+    const i = ORDEM_ABAS.indexOf(pagina), rapido = Math.abs(a.dx) > 35 && Date.now() - a.t < 250;
+    const j = (Math.abs(a.dx) > 70 || rapido) ? i + (a.dx < 0 ? 1 : -1) : i;
+    if (j === i || j < 0 || j >= ORDEM_ABAS.length) return volta();
+    a.el.style.transition = ''; a.el.style.transform = ''; a.el.style.opacity = '';
+    irParaDeslizando(ORDEM_ABAS[j], a.dx < 0 ? 1 : -1);
+  });
+  mainEl.addEventListener('touchcancel', () => { if (arr) { arr.el.style.transform = ''; arr.el.style.opacity = ''; arr = null; } });
   document.addEventListener('click', e => {
     if (evo.menu && !e.target.closest('.ctl-m')) fecharMenu();   // tocar fora fecha o menu (o toque continua valendo)
     const b = e.target.closest('button, tr[data-i], rect.hit');

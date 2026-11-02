@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.22.4)
+# URA · Suporte B2C (v1.23.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -88,6 +88,12 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   Sem o arquivo, o app funciona igual, só sem navegação e comparação. O botão de pasta também abre um `.csv` de histórico (testes).
 - Um dia do histórico é convertido para o mesmo formato do `pulse.json` (leituras acumuladas a cada 15 min, 08:00–21:00),
   então todas as telas e contas servem para os dois. **O histórico não tem fila** (técnicos em espera): esse gráfico só aparece no dia ao vivo.
+
+## Arrastar para o lado
+- Arrastar a tela para a esquerda/direita troca de aba: Agora ⇄ Evolução ⇄ Skills. A tela acompanha o dedo; soltando
+  depois de ~70 px (ou num arrasto rápido) entra a aba vizinha deslizando; antes disso, volta para o lugar.
+- Não troca quando o gesto é mais vertical (rolar), quando começa na faixa de grupos ou numa tabela larga (que rolam
+  para o lado), com um menu aberto ou com o detalhe da skill aberto. Sem animação para quem pediu menos movimento.
 
 ## Total URA · CO · TEL (as três telas)
 - Um filtro só para Agora, Evolução e Skills: escolher em qualquer tela vale nas outras. Começa em Total URA (primeira
@@ -202,6 +208,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.23.0:** arrastar para o lado troca de aba (Agora ⇄ Evolução ⇄ Skills), com a tela acompanhando o dedo.
 - **1.22.4:** número embaixo do título de cada gráfico numa cápsula roxa bem clara (leve destaque).
 - **1.22.3:** painel Grupos e skills ordenado pelas oferecidas mostradas (da hora na Agora; do dia ou da coluna selecionada na Evolução).
 - **1.22.2:** listrado da linha aberta preso à própria linha (sem impressão de movimento ao rolar) e contínuo entre as células.
@@ -259,7 +266,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 | `app.js` | telas, atualização automática, cópia no aparelho |
 | `sw.js` | cache offline só deste app (caches `ura-b2c-v…`); o `.json` de dados nunca passa pelo cache |
 | `manifest.webmanifest`, `icons/` | instalação no celular |
-| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `controles.js`, `chipsel.js`, `skills.js`, `avisos.js`, `filtro.js`, `historico.js`, `rolagem.js`, `agora.js`, `painel.js` e `titulos.js`, `dia.js` e `sincronia.js` (Playwright), `historico.test.js` (contas do histórico) |
+| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `controles.js`, `chipsel.js`, `skills.js`, `avisos.js`, `filtro.js`, `historico.js`, `rolagem.js`, `agora.js`, `painel.js` e `titulos.js`, `dia.js`, `sincronia.js` e `arrastar.js` (Playwright), `historico.test.js` (contas do histórico) |
 
 ## Antes de publicar
 1. **Mesma versão** em `APP_VERSION` (`app.js`), `VERSION` (`sw.js`) e nos `?v=` do `index.html`. O teste confere.
