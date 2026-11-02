@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.22.3)
+# URA · Suporte B2C (v1.22.4)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -202,6 +202,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.22.4:** número embaixo do título de cada gráfico numa cápsula roxa bem clara (leve destaque).
 - **1.22.3:** painel Grupos e skills ordenado pelas oferecidas mostradas (da hora na Agora; do dia ou da coluna selecionada na Evolução).
 - **1.22.2:** listrado da linha aberta preso à própria linha (sem impressão de movimento ao rolar) e contínuo entre as células.
 - **1.22.1:** a 1ª linha da tabela de 15 min fica listrada enquanto a HORA dela não fechou (não só o intervalo de 15 min).

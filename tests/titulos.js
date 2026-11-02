@@ -20,6 +20,8 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
       const tot = await p.$$eval(`${pg} .chart`, cs => cs.every(c => { const h = c.querySelector('h2'), v = c.querySelector('.ch-tot'), s = c.querySelector('svg');
         return v && h.getBoundingClientRect().bottom <= v.getBoundingClientRect().top + 1 && v.getBoundingClientRect().bottom <= s.getBoundingClientRect().top + 1; }));
       ok(tot, `${aba} ${larg}px: total embaixo do título, acima do gráfico, em todos`);
+      const caps = await p.$$eval(`${pg} .chart .ch-v`, vs => vs.map(v => { const cs = getComputedStyle(v); return cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && parseFloat(cs.borderTopLeftRadius) > 8; }));
+      ok(caps.length >= 9 && caps.every(Boolean), `${aba} ${larg}px: número em cápsula roxa bem clara em todos os gráficos`);
     }
     await p.close();
   }
