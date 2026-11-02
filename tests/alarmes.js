@@ -36,6 +36,13 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   const bol = await p.$eval('#alBadge', x => ({ t: x.textContent, h: x.hidden, aten: x.classList.contains('aten'), dentro: (() => { const i = x.closest('.ico').getBoundingClientRect(), r = x.getBoundingClientRect(); return r.left > i.left && r.top < i.top; })() }));
   ok(!bol.h && +bol.t === agoraIds.length && bol.aten && bol.dentro, `bolinha no canto superior direito do ícone: ${bol.t} (laranja: só em atenção)`);
   if (nFila) ok(/normal neste horário: 0 \(fila em 1 de 7 dias\)/.test(await p.$eval('#pgAlarmes .al[data-al-id="fila"]', x => x.textContent)), 'fila: "normal neste horário: 0 (fila em 1 de 7 dias)"');
+  // verificações normais: uma cápsula por linha (nome, referência e número)
+  const lista = await p.$$eval('#pgAlarmes .al-okl li', l => l.map(x => { const r = x.getBoundingClientRect(); return { n: x.querySelector('.al-okn').textContent, v: x.querySelector('.al-okv').textContent, ref: (x.querySelector('.al-okr') || {}).textContent || '', x: Math.round(r.left), y: r.top, w: Math.round(r.width) }; }));
+  ok(lista.length >= 8 && lista.every((x, i) => x.v && x.x === lista[0].x && x.w === lista[0].w && (!i || x.y > lista[i - 1].y)), `normais: ${lista.length} linhas, uma embaixo da outra, todas com número`);
+  const nsOk = lista.find(x => x.n === 'NS');
+  ok(nsOk && nsOk.v === '100,0%' && /meta 90%/.test(nsOk.ref) && /med\. 100,0%/.test(nsOk.ref), `NS normal: ${nsOk && nsOk.v} (${nsOk && nsOk.ref})`);
+  const tmeOk = lista.find(x => x.n === 'TME');
+  ok(tmeOk && tmeOk.v === '55s' && /\+42s \(alarma a partir de \+1min 00s\)/.test(tmeOk.ref), `TME normal mostra a diferença em segundos: ${tmeOk && tmeOk.ref}`);
   ok(/Hoje: 2 críticos/.test(await p.$eval('#pgAlarmes .al-outra', x => x.textContent)), 'resumo da outra visão: "Hoje: 2 críticos"');
   // Hoje
   await p.click('#pgAlarmes .al-outra'); await p.waitForTimeout(100);
@@ -78,9 +85,9 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   ok(await p.$eval('#sheet input[data-cfgtodos="dia"]', x => !x.checked && x.indeterminate) && await p.$eval('#sheet input[data-cfgtodos="agora"]', x => x.checked), '"Todos" do Hoje fica parcial; o do Agora continua marcado');
   await p.click('#sheet [data-act="fechar"]'); await p.waitForTimeout(250);
   ok((await ids()).join() === 'aband' && /1 alarme desligado nesta visão/.test(await p.$eval('#pgAlarmes .al-desl', x => x.textContent)), 'NS desligado no Hoje: some, com o aviso "1 alarme desligado nesta visão"');
-  ok(!(await p.$$eval('#pgAlarmes .al-ch span', x => x.map(y => y.textContent))).includes('NS'), 'e não aparece entre as normais');
+  ok(!(await p.$$eval('#pgAlarmes .al-okl .al-okn', x => x.map(y => y.textContent))).includes('NS'), 'e não aparece entre as normais');
   await p.click('#pgAlarmes [data-alvista="agora"]'); await p.waitForTimeout(80);
-  ok(await p.locator('#pgAlarmes .al-desl').count() === 0 && (await p.$$eval('#pgAlarmes .al-ch span', x => x.map(y => y.textContent))).includes('NS'), 'no Agora o NS continua ligado');
+  ok(await p.locator('#pgAlarmes .al-desl').count() === 0 && (await p.$$eval('#pgAlarmes .al-okl .al-okn', x => x.map(y => y.textContent))).includes('NS'), 'no Agora o NS continua ligado');
   await reabrir(); await p.click('#pgAlarmes [data-alvista="dia"]'); await p.waitForTimeout(80);
   ok((await ids()).join() === 'aband', 'a configuração fica guardada no aparelho');
   // "Todos" do Agora: desliga e liga tudo

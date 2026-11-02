@@ -12,8 +12,8 @@ const base = () => ({ horario: '19:15', cmpNome: '7 sex', vivo: true, atrasoMin:
 const por = (l, id) => l.find(x => x.id === id);
 const nv = (m, v, id, lim) => por(A.avaliar(m, v, lim), id).nivel;
 t('tipos: 12, com nome e descrição', () => { assert.strictEqual(A.TIPOS.length, 12); assert(A.TIPOS.every(x => x.id && x.nome && x.desc)); });
-t('tudo normal nas duas visões: 12 verificações ok', () => {
-  ['agora', 'dia'].forEach(v => { const l = A.avaliar(base(), v); assert.strictEqual(l.length, 12); assert(l.every(x => x.nivel === 'ok'), v + ': ' + l.filter(x => x.nivel !== 'ok').map(x => x.id).join()); });
+t('tudo normal nas duas visões: 12 verificações ok, todas com número e referência', () => {
+  ['agora', 'dia'].forEach(v => { const l = A.avaliar(base(), v); assert.strictEqual(l.length, 12); assert(l.every(x => x.atual && x.ref), v + ' sem número: ' + l.filter(x => !x.atual || !x.ref).map(x => x.id).join()); assert(l.every(x => x.nivel === 'ok'), v + ': ' + l.filter(x => x.nivel !== 'ok').map(x => x.id).join()); });
 });
 t('as duas visões olham trechos diferentes (NS do dia ruim, NS da hora bom)', () => {
   const m = base(); m.dia.co.ns = 61;

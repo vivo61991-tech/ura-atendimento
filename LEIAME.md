@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.25.0)
+# URA · Suporte B2C (v1.25.1)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -139,6 +139,8 @@ só houver em atenção; some quando não há nenhum).
 - **Previsto** = mediana dos dias da chave Previsto (7 mesmos dias da semana ou 7 dias corridos) **no mesmo trecho do
   dia** (a mesma hora até o mesmo minuto, ou o dia até o mesmo horário). Com o previsto desligado, os alarmes usam os
   mesmos dias da semana. Sem previsto ou com poucas chamadas, a regra aparece como "sem dado para avaliar".
+- **Verificações normais**: uma cápsula por linha com o nome, o número atual (à direita) e a referência embaixo do
+  nome (meta, mediana do previsto ou limite). Ex.: "NS · meta 90% · med. 100,0% · 100,0%".
 - **Tocar num alarme**: a regra, onde mais pesa e os botões **Ver na Evolução ›** (o gráfico do alarme, já no CO/TEL e
   no grupo dele) e **Silenciar 1 h**.
 - **Engrenagem** (canto do cartão): lista dos 12 alarmes com uma coluna para **Agora** e outra para **Hoje**, e a linha
@@ -247,6 +249,7 @@ Limites iniciais (modelo para ajustar; ficam todos em `LIM` no começo do `alarm
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.25.1:** verificações normais em lista, uma cápsula por linha, com o número atual e a referência (meta, mediana ou limite) que mostra que está normal.
 - **1.25.0:** alarmes numa página própria, a primeira (bolinha com a quantidade no ícone); chave Agora (hora aberta) · Hoje (dia) com regras próprias, incluindo "fila fora do comum para o horário"; engrenagem para ligar/desligar cada alarme em cada visão.
 - **1.24.0:** painel de alarmes (na aba Agora, acima do NS; passou para a página própria na 1.25.0) (13 verificações, detalhe ao tocar, Ver na Evolução, silenciar 1 h, "desde" e último alarme guardados no aparelho).
 - **1.23.0:** arrastar para o lado troca de aba (Agora ⇄ Evolução ⇄ Skills), com a tela acompanhando o dedo.

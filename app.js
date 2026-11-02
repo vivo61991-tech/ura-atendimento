@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.25.0';
+  const APP_VERSION = '1.25.1';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -436,15 +436,17 @@
     };
     const pill = (n, cls, ic, um, varios) => n ? `<span class="al-pill ${cls}">${ICO_AL[ic]}${n} ${n === 1 ? um : varios}</span>` : '';
     const oks = r.ligados.filter(x => x.nivel === 'ok'), nas = r.ligados.filter(x => x.nivel === 'na');
-    const chips = xs => xs.filter((x, i, a) => a.findIndex(y => y.tipo === x.tipo) === i).map(x => `<span>${esc(A_NOME(x.tipo))}</span>`).join('');
+    // verificações normais: uma cápsula por linha, com o número atual e a referência (meta, mediana ou limite)
+    const chips = xs => `<ul class="al-okl">${xs.filter((x, i, a) => a.findIndex(y => y.tipo === x.tipo) === i).map(x =>
+      `<li data-ok="${esc(x.tipo)}"><span class="al-okx"><span class="al-okn">${esc(A_NOME(x.tipo))}</span>${x.ref ? `<span class="al-okr">${esc(x.ref)}</span>` : ''}</span><b class="al-okv num">${esc(x.atual)}</b></li>`).join('')}</ul>`;
     let corpo;
     if (r.vis.length) {
       corpo = `<div class="al-res">${pill(r.nC, 'c', 'crit', 'crítico', 'críticos')}${pill(r.nA, 'a', 'aten', 'em atenção', 'em atenção')}${pill(oks.length, 'o', 'ok', 'normal', 'normais')}</div>
         ${r.vis.map(linha).join('')}
-        ${oks.length ? `<div class="al-okg"><div class="al-okt">${ICO_AL.ok}${oks.length} ${oks.length === 1 ? 'verificação normal' : 'verificações normais'}</div><div class="al-ch">${chips(oks)}</div></div>` : ''}`;
+        ${oks.length ? `<div class="al-okg"><div class="al-okt">${ICO_AL.ok}${oks.length} ${oks.length === 1 ? 'verificação normal' : 'verificações normais'}</div>${chips(oks)}</div>` : ''}`;
     } else {
       corpo = `<div class="al-tudo">${ICO_AL.ok}<div><b>Tudo dentro do normal</b><small>${oks.length} ${oks.length === 1 ? 'verificação' : 'verificações'} · ${r.sil.length ? 'só os silenciados abaixo' : 'nenhum desvio ' + (v === 'agora' ? 'agora' : 'no dia')}</small></div></div>
-        ${oks.length ? `<div class="al-okg"><div class="al-ch">${chips(oks)}</div></div>` : ''}`;
+        ${oks.length ? `<div class="al-okg">${chips(oks)}</div>` : ''}`;
     }
     if (r.sil.length) corpo += `<div class="al-silx">${ICO_AL.sil}<span>${r.sil.length === 1 ? 'Silenciado' : r.sil.length + ' silenciados'} até ${esc(hhmmMs(Math.max(...r.sil.map(x => h.sil[x.id]))))}: ${r.sil.map(x => esc(x.titulo)).join(', ')}</span><button class="lnk" data-alreat>reativar</button></div>`;
     if (nas.length) corpo += `<div class="al-na">sem dado para avaliar agora: ${[...new Set(nas.map(x => A_NOME(x.tipo)))].map(esc).join(', ')}</div>`;

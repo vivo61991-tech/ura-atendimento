@@ -73,7 +73,7 @@
   const espTx = s => s >= 60 ? Math.floor(s / 60) + 'm' + String(Math.round(s % 60)).padStart(2, '0') : Math.round(s) + 's';
   const n = (x, um, varios) => fI(x) + ' ' + (x === 1 ? um : varios);
 
-  function verif(tipo, tag, alvo) { return { id: tipo, tipo, tag, alvo, nivel: 'na', titulo: NOME[tipo], det: '', valor: '', valorSub: '', regra: '', onde: '' }; }
+  function verif(tipo, tag, alvo) { return { id: tipo, tipo, tag, alvo, nivel: 'na', titulo: NOME[tipo], det: '', valor: '', valorSub: '', regra: '', onde: '', atual: '', ref: '' }; }
 
   // m: { horario, cmpNome, vivo, atrasoMin,
   //   agora|dia: { ini, ate, fecha, ofer, oferPrev, oferPrevHora,
@@ -102,6 +102,7 @@
       v.titulo = v.nivel === 'crit' ? `NS ${daPer} abaixo de ${N.crit}%` : `NS ${daPer} abaixo da meta`;
       v.det = (hr ? `${per}: <b>${fI(co.a300)}</b> de ${fI(co.fin)} finalizadas em até 5 min` : `NS <b>${fP(co.ns)}</b> · meta ${N.aten}%`) + (pv.ns != null ? med(fP(pv.ns)) : '');
       v.valor = fP(co.ns); v.valorSub = naPer;
+      v.atual = fP(co.ns); v.ref = `meta ${N.aten}%` + (pv.ns != null ? ` · med. ${fP(pv.ns)}` : '');
       v.onde = ondeTx(onde.ns);
     }
     out.push(v);
@@ -116,6 +117,7 @@
       v.titulo = `Volume ${daPer} ${dv >= 0 ? 'acima' : 'abaixo'} do previsto`;
       v.det = `${hr ? per + ': ' : ''}<b>${fI(P.ofer)}</b> oferecidas${hr ? '' : ' no dia'} · previsto ${fI(P.oferPrev)}` + (hr && !P.fecha && P.oferPrevHora != null ? ` (hora inteira: ${fI(P.oferPrevHora)})` : '');
       v.valor = pctTx(dv); v.valorSub = naPer;
+      v.atual = fI(P.ofer); v.ref = `previsto ${fI(P.oferPrev)} (${pctTx(dv)})`;
       v.onde = ondeTx(onde.vol);
     }
     out.push(v);
@@ -132,6 +134,7 @@
         v.titulo = 'Abandono da hora acima do normal';
         v.det = `${per}: <b>${fI(co.aband)}</b> abandonadas (${fP(co.abandPct)})` + med(fI(Math.round(pv.aband * 10) / 10));
         v.valor = sinal(Math.round(exc)) + fI(Math.abs(Math.round(exc))); v.valorSub = 'a mais';
+        v.atual = fI(co.aband); v.ref = `med. ${fI(Math.round(pv.aband * 10) / 10)}`;
         v.onde = ondeTx(onde.aband);
       }
     } else {
@@ -143,6 +146,7 @@
         v.titulo = pctAlto && !(da != null && da >= A.aten) ? `Abandono de ${A.pctCrit}% ou mais` : 'Abandono do dia acima do normal';
         v.det = `<b>${fI(co.aband)}</b> abandonadas no dia (${fP(co.abandPct)})` + (pv.aband != null ? med(fI(pv.aband)) : '');
         v.valor = da != null ? pctTx(da) : fP(co.abandPct); v.valorSub = da != null ? 'vs. normal' : 'das oferecidas';
+        v.atual = fI(co.aband); v.ref = (pv.aband != null ? `med. ${fI(pv.aband)} · ` : '') + `${fP(co.abandPct)} das oferecidas`;
         v.onde = ondeTx(onde.aband);
       }
     }
@@ -163,6 +167,7 @@
         v.det = fila.total ? `<b>${n(fila.total, 'técnico esperando', 'técnicos esperando')}</b> · mais antiga <b>${fS(fila.espMax)}</b>` + (fila.skillMax ? ` · ${esc(fila.skillMax)}` : '') : `ninguém esperando agora · maior fila ${per}: <b>${fI(pico)}</b>`;
         if (incomum && pMed != null) v.det += ` · normal neste horário: ${fI(pMed)}` + (P.filaRefs ? ` (fila em ${P.filaDiasRef} de ${P.filaRefs} dias)` : '');
         v.valor = fila.total ? espTx(fila.espMax) : fI(pico); v.valorSub = fila.total ? 'espera' : 'maior fila';
+        v.atual = fila.total ? n(fila.total, 'esperando', 'esperando') : '0'; v.ref = fila.total ? `mais antiga ${fS(fila.espMax)} (limite ${fS(F.aten)})` : `maior fila ${naPer}: ${fI(pico)}` + (pMed != null ? ` · med. ${fI(pMed)}` : '');
         v.onde = ondeTx(onde.fila);
       }
     } else {
@@ -173,6 +178,7 @@
         v.titulo = 'Fila do dia maior que o normal';
         v.det = `maior fila do dia: <b>${n(P.filaPico, 'técnico', 'técnicos')}</b>` + med(fI(P.filaPicoPrev));
         v.valor = isFinite(d) ? pctTx(d) : '+' + fI(x); v.valorSub = isFinite(d) ? 'vs. normal' : 'a mais';
+        v.atual = fI(P.filaPico); v.ref = `maior fila do dia · med. ${fI(P.filaPicoPrev)}`;
       }
     }
     out.push(v);
@@ -186,6 +192,7 @@
       v.titulo = 'Fila sem agente disponível';
       v.det = k ? `${k === 1 ? 'skill' : k + ' skills'} com espera e 0 disponível: <b>${fila.semAgente.slice(0, 3).map(esc).join(', ')}</b>${k > 3 ? '…' : ''}` : '';
       v.valor = k ? fI(k) : ''; v.valorSub = k ? (k === 1 ? 'skill' : 'skills') : '';
+      v.atual = '0 skills'; v.ref = fila.total ? 'quem tem espera tem agente disponível' : 'ninguém esperando';
     }
     out.push(v);
 
@@ -200,6 +207,8 @@
         x.titulo = `${nome} ${daPer} acima do normal`;
         x.det = `${hr ? per + ': ' : ''}${nome} <b>${fS(co[k])}</b>` + med(fS(pv[k]));
         x.valor = pctTx(d); x.valorSub = 'vs. normal';
+        const dS = co[k] - pv[k];
+        x.atual = fS(co[k]); x.ref = `med. ${fS(pv[k])} · ${dS >= 0 ? '+' : '−'}${fS(Math.abs(dS))}` + (dS > 0 && d >= T.aten && !longe ? ` (alarma a partir de +${fS(T.minDif)})` : '');
       }
       out.push(x);
     });
@@ -214,6 +223,7 @@
       v.titulo = `Menos atendidos direto ${naPer}`;
       v.det = `<b>${fP(co.dir60)}</b> das atendidas em até 1 min` + med(fP(pv.dir60));
       v.valor = ppTx(x); v.valorSub = 'p.p.';
+      v.atual = fP(co.dir60); v.ref = `med. ${fP(pv.dir60)} (${ppTx(x)} p.p.)`;
     }
     out.push(v);
 
@@ -230,7 +240,7 @@
       x.valor = pctTx(g.d); x.valorSub = naPer;
       out.push(x);
     });
-    if (!fora.length) { const x = verif('grupos', 'GRUPO', { ch: 'of', dir: 'TODOS' }); x.regra = regraG; if (gs.length) x.nivel = 'ok'; out.push(x); }
+    if (!fora.length) { const x = verif('grupos', 'GRUPO', { ch: 'of', dir: 'TODOS' }); x.regra = regraG; if (gs.length) x.nivel = 'ok'; if (gs.length) { x.atual = fI(gs.length); x.ref = gs.length === 1 ? 'grupo dentro do previsto' : 'grupos dentro do previsto'; } out.push(x); }
 
     // 10) skills paradas (última hora corrida: igual nas duas visões)
     v = verif('parada', 'SKILL', { ch: 'of', dir: 'TODOS' });
@@ -241,6 +251,7 @@
       v.titulo = p.length === 1 ? 'Skill sem chamadas há 1 h' : 'Skills sem chamadas há 1 h';
       v.det = p.length ? p.slice(0, 3).map(x => `<b>${esc(x.nome)}</b> (normal ${fI(x.prev)})`).join(' · ') + (p.length > 3 ? ` e mais ${p.length - 3}` : '') : '';
       v.valor = p.length ? fI(p.length) : ''; v.valorSub = p.length ? (p.length === 1 ? 'skill' : 'skills') : '';
+      v.atual = '0 skills'; v.ref = 'todas recebendo chamadas na última hora';
       if (p.length === 1) v.alvo = { ch: 'of', dir: p[0].dir || 'TODOS' };
     }
     out.push(v);
@@ -255,6 +266,7 @@
       v.titulo = `${x > 0 ? 'Mais' : 'Menos'} chamadas indo para a TEL ${naPer}`;
       v.det = `TEL <b>${fP(P.telPct)}</b> das oferecidas` + med(fP(P.telPctPrev));
       v.valor = ppTx(x); v.valorSub = 'p.p.';
+      v.atual = fP(P.telPct); v.ref = `TEL · med. ${fP(P.telPctPrev)} (${ppTx(x)} p.p.)`;
     }
     out.push(v);
 
@@ -268,6 +280,7 @@
       v.titulo = 'Coleta atrasada';
       v.det = `última coleta às <b>${esc(m.horario)}</b>, há ${fI(a)} min`;
       v.valor = fI(a) + ' min'; v.valorSub = 'sem coleta';
+      v.atual = 'há ' + fI(a) + ' min'; v.ref = `última às ${m.horario} (limite ${C.aten} min)`;
     }
     out.push(v);
 
