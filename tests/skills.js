@@ -11,13 +11,13 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await p.waitForFunction(() => window.__ura.estado().dados);
   await p.click('nav.tabs button[data-v="skills"]');
   const bts = await p.$$eval('#pgSkills button[data-skdir]', x => x.map(b => b.textContent));
-  ok(bts.join('|') === 'CO|TEL|Total URA', 'três opções: ' + bts.join(' · '));
+  ok(bts.join('|') === 'Total URA|CO|TEL' && await p.$eval('#pgSkills button[data-skdir].on', b => b.textContent) === 'Total URA', 'três opções, Total URA primeiro e marcado: ' + bts.join(' · '));
   const conta = async () => {
     const n = await p.$eval('#pgSkills h2.sec .ct', x => +x.textContent);
     const z = await p.locator('#pgSkills .zeros').count() ? +(await p.$eval('#pgSkills .zeros', x => x.textContent.match(/\d+/)[0])) : 0;
     return { com: n, total: n + z };
   };
-  const co = await conta();
+  await p.click('#pgSkills button[data-skdir="CO"]'); const co = await conta();
   await p.click('#pgSkills button[data-skdir="TEL"]'); const tel = await conta();
   await p.click('#pgSkills button[data-skdir="TODOS"]'); const tot = await conta();
   ok(tot.total === co.total + tel.total && tot.com === co.com + tel.com, `Total URA = CO + TEL (${tot.com} com chamadas, ${tot.total} no total: ${co.total} CO + ${tel.total} TEL)`);

@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.20.1';
+  const APP_VERSION = '1.21.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -46,7 +46,7 @@
   // ndias: quantos dias no eixo da vista por dia (7 a 13; começa em 7; a escolha fica lembrada no aparelho)
   const evo = { ndias: Math.min(13, Math.max(7, +lerPref('ndias', 7) || 7)), vista: 'hora', skill: null, abertos: new Set(), dir: 'TODOS', passo: 'auto', grupo: null, sel: null, modo: 'int', menu: null,
     dia: null, cmp: ['dias', 'sem', 'off'].includes(lerPref('cmp', 'sem')) ? lerPref('cmp', 'sem') : 'sem' };
-  const sk = { dir: 'CO', q: '', zeros: false };
+  const sk = { dir: 'TODOS', q: '', zeros: false };
   // aba Agora: filtro do painel de grupos (grupo/skill), grupos abertos e coluna selecionada nos gráficos da hora
   // dir: atendimento escolhido nos botões do topo (começa sempre em Total URA, como a Evolução)
   const ag = { dir: 'TODOS', grupo: null, skill: null, abertos: new Set(), sel: null };
@@ -1024,7 +1024,7 @@
     };
     $('#pgSkills').innerHTML = `
       <div class="tools">
-        <div class="seg" role="tablist" aria-label="Atendimento">${[['CO', 'CO'], ['TEL', 'TEL'], ['TODOS', 'Total URA']].map(([v, t]) => `<button data-skdir="${v}" class="${sk.dir === v ? 'on' : ''}">${t}</button>`).join('')}</div>
+        <div class="seg" role="tablist" aria-label="Atendimento">${[['TODOS', 'Total URA'], ['CO', 'CO'], ['TEL', 'TEL']].map(([v, t]) => `<button data-skdir="${v}" class="${sk.dir === v ? 'on' : ''}">${t}</button>`).join('')}</div>
         <label class="srch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="search" id="skQ" type="search" placeholder="Buscar skill, grupo, rede…" autocomplete="off" value="${esc(sk.q)}" aria-label="Buscar skill"></label>
       </div>
       <h2 class="sec">Com chamadas hoje <span class="ct num">${com.length}</span><span class="sp"></span><span class="rt">oferecidas</span></h2>
@@ -1103,6 +1103,14 @@
   function fecharSheet() { $('#sheet').classList.remove('show'); $('#sheetBg').classList.remove('show'); if (infoAberto && infoAberto.startsWith('sk-')) infoAberto = null; }
 
   // ---------------------------------------------------------------- eventos
+  // Total URA · CO · TEL é um filtro só para as três telas (Agora, Evolução e Skills): escolher numa vale nas outras.
+  // Trocar de atendimento limpa o filtro de grupo/skill e a coluna selecionada (o grupo pode não existir no outro).
+  function mudarDir(v) {
+    if (evo.dir !== v) { evo.grupo = null; evo.skill = null; evo.sel = null; }
+    if (ag.dir !== v) { ag.grupo = null; ag.skill = null; }
+    if (sk.dir !== v) sk.zeros = false;
+    evo.dir = ag.dir = sk.dir = v;
+  }
   function irPara(p) { pagina = p; infoAberto = null; evo.menu = null; if (p === 'evo') evo.fonteVista = null; fecharSheet(); render(); window.scrollTo(0, 0); }
   document.addEventListener('click', e => {
     if (evo.menu && !e.target.closest('.ctl-m')) fecharMenu();   // tocar fora fecha o menu (o toque continua valendo)
@@ -1130,7 +1138,7 @@
       if (c && !c.futuro) { ag.sel = ag.sel === c.ini ? null : c.ini; redesenhar(b); }
       return;
     }
-    if (b.dataset.dir && b.closest('#pgEvo')) { evo.menu = null; evo.dir = b.dataset.dir; evo.grupo = null; evo.skill = null; evo.sel = null; return redesenhar(); }
+    if (b.dataset.dir && b.closest('#pgEvo')) { evo.menu = null; mudarDir(b.dataset.dir); return redesenhar(); }
     if (b.dataset.modo) { evo.menu = null; evo.modo = b.dataset.modo; return redesenhar(); }
     if (b.dataset.cmp) { evo.cmp = b.dataset.cmp; gravarPref('cmp', evo.cmp); return redesenhar(); }
     if (b.dataset.navdia) {
@@ -1149,8 +1157,8 @@
       evo.grupo = g && g === evo.grupo ? null : g; evo.skill = null; chipAnimar = true;
       return redesenhar();
     }
-    if (b.dataset.skdir) { sk.dir = b.dataset.skdir; sk.zeros = false; return render(); }
-    if (b.dataset.agdir) { ag.dir = b.dataset.agdir; ag.grupo = null; ag.skill = null; return redesenhar(); }
+    if (b.dataset.skdir) { mudarDir(b.dataset.skdir); return render(); }
+    if (b.dataset.agdir) { mudarDir(b.dataset.agdir); return redesenhar(); }
     if (b.matches('rect.hit') && b.closest('#pgEvo') || b.matches('#tIv tr[data-i]')) {
       const iv = ivAtuais(); const i = +b.dataset.i; const c = iv[i];
       if (c) { evo.sel = evo.sel === c.ini ? null : c.ini; redesenhar(b); }
