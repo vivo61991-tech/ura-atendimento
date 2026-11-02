@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.18.0';
+  const APP_VERSION = '1.19.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -42,13 +42,15 @@
   // Ao abrir o app, a Evolução começa SEMPRE nas primeiras opções (as da esquerda): Total URA · Por intervalo · Auto.
   // skill: filtro por skill (nome simplificado da tradutora), escolhido no painel "Grupos e skills"
   // abertos: grupos expandidos no painel (só enquanto o app está aberto)
-  const evo = { skill: null, abertos: new Set(), dir: 'TODOS', passo: 'auto', grupo: null, sel: null, modo: 'int', menu: null,
+  // vista: 'hora' (eixo = horários do dia) | 'dia' (eixo = dias; cada coluna é um dia inteiro)
+  const evo = { vista: 'hora', skill: null, abertos: new Set(), dir: 'TODOS', passo: 'auto', grupo: null, sel: null, modo: 'int', menu: null,
     dia: null, cmp: ['dias', 'sem', 'off'].includes(lerPref('cmp', 'sem')) ? lerPref('cmp', 'sem') : 'sem' };
   const sk = { dir: 'CO', q: '', zeros: false };
   // aba Agora: filtro do painel de grupos (grupo/skill), grupos abertos e coluna selecionada nos gráficos da hora
   // dir: atendimento escolhido nos botões do topo (começa sempre em Total URA, como a Evolução)
   const ag = { dir: 'TODOS', grupo: null, skill: null, abertos: new Set(), sel: null };
-  let agCols = [];   // colunas da hora em exibição na aba Agora (para o toque nas colunas)
+  let agCols = [];
+  let evoCols = [];  // colunas em exibição na Evolução (horários ou dias), para o toque nas colunas e na tabela   // colunas da hora em exibição na aba Agora (para o toque nas colunas)
 
   const $ = s => document.querySelector(s);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -454,6 +456,8 @@
   // dentro do bloco de 15 min do histórico; no acumulado, o dia até o mesmo minuto.
   function medCol(cmp, c, f) {
     if (!cmp || !cmp.porRef.length || !c || c.semColeta) return null;
+    // vista por dia: cada coluna (dia) traz os seus dias de referência
+    if (cmp.porDia) return c.refsDia && c.refsDia.length ? Hs.mediana(c.refsDia.map(r => f(r.diaC, r.diaT))) : null;
     // coluna em andamento, coluna futura (resto da hora na aba Agora) ou colunas menores que o bloco do histórico (5 min):
     // os outros dias no MESMO trecho, proporcional dentro do bloco de 15 min
     if (c.andamento || c.futuro || cmp.fino) return Hs.mediana(cmp.porRef.map(r => {
@@ -468,6 +472,7 @@
   // fila (técnicos em espera): pico das coletas. Dias de referência sem fila (fora do arquivo) ficam de fora da mediana.
   function medEsp(cmp, c) {
     if (!cmp || !cmp.porRef.length || !c || c.semColeta) return null;
+    if (cmp.porDia) return c.refsDia ? Hs.mediana(c.refsDia.map(r => r.espP)) : null;
     return Hs.mediana(cmp.porRef.map(r => {
       if (!r.dR.temFila) return null;
       // colunas de 5 min ou futuras: o retrato no fim da coluna (proporcional entre os retratos de 15 min)
@@ -491,7 +496,10 @@
   // Três botões da mesma largura: "7 dias" (corridos) · "7 dom" (mesmo dia da semana) · "Desligado"
   function chaveCmp(ctx) {
     const w = Hs.diaSemana(ctx.iso);
-    const ops = [['dias', '7 dias', 'mediana dos 7 dias corridos anteriores'], ['sem', '7 ' + DS_CURTO[w], 'mediana dos 7 ' + DS_PLURAL[w] + ' anteriores'], ['off', 'Desligado', 'sem previsto: gráficos limpos']];
+    const porDia = evo.vista === 'dia' && pagina === 'evo';
+    const ops = porDia
+      ? [['dias', 'Corridos', 'dias seguidos no eixo; previsto = mediana dos 7 dias anteriores a cada um'], ['sem', DS_CURTO[w] + ' a ' + DS_CURTO[w], 'só os ' + DS_PLURAL[w] + ' no eixo; previsto = mediana dos 7 ' + DS_PLURAL[w] + ' anteriores a cada um'], ['off', 'Desligado', 'dias seguidos, sem previsto']]
+      : [['dias', '7 dias', 'mediana dos 7 dias corridos anteriores'], ['sem', '7 ' + DS_CURTO[w], 'mediana dos 7 ' + DS_PLURAL[w] + ' anteriores'], ['off', 'Desligado', 'sem previsto: gráficos limpos']];
     return `<div class="cmpk" role="group" aria-label="Previsto: mediana do histórico"><span class="cmpk-l">Previsto</span>
       <div class="seg sm">${ops.map(([v, t, ti]) => `<button data-cmp="${v}" class="${evo.cmp === v ? 'on' : ''}" aria-pressed="${evo.cmp === v}" title="${ti}" aria-label="${ti}">${t}</button>`).join('')}</div></div>`;
   }
@@ -510,14 +518,59 @@
         <input type="date" id="dnData" min="${lista[0]}" max="${ult}" value="${ctx.iso}" aria-label="Escolher o dia"></label>
       <button class="dn-b" data-navdia="1"${i < lista.length - 1 ? '' : ' disabled'} aria-label="Próximo dia">${seta('M9 6l6 6-6 6')}</button>
       ${i < lista.length - 1 ? `<button class="dn-hoje" data-navdia="fim">${ult === hojeISO() ? 'Hoje' : 'Último'}</button>` : ''}
+      <button class="dn-vis" data-vis="${evo.vista === 'dia' ? 'hora' : 'dia'}" aria-label="Eixo: ${evo.vista === 'dia' ? 'dias' : 'horas'} — tocar para ver por ${evo.vista === 'dia' ? 'horas' : 'dia'}" title="Alternar o eixo entre horas e dias">${evo.vista === 'dia' ? 'Dia' : 'Horas'}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></button>
     </div>`;
+  }
+
+  // Vista por dia: o eixo X recebe dias. Com a chave Previsto em "dias corridos" (ou desligada), os dias seguidos até o
+  // dia escolhido; em "mesmo dia da semana", só os dias da mesma semana (dom com dom…). Cada coluna é o dia inteiro
+  // (o dia do Pulse vai até a última coleta) e o previsto de cada coluna é a mediana dos 7 dias de referência DELA.
+  function vistaDias(ctx, el) {
+    const lista = diasDisp(), A = ctx.iso, N = maxColunas(el);
+    let dias;
+    if (evo.cmp === 'sem') { dias = []; for (let x = A; x >= lista[0] && dias.length < N; x = Hs.somaDias(x, -7)) if (lista.includes(x)) dias.push(x); dias.reverse(); }
+    else dias = lista.filter(x => x <= A).slice(-N);
+    const ivC = [], ivT = [], somaC = [], somaT = [];
+    let maior = null;
+    const comRef = hist && evo.cmp !== 'off';
+    dias.forEach(iso => {
+      const dD = usaPulse(iso) ? dados : Hs.diaComoDados(hist, iso, dados.trad);
+      const Ld = dD.leituras[dD.leituras.length - 1], coD = filtroEvo(dD, 'CO'), telD = filtroEvo(dD, 'TEL');
+      const aC = D.agregar(Ld, coD), aT = D.agregar(Ld, telD);
+      const fila = usaPulse(iso) || dD.temFila;
+      const esp = fila ? D.espera(dD.leituras, -1, Ld.m, coD) : null;
+      const andamento = usaPulse(iso) && iso === hojeISO();
+      const w = Hs.diaSemana(iso), dm = ddmmaaaa(iso);
+      // referências do dia: até o MESMO minuto (o dia do Pulse ainda aberto compara até a última coleta)
+      const refsDia = comRef ? Hs.referencias(hist, iso, evo.cmp).map(r => { const dR = Hs.diaComoDados(hist, r, dados.trad), coR = filtroEvo(dR, 'CO'), telR = filtroEvo(dR, 'TEL');
+        const e = dR.temFila ? D.espera(dR.leituras, -1, Ld.m, coR) : null;
+        return { diaC: D.agregarEm(dR, Ld.m, coR), diaT: D.agregarEm(dR, Ld.m, telR), espP: e ? e.pico : null }; }) : [];
+      const base = { ini: iso, acum: true, andamento, perTx: `${DS_CURTO[w]}, ${dm}${andamento ? ' · até ' + Ld.horario : ''}`, rotTab: `${DS_CURTO[w]} ${dm.slice(0, 5)}`, dom: w === 0, refsDia };
+      ivC.push(Object.assign({}, base, { v: aC, esp }));
+      ivT.push(Object.assign({}, base, { v: aT }));
+      somaC.push(aC); somaT.push(aT);
+      if (esp && (!maior || esp.pico > maior.pico)) maior = { pico: esp.pico, picoTx: esp.pico ? `maior em ${DS_CURTO[w]}, ${dm.slice(0, 5)}` : '' };
+    });
+    const soma = arr => { const r = { ofer: 0, atend: 0, aband: 0, a300: 0, a60: 0, tmaS: 0, tmeS: 0, espTot: 0, temA60: true, temEsp: false, fila: 0, espMax: 0, agMax: 0, dispMax: 0 };
+      arr.forEach(a => ['ofer', 'atend', 'aband', 'a300', 'a60', 'tmaS', 'tmeS', 'espTot'].forEach(k => { r[k] += a[k] || 0; })); return D.derivar(r); };
+    const iSel = evo.sel == null ? -1 : ivC.findIndex(c => c.ini === evo.sel);
+    if (iSel < 0) evo.sel = null;
+    const temRefs = ivC.some(c => c.refsDia.length);
+    const cmp = comRef ? { porDia: true, porRef: temRefs ? [1] : [], nome: evo.cmp === 'sem' ? '7 mesmos dias da semana' : '7 dias anteriores', curto: 'med.',
+      notaTx: `<span><i class="ref"></i>área clara: o previsto de cada dia — mediana ${evo.cmp === 'sem' ? 'dos 7 mesmos dias da semana anteriores a ele' : 'dos 7 dias anteriores a ele'}, até o mesmo horário</span>` } : null;
+    return {
+      ivC, ivT, iSel, cmp, acum: true, porDia: true, suf: ' <small>· por dia</small>',
+      rot: c => c.rotTab.slice(4), tit: c => c.perTx,
+      per: { aC: soma(somaC), aT: soma(somaT), esp: maior, parcial: false, onde: '', med: null, medEsp: null },
+      dica: `<div class="cap">Cada coluna é um dia inteiro${dias.some(usaPulse) ? ' (o dia do Pulse vai até a última coleta)' : ''}: ${evo.cmp === 'sem' ? `os ${DS_PLURAL[Hs.diaSemana(A)]} até ${ddmmaaaa(A).slice(0, 5)}` : `os dias seguidos até ${ddmmaaaa(A).slice(0, 5)}`}. Embaixo do título, o total desses dias. Toque numa coluna para ver o dia.</div>`
+    };
   }
 
   // Controles da Evolução: três botões sempre à vista (atendimento · modo · eixo); cada um abre um menu suspenso com as
   // opções; escolher fecha o menu e aplica. Tocar fora (ou Esc) fecha sem mudar nada.
-  function menuCtl(k, rotulo, opcoes, atual, nome) {
-    const ab = evo.menu === k;
-    return `<div class="ctl-m"><button class="ctl-p" data-menu="${k}" aria-haspopup="listbox" aria-expanded="${ab}" aria-label="${nome}: ${esc(rotulo)}">` +
+  function menuCtl(k, rotulo, opcoes, atual, nome, off) {
+    const ab = !off && evo.menu === k;
+    return `<div class="ctl-m"><button class="ctl-p" data-menu="${k}" aria-haspopup="listbox" aria-expanded="${ab}" aria-label="${nome}: ${esc(rotulo)}"${off ? ' disabled title="Na vista por dia, cada coluna é um dia inteiro"' : ''}>` +
       `<span>${esc(rotulo)}</span><svg class="ctl-c" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>` +
       (ab ? `<div class="ctl-menu" role="listbox" aria-label="${nome}">${opcoes.map(([v, t]) => { const on = String(atual) === String(v);
         return `<button role="option" data-${k}="${v}" aria-selected="${on}" class="${on ? 'on' : ''}"><span>${esc(t)}</span>${on ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : ''}</button>`; }).join('')}</div>` : '') + '</div>';
@@ -548,13 +601,14 @@
     const el = $('#pgEvo');
     const passo = evo.passo === 'auto' ? D.passoAuto(d, maxColunas(el)) : +evo.passo;
     const acum = evo.modo === 'acum';
+    const vistaDia = evo.vista === 'dia';
     let ivC = D.intervalos(d, passo, co), ivT = D.intervalos(d, passo, tel);
     if (acum) { ivC = D.acumulados(d, ivC, co); ivT = D.acumulados(d, ivT, tel); }
     const n = ivC.length;
     const fimDe = c => c.andamento ? c.ateM : c.fim;
     const suf = acum ? ' <small>· acumulado</small>' : '';
-    if (evo.sel != null && !ivC.some(i => i.ini === evo.sel)) evo.sel = null;
-    const iSel = evo.sel == null ? -1 : ivC.findIndex(i => i.ini === evo.sel);
+    if (!vistaDia && evo.sel != null && !ivC.some(i => i.ini === evo.sel)) evo.sel = null;
+    const iSel = vistaDia || evo.sel == null ? -1 : ivC.findIndex(i => i.ini === evo.sel);
     const dir = evo.dir;
     const temCO = dir !== 'TEL', temTEL = dir !== 'CO';
 
@@ -581,7 +635,7 @@
     const temCmp = !!(cmp && cmp.porRef.length);
     const temFilaDia = ctx.vivo || !!d.temFila;      // o dia tem a fila? (Pulse sempre; histórico com o historico_fila.csv)
     // controles recolhidos: só o que está escolhido, numa linha
-    const resumoCtl = [{ TODOS: 'Total URA', CO: 'CO', TEL: 'TEL' }[dir], acum ? 'Acumulado' : 'Por intervalo', evo.passo === 'auto' ? 'Auto · ' + PASSO_NOME[passo] : PASSO_NOME[passo]];
+    const resumoCtl = [{ TODOS: 'Total URA', CO: 'CO', TEL: 'TEL' }[dir], vistaDia ? 'Por dia' : acum ? 'Acumulado' : 'Por intervalo', vistaDia ? 'Dias' : evo.passo === 'auto' ? 'Auto · ' + PASSO_NOME[passo] : PASSO_NOME[passo]];
     // sem cards: os totais e a comparação com a mediana ficam nos próprios gráficos (embaixo do título e no rodapé)
     const kBan = iSel >= 0 && ivC[iSel].semColeta ? `<div class="banner warn">${rot(ivC[iSel])}: sem coleta neste horário${acum ? '.' : ' — o volume entra no intervalo seguinte.'}</div>` : '';
     const per = { aC: D.agregar(L, co), aT: D.agregar(L, tel), esp: D.espera(d.leituras, -1, L.m, co), parcial: false, onde: '',
@@ -597,17 +651,22 @@
       const ds = [...new Set(D.filtro(d, { dir: 'TODOS', grupo: evo.grupo }).map(s => d.trad[s].DIRECIONAMENTO))];
       filtroTx = (ds.length === 1 ? ds[0] + ' – ' : '') + evo.grupo + (evo.skill ? ' › ' + evo.skill : '');
     }
+    // vista por hora (o dia em horários) ou por dia (o eixo recebe dias): os mesmos gráficos
+    const gr = vistaDia ? vistaDias(ctx, el) : { ivC, ivT, iSel, rot, tit, cmp, per, acum, suf };
+    evoCols = gr.ivC;
     let html = '';
-    html += graficos({ ivC, ivT, dir, acum, passo, iSel, rot, tit, cmp, temFilaDia, vivo: ctx.vivo, filtroTx, pre: 'evo', suf, cmpTipo: evo.cmp, per });
+    html += graficos({ ivC: gr.ivC, ivT: gr.ivT, dir, acum: gr.acum, passo, iSel: gr.iSel, rot: gr.rot, tit: gr.tit, cmp: gr.cmp, temFilaDia: vistaDia || temFilaDia, vivo: ctx.vivo,
+      filtroTx, pre: 'evo', suf: gr.suf, cmpTipo: evo.cmp, per: gr.per, porDia: gr.porDia, dica: gr.dica, gopt: vistaDia ? { maxRot: 12 } : undefined });
     html += painelGrupos(d, L, ivC, iSel, acum);
-    html += tabelaIntervalos(ivC, ivT, dir, passo, iSel, acum);
+    html += vistaDia ? tabelaIntervalos(gr.ivC, gr.ivT, dir, passo, gr.iSel, true, { rot: c => c.rotTab + (c.andamento ? '*' : ''), titulo: 'Dias', h1: 'Dia' })
+      : tabelaIntervalos(ivC, ivT, dir, passo, iSel, acum);
 
     el.innerHTML = `
       <div class="evo-ctl fixo">
       ${navDia(ctx)}
       <div class="card topbar">
-        <div class="ctl-l">${menuCtl('dir', resumoCtl[0], [['TODOS', 'Total URA'], ['CO', 'CO'], ['TEL', 'TEL']], dir, 'Atendimento')}${menuCtl('modo', resumoCtl[1], [['int', 'Por intervalo'], ['acum', 'Acumulado']], evo.modo, 'Modo')}${menuCtl('passo', resumoCtl[2], ['auto', 15, 30, 60, 120].map(v => [v, v === 'auto' ? 'Auto · ' + PASSO_NOME[D.passoAuto(d, maxColunas(el))] : PASSO_NOME[v]]), evo.passo, 'Intervalo do eixo')}</div>
-        ${iSel >= 0 ? `<button class="selchip" data-act="limpar"><span>Selecionado: <b>${tit(ivC[iSel])}</b> · toque para limpar</span><span aria-hidden="true">✕</span></button>` : ''}
+        <div class="ctl-l">${menuCtl('dir', resumoCtl[0], [['TODOS', 'Total URA'], ['CO', 'CO'], ['TEL', 'TEL']], dir, 'Atendimento')}${menuCtl('modo', resumoCtl[1], [['int', 'Por intervalo'], ['acum', 'Acumulado']], evo.modo, 'Modo', vistaDia)}${menuCtl('passo', resumoCtl[2], ['auto', 15, 30, 60, 120].map(v => [v, v === 'auto' ? 'Auto · ' + PASSO_NOME[D.passoAuto(d, maxColunas(el))] : PASSO_NOME[v]]), evo.passo, 'Intervalo do eixo', vistaDia)}</div>
+        ${gr.iSel >= 0 ? `<button class="selchip" data-act="limpar"><span>Selecionado: <b>${gr.tit(gr.ivC[gr.iSel])}</b> · toque para limpar</span><span aria-hidden="true">✕</span></button>` : ''}
       </div>
       <div class="chips${iSel >= 0 ? ' per' : ''}" role="group" aria-label="Grupo (oferecidas ${esc(ondeChip)})">${[null, ...grpsDisp].map(g => {
         const v = g == null ? chipTodos : chipVol.get(g);
@@ -616,7 +675,14 @@
       </div>
       ${kBan}
       ${hist ? chaveCmp(ctx) : ''}
-      ${html}`;
+      ${html}`;    ajustarData();
+  }
+  // a data da barra começa em 18 px e só diminui se não couber (tela estreita com "Último" e o botão Horas/Dia)
+  function ajustarData() {
+    const b = $('#pgEvo .dn-t b'); if (!b) return;
+    const caixa = b.closest('.dn-d'); let fs = 18;
+    b.style.fontSize = '';
+    while (fs > 12 && b.scrollWidth > caixa.clientWidth - 6) { fs -= 0.5; b.style.fontSize = fs + 'px'; }
   }
   // cor da fila pela espera mais longa (mesma régua da lista "Fila agora")
   const corEspera = s => s >= 300 ? 'var(--rosa)' : s >= 120 ? 'var(--laranja)' : 'var(--p300)';
@@ -634,7 +700,7 @@
   // Resumo do intervalo selecionado, centralizado: período em cima e, embaixo, só os valores do gráfico em questão.
   function capGraf(tipo, c, t, dir, extra) {
     const ac = !!c.acum, fim = D.hhmm(c.andamento ? c.ateM : c.fim);
-    const per = (ac ? `Acumulado até ${fim}` : `${D.hhmm(c.ini)}–${fim}`) + (c.andamento ? ' · em andamento' : '');
+    const per = c.perTx || (ac ? `Acumulado até ${fim}` : `${D.hhmm(c.ini)}–${fim}`) + (c.andamento ? ' · em andamento' : '');
     const ref = extra && extra.refHtml ? `<small class="cref">${extra.refHtml}</small>` : '';
     const caixa = (val, nota) => `<div class="cap capsel csel"><b>${per}</b><span>${val}</span>${nota ? `<small>${nota}</small>` : ''}${ref}</div>`;
     const pl = (n, um, varios) => fI(n) + ' ' + (n === 1 ? um : varios);
@@ -676,10 +742,10 @@
     const gopt = o.gopt || {};
     // per: o período em exibição (o dia até agora na Evolução; a hora até agora na aba Agora), para o total embaixo do
     // título e a comparação com a mediana no rodapé: { aC, aT, esp, onde, med(f), medEsp() }
-    const P = o.per;
+    const P = o.per, porDia = !!o.porDia;
     const totH = (v, sub) => `<b class="ch-v">${v}</b>${sub ? `<small>${sub}</small>` : ''}`;
     const detH = (f, fmt, atual, pp) => {
-      if (!P || !temCmp) return '';
+      if (!P || !temCmp || !P.med) return '';
       const r = P.med(f);
       return `med. ${esc(cmp.curto)}${P.onde ? ' ' + esc(P.onde) : ''}: <b>${r == null ? '—' : fmt(r)}</b>${r == null ? '' : ' ' + difTx(atual, r, pp)}`;
     };
@@ -704,7 +770,8 @@
     if (ivC.some(i => i.andamento)) notas.push('<span><i class="and"></i>* em andamento (até a última coleta)</span>');
     if (ivC.some(i => i.semColeta)) notas.push(`<span><i class="sd"></i>${acum ? 'sem coleta neste horário' : 'sem coleta (volume no intervalo seguinte)'}</span>`);
     if (notaExtra) notas.push(notaExtra);
-    if (cmp) notas.push(temCmp
+    if (cmp && cmp.notaTx && temCmp) notas.push(cmp.notaTx);
+    else if (cmp) notas.push(temCmp
       ? `<span><i class="ref"></i>área clara: mediana ${cmpTipo === 'sem' ? 'das últimas ' : 'dos últimos '}${esc(cmp.nome)} do histórico (${cmp.refs.map(r => ddmmaaaa(r).slice(0, 5)).join(', ')}) — o previsto para o horário${ivC.some(i => i.andamento) ? ' · na coluna em andamento, o previsto vai até o mesmo minuto da última coleta (proporcional dentro do bloco de 15 min do histórico)' : ''}</span>`
       : '<span>sem dias anteriores no histórico para comparar</span>');
     const capPadrao = !acum && ivC.length && ivC[0].incluiAntes ? `A 1ª coluna (${rot(ivC[0])}) inclui o que entrou antes da primeira coleta do dia.` : 'Toque numa coluna para selecionar · toque de novo para limpar.';
@@ -722,7 +789,7 @@
     const fAb = v => acum ? v.aband : v.abandPct;
     const refArr = f => temCmp ? ivC.map(c => medCol(cmp, c, f)) : null;
     const corOf = dir === 'TEL' ? 'var(--sTEL)' : 'var(--sCO)';
-    const dica = `<div class="cap">${acum ? 'Modo acumulado: cada coluna mostra o total do dia até o horário dela. ' : ''}${capPadrao}${!acum && ivC.length && ivC[0].incluiAntes ? ' Toque numa coluna para selecionar · toque de novo para limpar.' : ''}</div>`;
+    const dica = o.dica || `<div class="cap">${acum ? 'Modo acumulado: cada coluna mostra o total do dia até o horário dela. ' : ''}${capPadrao}${!acum && ivC.length && ivC[0].incluiAntes ? ' Toque numa coluna para selecionar · toque de novo para limpar.' : ''}</div>`;
     const graf = (titulo, svg, leg, tipo, extra, tot, det) => cartaoGraf(pre + '-' + tipo, titulo, svg, `<div class="legend">${leg}${notas.join('')}</div>${dica}`, selTx(tipo, extra), filtroTx, '', tot, det);
 
     const totOf = P ? fOf(pC, pT) : null;
@@ -760,9 +827,9 @@
       // total: maior fila do período e quantos ENFRENTARAM fila: atendidas depois de 1 min ÷ oferecidas do CO
       const pE = P && P.esp, pctFila = P && pC.ofer ? Math.max(0, pC.atend - pC.a60) / pC.ofer * 100 : null;
       const rEsp = P && temCmp && P.medEsp ? P.medEsp() : null;
-      const totEsp = P ? totH(pE ? fI(pE.pico) : '—', `${pE && pE.pico ? 'pico às ' + D.hhmm(pE.picoM) + ' · ' : ''}${pctFila == null ? '' : `<b>${fP(pctFila)}</b> das oferecidas enfrentaram fila`}`) : '';
-      const detEsp = P && temCmp ? `med. ${esc(cmp.curto)}${P.onde ? ' ' + esc(P.onde) : ''}: <b>${rEsp == null ? '—' : fI(rEsp)}</b>${rEsp == null || !pE ? '' : ' ' + difTx(pE.pico, rEsp)}` : '';
-      html += graf('Técnicos em espera' + (dir === 'TODOS' ? ' · CO' : '') + (acum ? ' <small>· maior fila do dia até o horário</small>' : ''),
+      const totEsp = P ? totH(pE ? fI(pE.pico) : '—', `${pE && pE.pico ? (pE.picoTx || 'pico às ' + D.hhmm(pE.picoM)) + ' · ' : ''}${pctFila == null ? '' : `<b>${fP(pctFila)}</b> das oferecidas enfrentaram fila`}`) : '';
+      const detEsp = P && temCmp && P.medEsp ? `med. ${esc(cmp.curto)}${P.onde ? ' ' + esc(P.onde) : ''}: <b>${rEsp == null ? '—' : fI(rEsp)}</b>${rEsp == null || !pE ? '' : ' ' + difTx(pE.pico, rEsp)}` : '';
+      html += graf('Técnicos em espera' + (dir === 'TODOS' ? ' · CO' : '') + (porDia ? ' <small>· maior fila de cada dia</small>' : acum ? ' <small>· maior fila do dia até o horário</small>' : ''),
         G.barras({ ...gopt, cols: colsEsp, sel: iSel, ref: temCmp ? ivC.map(c => medEsp(cmp, c)) : null, refCor: 'var(--p500)', aria: 'Técnicos em espera por intervalo' }),
         `<span><i style="background:var(--okc);border-radius:50%"></i>sem fila</span><span><i style="background:var(--p300)"></i>espera mais longa até 2 min</span><span><i style="background:var(--laranja)"></i>2 a 5 min</span><span><i style="background:var(--rosa)"></i>acima de 5 min</span>` +
         (acum ? '<span>maior número de técnicos esperando ao mesmo tempo, do início do dia até o horário da coluna (a fila é um retrato: não se soma ao longo do tempo)</span>'
@@ -832,6 +899,8 @@
     } else {
       html += `<div class="card"><p class="nota">A TEL é atendida em outro sistema: a URA registra só o volume encaminhado. Por isso não há NS, abandono nem tempos para a TEL.</p></div>`;
     }
+    // vista por dia: os textos do modo acumulado falam "do dia até o horário"; aqui cada coluna é o dia inteiro
+    if (porDia) html = html.replace(/do início do dia até o horário/g, 'no dia').replace(/no dia até o horário/g, 'no dia').replace(/do dia até o horário/g, 'do dia').replace(/do dia até aqui/g, 'do dia');
     return html;
   }
 
@@ -905,17 +974,17 @@
   function tabelaIntervalos(ivC, ivT, dir, passo, iSel, acum, opt) {
     opt = opt || {};
     const linhas = ivC.map((c, i) => {
-      const t = ivT[i], r = `${D.hhmm(acum ? (c.andamento ? c.ateM : c.fim) : c.ini)}${c.andamento ? '*' : ''}`;
+      const t = ivT[i], r = opt.rot ? opt.rot(c) : `${D.hhmm(acum ? (c.andamento ? c.ateM : c.fim) : c.ini)}${c.andamento ? '*' : ''}`;
       const cls = i === iSel ? ' class="sel"' : '';
       if (c.semColeta) return `<tr data-i="${i}"${cls}><td>${r}</td><td class="nd" colspan="${dir === 'TEL' ? 1 : dir === 'CO' ? 6 : 4}">sem coleta</td></tr>`;
       if (dir === 'TEL') return `<tr data-i="${i}"${cls}><td>${r}</td><td>${fI(t && t.v ? t.v.ofer : 0)}</td></tr>`;
       if (dir === 'CO') return `<tr data-i="${i}"${cls}><td>${r}</td><td>${fI(c.v.ofer)}</td><td>${fI(c.v.atend)}</td><td>${fI(c.v.aband)}</td><td>${nsTx(c.v.ns)}</td><td>${c.esp ? fI(c.esp.pico) : '—'}</td><td>${c.v.tme == null ? '—' : minCurto(c.v.tme)}</td></tr>`;
       return `<tr data-i="${i}"${cls}><td>${r}</td><td>${fI(c.v.ofer)}</td><td>${fI(t && t.v ? t.v.ofer : 0)}</td><td>${nsTx(c.v.ns)}</td><td>${fI(c.v.aband)}</td></tr>`;
     }).reverse().join('');
-    const h1 = acum ? 'Até' : 'Início';
+    const h1 = opt.h1 || (acum ? 'Até' : 'Início');
     const head = dir === 'TEL' ? `<th>${h1}</th><th>Oferecidas</th>` : dir === 'CO' ? `<th>${h1}</th><th>Ofer.</th><th>Atend.</th><th>Aband.</th><th>NS</th><th title="${acum ? 'maior fila do dia até o horário' : 'pico de técnicos em espera'}">Fila</th><th>TME</th>`
       : `<th>${h1}</th><th>CO</th><th>TEL</th><th>NS CO</th><th>Aband. CO</th>`;
-    return `<div class="card"><h2>${acum ? 'Acumulado do dia' : 'Intervalos de ' + PASSO_NOME[passo]} <small>· mais recente primeiro</small></h2>${opt.filtro ? `<p class="tfil">${esc(opt.filtro)}</p>` : ''}<div class="tw"><table class="conf${opt.id ? '' : ' tsel'}" id="${opt.id || 'tIv'}"><thead><tr>${head}</tr></thead><tbody>${linhas}</tbody></table></div></div>`;
+    return `<div class="card"><h2>${opt.titulo || (acum ? 'Acumulado do dia' : 'Intervalos de ' + PASSO_NOME[passo])} <small>· mais recente primeiro</small></h2>${opt.filtro ? `<p class="tfil">${esc(opt.filtro)}</p>` : ''}<div class="tw"><table class="conf${opt.id ? '' : ' tsel'}" id="${opt.id || 'tIv'}"><thead><tr>${head}</tr></thead><tbody>${linhas}</tbody></table></div></div>`;
   }
 
   // ---------------------------------------------------------------- SKILLS
@@ -1039,6 +1108,7 @@
     if (b.dataset.fechaAviso != null) { avisosFechados.add(b.dataset.fechaAviso); return renderBanners(); }
     if (b.dataset.info) return alternarInfo(b.dataset.info);
     if (b.dataset.act === 'fechar') return fecharSheet();
+    if (b.dataset.vis) { evo.vista = b.dataset.vis; evo.sel = null; evo.menu = null; toast(evo.vista === 'dia' ? 'Eixo por dia' : 'Eixo por horas'); return redesenhar(); }
     if (b.dataset.menu) { evo.menu = evo.menu === b.dataset.menu ? null : b.dataset.menu; return redesenhar(); }
     if (b.dataset.act === 'limpar') { evo.sel = null; return redesenhar(); }
     if (b.dataset.act === 'zeros') { sk.zeros = true; return render(); }
@@ -1079,12 +1149,8 @@
       if (c) { evo.sel = evo.sel === c.ini ? null : c.ini; redesenhar(b); }
     }
   });
-  function ivAtuais() {
-    const d = diaEvo().d;
-    const co = filtroEvo(d, 'CO');
-    const passo = evo.passo === 'auto' ? D.passoAuto(d, maxColunas($('#pgEvo'))) : +evo.passo;
-    return D.intervalos(d, passo, co);
-  }
+  function ivAtuais() { return evoCols; }
+
   // Redesenhar sem mexer na rolagem. Na Evolução, a tela "ancora" no primeiro bloco visível (card, gráfico…):
   // depois de redesenhar, esse mesmo bloco volta exatamente para a mesma altura da tela, mesmo que algo acima
   // tenha mudado de tamanho (ex.: trocar de data some/volta o gráfico de técnicos em espera, os cards mudam).

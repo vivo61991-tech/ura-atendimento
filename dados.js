@@ -292,7 +292,7 @@
   const fmtRel = s => s == null ? '—' : pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s % 3600 / 60)) + ':' + pad(Math.round(s % 60));
 
   const api = { OBRIGATORIAS, EWT_SEM_AGENTE, INICIO, FIM, PASSOS, normalizar, filtro, agregar, delta, intervalos,
-    passoAuto, acumulados, agregarEm, intervaloEm, espera: esperaNoIntervalo, curto, minDe, hhmm, msDe, fmtInt, fmtPct, fmtSeg, fmtRel };
+    passoAuto, acumulados, derivar, agregarEm, intervaloEm, espera: esperaNoIntervalo, curto, minDe, hhmm, msDe, fmtInt, fmtPct, fmtSeg, fmtRel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Dados = api;
 })(typeof self !== 'undefined' ? self : this);
