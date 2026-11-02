@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.20.0)
+# URA · Suporte B2C (v1.20.1)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -141,7 +141,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 - Ordem: maior volume DO DIA primeiro — não muda ao filtrar nem ao selecionar coluna. Números: do dia, ou da coluna
   selecionada (no intervalo ou acumulado até ela), como os botões de grupo.
 - "N skills" abre as skills do grupo (fundo mais escuro; barra = parte do grupo). Skill = nome simplificado da tradutora.
-- Tocar no nome do grupo ou da skill filtra a tela inteira (gráficos, cards, previsto, tabela); de novo, limpa.
+- Tocar na faixa de cima da linha (nome, número ou barra) do grupo ou da skill filtra a tela inteira (gráficos, cards, previsto, tabela); de novo, limpa.
   O painel não se filtra (continua mostrando tudo e marca o escolhido) e a linha tocada não sai do lugar na tela.
 
 ## Fila do histórico (técnicos em espera)
@@ -196,6 +196,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.20.1:** painel Grupos e skills: a faixa de cima inteira da linha (nome, número e barra) filtra; "N skills" continua só abrindo a lista.
 - **1.20.0:** vista por dia com botão de quantidade de dias (7 a 13, lembrada) no lugar dos botões apagados; previsto por dia vira linha reta na mediana dos dias do gráfico; % que enfrentou fila em cada coluna dos técnicos em espera.
 - **1.19.0:** botão Horas | Dia na barra de data: eixo por dia (dias corridos ou o mesmo dia da semana, pela chave Previsto), com previsto por dia e tabela de dias.
 - **1.18.0:** controles em três botões com menu suspenso, sempre presos no topo (sem abrir/recolher e sem alfinete); domingo na cor do NS crítico; total dos gráficos menor, mais perto do título e em roxo.

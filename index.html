@@ -210,6 +210,9 @@ h2.sec .rt{white-space:nowrap;font-size:12.5px;text-transform:none;letter-spacin
 .gks{display:flex;flex-direction:column;margin:2px -6px 0}
 .gk{padding:8px 8px 7px}
 .gks > .gk + .gk,.gks > .gk-sub + .gk{border-top:1px solid var(--line)}
+.gk-top{display:block;width:100%;border:0;background:none;padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:8px;-webkit-tap-highlight-color:transparent}
+.gk-top:active{background:color-mix(in srgb,var(--p500) 8%,transparent)}
+.gk-top:focus-visible{outline:2px solid var(--p300);outline-offset:2px}
 .gk-l{display:flex;align-items:baseline;gap:10px}
 .gk-n{flex:1;min-width:0;text-align:left;border:0;background:none;padding:0;font:inherit;font-weight:750;font-size:13.5px;color:var(--ink);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gk-q{flex:none;font-size:14px;font-weight:800;color:var(--ink)}
@@ -406,9 +409,9 @@ table.tsel tbody tr.sel td:last-child{border-right-color:var(--selln)}
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Detalhe"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="dados.js?v=1.20.0"></script>
-<script src="graf.js?v=1.20.0"></script>
-<script src="historico.js?v=1.20.0"></script>
-<script src="app.js?v=1.20.0"></script>
+<script src="dados.js?v=1.20.1"></script>
+<script src="graf.js?v=1.20.1"></script>
+<script src="historico.js?v=1.20.1"></script>
+<script src="app.js?v=1.20.1"></script>
 </body>
 </html>

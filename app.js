@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.20.0';
+  const APP_VERSION = '1.20.1';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -946,18 +946,17 @@
     const barra = (x, ref) => {
       const pc = v => ref ? Math.max(0, Math.min(100, v / ref * 100)) : 0;
       const vc = x.aC ? x.aC.ofer : 0, vt = x.aT ? x.aT.ofer : 0;
-      return `<div class="gk-bar" aria-hidden="true"><i style="width:${pc(vc).toFixed(2)}%;background:var(--sCO)"></i><i style="width:${pc(vt).toFixed(2)}%;background:var(--sTEL)"></i></div>`;
+      return `<span class="gk-bar" aria-hidden="true"><i style="width:${pc(vc).toFixed(2)}%;background:var(--sCO)"></i><i style="width:${pc(vt).toFixed(2)}%;background:var(--sTEL)"></i></span>`;
     };
     const linha = (x, sub, g) => {
       const on = sub ? st.skill === x.nome : st.grupo === x.g && !st.skill;
       const nome = sub ? x.nome : x.g, chave = sub ? 's:' + g + '|' + x.nome : 'g:' + x.g;
-      const btNome = sub ? `<button class="gk-n" data-gsk="${esc(x.nome)}" data-gg="${esc(g)}" aria-pressed="${on}" title="Filtrar a tela por esta skill">${esc(nome)}</button>`
-        : `<button class="gk-n" data-gk="${esc(x.g)}" aria-pressed="${on}" title="Filtrar a tela por este grupo">${esc(nome)}</button>`;
+      // a faixa de cima inteira (nome, valor e barra) é um botão só: tocar em qualquer parte dela filtra
+      const atrib = sub ? `data-gsk="${esc(x.nome)}" data-gg="${esc(g)}" title="Filtrar a tela por esta skill"` : `data-gk="${esc(x.g)}" title="Filtrar a tela por este grupo"`;
       const nSk = sub ? '' : (() => { const n = new Set(x.ss.map(s => d.trad[s].SKILL_SIMPLIFICADO)).size, ab = st.abertos.has(x.g);
         return `<button class="gk-x" data-gab="${esc(x.g)}" aria-expanded="${ab}" title="${ab ? 'Esconder' : 'Mostrar'} as skills do grupo"><b><i>${n} ${n === 1 ? 'skill' : 'skills'}</i></b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ab ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'}"/></svg></button><span class="gk-s">·</span>`; })();
       return `<div class="gk${sub ? ' sub' : ''}${on ? ' on' : ''}${x.q ? '' : ' zero'}" data-anc="${esc(chave)}">
-        <div class="gk-l">${btNome}<b class="gk-q num">${x.q == null ? '—' : fI(x.q)}</b></div>
-        ${barra(x, sub ? x.ref : total)}
+        <button class="gk-top" ${atrib} aria-pressed="${on}"><span class="gk-l"><span class="gk-n">${esc(nome)}</span><b class="gk-q num">${x.q == null ? '—' : fI(x.q)}</b></span>${barra(x, sub ? x.ref : total)}</button>
         <div class="gk-m">${nSk}${met(x)}</div></div>`;
     };
     const corpo = lista.map(x => {

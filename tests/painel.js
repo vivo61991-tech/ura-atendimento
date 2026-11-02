@@ -76,6 +76,23 @@ const ofer = ss => D.agregar(L, ss).ofer;
   ok(await p.locator(`${pn} .gks > .gk.on`).count() === 1, 'grupo escolhido marcado no painel');
   await p.click(`${pn} .gks > .gk >> nth=1 >> .gk-n`); await p.waitForTimeout(150);
   ok(await p.evaluate(() => window.__ura.estado().evo.grupo) === null, 'tocar de novo no grupo limpa o filtro');
+  // a faixa de cima inteira filtra: tocar no NÚMERO e na BARRA também (não só no nome)
+  const g2 = esp[2];
+  await trazer('g:' + g2.g, 430);
+  await p.click(`${pn} .gks > .gk >> nth=2 >> .gk-q`); await p.waitForTimeout(150);
+  ok(await p.evaluate(() => window.__ura.estado().evo.grupo) === g2.g, `tocar no número (${g2.g}) filtra`);
+  await p.click(`${pn} .gks > .gk >> nth=2 >> .gk-bar`); await p.waitForTimeout(150);
+  ok(await p.evaluate(() => window.__ura.estado().evo.grupo) === null, 'tocar na barra (de novo) limpa');
+  const faixa = await p.$eval(`${pn} .gks > .gk .gk-top`, t => { const r = t.getBoundingClientRect(), l = t.closest('.gk').getBoundingClientRect(); return { w: r.width >= l.width - 20, temNum: !!t.querySelector('.gk-q'), temBarra: !!t.querySelector('.gk-bar') }; });
+  ok(faixa.w && faixa.temNum && faixa.temBarra, 'faixa tocável ocupa a largura da linha (nome, número e barra)');
+  // "N skills" só abre a lista, não filtra
+  await p.click(`${pn} .gks > .gk >> nth=2 >> .gk-x`); await p.waitForTimeout(150);
+  ok(await p.evaluate(() => window.__ura.estado().evo.grupo) === null && await p.locator(`${pn} .gk-sub`).count() >= 1, '"skills" só abre a lista, sem filtrar');
+  await p.click(`${pn} .gks > .gk >> nth=2 >> .gk-x`); await p.waitForTimeout(150);
+  // skill: tocar no número também filtra
+  await p.click(`${pn} .gk-sub .gk-q >> nth=0`); await p.waitForTimeout(150);
+  ok(!!(await p.evaluate(() => window.__ura.estado().evo.skill)), 'skill: tocar no número também filtra');
+  await p.click(`${pn} .gk-sub .gk-q >> nth=0`); await p.waitForTimeout(150);
   // 5) fechar as skills: linha parada
   await trazer('g:' + g0.g, 350);
   const y2 = await topo('g:' + g0.g);
