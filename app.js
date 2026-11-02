@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.21.0';
+  const APP_VERSION = '1.22.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -49,7 +49,7 @@
   const sk = { dir: 'TODOS', q: '', zeros: false };
   // aba Agora: filtro do painel de grupos (grupo/skill), grupos abertos e coluna selecionada nos gráficos da hora
   // dir: atendimento escolhido nos botões do topo (começa sempre em Total URA, como a Evolução)
-  const ag = { dir: 'TODOS', grupo: null, skill: null, abertos: new Set(), sel: null };
+  const ag = { tabTudo: false, dir: 'TODOS', grupo: null, skill: null, abertos: new Set(), sel: null };
   let agCols = [];
   let evoCols = [];  // colunas em exibição na Evolução (horários ou dias), para o toque nas colunas e na tabela   // colunas da hora em exibição na aba Agora (para o toque nas colunas)
 
@@ -327,7 +327,7 @@
     // hora atual (gráficos + painel de grupos e skills) e a tabela do dia de 15 em 15 min, com o filtro da aba Agora
     const hora = horaAgora(d);
     const fC = filtroEvo(d, 'CO', ag), fT = filtroEvo(d, 'TEL', ag);
-    const tab = tabelaIntervalos(D.intervalos(d, 15, fC), D.intervalos(d, 15, fT), dir, 15, -1, false, { id: 'tIvAg', filtro: textoFiltro(d, dir, ag) });
+    const tab = tabelaIntervalos(D.intervalos(d, 15, fC), D.intervalos(d, 15, fT), dir, 15, -1, false, { id: 'tIvAg', filtro: textoFiltro(d, dir, ag), limite: 9, tudo: ag.tabTudo, acao: 'tabtudo', anc: 'tabAg', marcaAberto: true });
 
     const titulo = { TODOS: 'URA · Suporte B2C', CO: 'CO · Centro de Operações', TEL: 'TEL · Parceira' }[dir];
     $('#pgAgora').innerHTML = `
@@ -981,16 +981,22 @@
     opt = opt || {};
     const linhas = ivC.map((c, i) => {
       const t = ivT[i], r = opt.rot ? opt.rot(c) : `${D.hhmm(acum ? (c.andamento ? c.ateM : c.fim) : c.ini)}${c.andamento ? '*' : ''}`;
-      const cls = i === iSel ? ' class="sel"' : '';
+      // opt.marcaAberto: o intervalo ainda aberto (em andamento) ganha um listrado bem claro no fundo
+      const cl = [i === iSel ? 'sel' : '', opt.marcaAberto && c.andamento ? 'aberto' : ''].filter(Boolean).join(' ');
+      const cls = cl ? ` class="${cl}"` : '';
       if (c.semColeta) return `<tr data-i="${i}"${cls}><td>${r}</td><td class="nd" colspan="${dir === 'TEL' ? 1 : dir === 'CO' ? 6 : 4}">sem coleta</td></tr>`;
       if (dir === 'TEL') return `<tr data-i="${i}"${cls}><td>${r}</td><td>${fI(t && t.v ? t.v.ofer : 0)}</td></tr>`;
       if (dir === 'CO') return `<tr data-i="${i}"${cls}><td>${r}</td><td>${fI(c.v.ofer)}</td><td>${fI(c.v.atend)}</td><td>${fI(c.v.aband)}</td><td>${nsTx(c.v.ns)}</td><td>${c.esp ? fI(c.esp.pico) : '—'}</td><td>${c.v.tme == null ? '—' : minCurto(c.v.tme)}</td></tr>`;
       return `<tr data-i="${i}"${cls}><td>${r}</td><td>${fI(c.v.ofer)}</td><td>${fI(t && t.v ? t.v.ofer : 0)}</td><td>${nsTx(c.v.ns)}</td><td>${fI(c.v.aband)}</td></tr>`;
-    }).reverse().join('');
+    }).reverse();
+    // opt.limite: só as N linhas mais recentes, com um botão para ver o dia todo (opt.tudo = aberto)
+    const corta = opt.limite && linhas.length > opt.limite;
+    const linhasH = (corta && !opt.tudo ? linhas.slice(0, opt.limite) : linhas).join('');
+    const btn = corta ? `<button class="tab-mais" data-act="${opt.acao}" aria-expanded="${!!opt.tudo}">${opt.tudo ? `Mostrar só os ${opt.limite} mais recentes` : `Ver o dia todo · mais ${linhas.length - opt.limite} intervalos`}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${opt.tudo ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'}"/></svg></button>` : '';
     const h1 = opt.h1 || (acum ? 'Até' : 'Início');
     const head = dir === 'TEL' ? `<th>${h1}</th><th>Oferecidas</th>` : dir === 'CO' ? `<th>${h1}</th><th>Ofer.</th><th>Atend.</th><th>Aband.</th><th>NS</th><th title="${acum ? 'maior fila do dia até o horário' : 'pico de técnicos em espera'}">Fila</th><th>TME</th>`
       : `<th>${h1}</th><th>CO</th><th>TEL</th><th>NS CO</th><th>Aband. CO</th>`;
-    return `<div class="card"><h2>${opt.titulo || (acum ? 'Acumulado do dia' : 'Intervalos de ' + PASSO_NOME[passo])} <small>· mais recente primeiro</small></h2>${opt.filtro ? `<p class="tfil">${esc(opt.filtro)}</p>` : ''}<div class="tw"><table class="conf${opt.id ? '' : ' tsel'}" id="${opt.id || 'tIv'}"><thead><tr>${head}</tr></thead><tbody>${linhas}</tbody></table></div></div>`;
+    return `<div class="card"${opt.anc ? ` data-anc="${opt.anc}"` : ''}><h2>${opt.titulo || (acum ? 'Acumulado do dia' : 'Intervalos de ' + PASSO_NOME[passo])} <small>· mais recente primeiro</small></h2>${opt.filtro ? `<p class="tfil">${esc(opt.filtro)}</p>` : ''}<div class="tw"><table class="conf${opt.id ? '' : ' tsel'}" id="${opt.id || 'tIv'}"><thead><tr>${head}</tr></thead><tbody>${linhasH}</tbody></table></div>${btn}</div>`;
   }
 
   // ---------------------------------------------------------------- SKILLS
@@ -1125,6 +1131,7 @@
     if (b.dataset.ndias) { evo.menu = null; evo.ndias = +b.dataset.ndias; gravarPref('ndias', evo.ndias); evo.sel = null; return redesenhar(); }
     if (b.dataset.vis) { evo.vista = b.dataset.vis; evo.sel = null; evo.menu = null; toast(evo.vista === 'dia' ? 'Eixo por dia' : 'Eixo por horas'); return redesenhar(); }
     if (b.dataset.menu) { evo.menu = evo.menu === b.dataset.menu ? null : b.dataset.menu; return redesenhar(); }
+    if (b.dataset.act === 'tabtudo') { ag.tabTudo = !ag.tabTudo; return redesenhar(b); }
     if (b.dataset.act === 'limpar') { evo.sel = null; return redesenhar(); }
     if (b.dataset.act === 'zeros') { sk.zeros = true; return render(); }
     if (b.dataset.sk) return abrirSkill(b.dataset.sk, b.dataset.skd);
