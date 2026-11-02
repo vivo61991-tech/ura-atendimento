@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.19.0';
+  const APP_VERSION = '1.20.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -43,7 +43,8 @@
   // skill: filtro por skill (nome simplificado da tradutora), escolhido no painel "Grupos e skills"
   // abertos: grupos expandidos no painel (só enquanto o app está aberto)
   // vista: 'hora' (eixo = horários do dia) | 'dia' (eixo = dias; cada coluna é um dia inteiro)
-  const evo = { vista: 'hora', skill: null, abertos: new Set(), dir: 'TODOS', passo: 'auto', grupo: null, sel: null, modo: 'int', menu: null,
+  // ndias: quantos dias no eixo da vista por dia (7 a 13; começa em 7; a escolha fica lembrada no aparelho)
+  const evo = { ndias: Math.min(13, Math.max(7, +lerPref('ndias', 7) || 7)), vista: 'hora', skill: null, abertos: new Set(), dir: 'TODOS', passo: 'auto', grupo: null, sel: null, modo: 'int', menu: null,
     dia: null, cmp: ['dias', 'sem', 'off'].includes(lerPref('cmp', 'sem')) ? lerPref('cmp', 'sem') : 'sem' };
   const sk = { dir: 'CO', q: '', zeros: false };
   // aba Agora: filtro do painel de grupos (grupo/skill), grupos abertos e coluna selecionada nos gráficos da hora
@@ -457,7 +458,7 @@
   function medCol(cmp, c, f) {
     if (!cmp || !cmp.porRef.length || !c || c.semColeta) return null;
     // vista por dia: cada coluna (dia) traz os seus dias de referência
-    if (cmp.porDia) return c.refsDia && c.refsDia.length ? Hs.mediana(c.refsDia.map(r => f(r.diaC, r.diaT))) : null;
+    if (cmp.porDia) return cmp.linha(f);
     // coluna em andamento, coluna futura (resto da hora na aba Agora) ou colunas menores que o bloco do histórico (5 min):
     // os outros dias no MESMO trecho, proporcional dentro do bloco de 15 min
     if (c.andamento || c.futuro || cmp.fino) return Hs.mediana(cmp.porRef.map(r => {
@@ -472,7 +473,7 @@
   // fila (técnicos em espera): pico das coletas. Dias de referência sem fila (fora do arquivo) ficam de fora da mediana.
   function medEsp(cmp, c) {
     if (!cmp || !cmp.porRef.length || !c || c.semColeta) return null;
-    if (cmp.porDia) return c.refsDia ? Hs.mediana(c.refsDia.map(r => r.espP)) : null;
+    if (cmp.porDia) return cmp.linhaEsp();
     return Hs.mediana(cmp.porRef.map(r => {
       if (!r.dR.temFila) return null;
       // colunas de 5 min ou futuras: o retrato no fim da coluna (proporcional entre os retratos de 15 min)
@@ -498,7 +499,7 @@
     const w = Hs.diaSemana(ctx.iso);
     const porDia = evo.vista === 'dia' && pagina === 'evo';
     const ops = porDia
-      ? [['dias', 'Corridos', 'dias seguidos no eixo; previsto = mediana dos 7 dias anteriores a cada um'], ['sem', DS_CURTO[w] + ' a ' + DS_CURTO[w], 'só os ' + DS_PLURAL[w] + ' no eixo; previsto = mediana dos 7 ' + DS_PLURAL[w] + ' anteriores a cada um'], ['off', 'Desligado', 'dias seguidos, sem previsto']]
+      ? [['dias', 'Corridos', 'dias seguidos no eixo; linha = mediana dos dias no gráfico'], ['sem', DS_CURTO[w] + ' a ' + DS_CURTO[w], 'só os ' + DS_PLURAL[w] + ' no eixo; linha = mediana deles'], ['off', 'Desligado', 'dias seguidos, sem a linha']]
       : [['dias', '7 dias', 'mediana dos 7 dias corridos anteriores'], ['sem', '7 ' + DS_CURTO[w], 'mediana dos 7 ' + DS_PLURAL[w] + ' anteriores'], ['off', 'Desligado', 'sem previsto: gráficos limpos']];
     return `<div class="cmpk" role="group" aria-label="Previsto: mediana do histórico"><span class="cmpk-l">Previsto</span>
       <div class="seg sm">${ops.map(([v, t, ti]) => `<button data-cmp="${v}" class="${evo.cmp === v ? 'on' : ''}" aria-pressed="${evo.cmp === v}" title="${ti}" aria-label="${ti}">${t}</button>`).join('')}</div></div>`;
@@ -526,13 +527,13 @@
   // dia escolhido; em "mesmo dia da semana", só os dias da mesma semana (dom com dom…). Cada coluna é o dia inteiro
   // (o dia do Pulse vai até a última coleta) e o previsto de cada coluna é a mediana dos 7 dias de referência DELA.
   function vistaDias(ctx, el) {
-    const lista = diasDisp(), A = ctx.iso, N = maxColunas(el);
+    const lista = diasDisp(), A = ctx.iso, N = evo.ndias;
     let dias;
     if (evo.cmp === 'sem') { dias = []; for (let x = A; x >= lista[0] && dias.length < N; x = Hs.somaDias(x, -7)) if (lista.includes(x)) dias.push(x); dias.reverse(); }
     else dias = lista.filter(x => x <= A).slice(-N);
     const ivC = [], ivT = [], somaC = [], somaT = [];
     let maior = null;
-    const comRef = hist && evo.cmp !== 'off';
+    const comRef = evo.cmp !== 'off';
     dias.forEach(iso => {
       const dD = usaPulse(iso) ? dados : Hs.diaComoDados(hist, iso, dados.trad);
       const Ld = dD.leituras[dD.leituras.length - 1], coD = filtroEvo(dD, 'CO'), telD = filtroEvo(dD, 'TEL');
@@ -541,11 +542,7 @@
       const esp = fila ? D.espera(dD.leituras, -1, Ld.m, coD) : null;
       const andamento = usaPulse(iso) && iso === hojeISO();
       const w = Hs.diaSemana(iso), dm = ddmmaaaa(iso);
-      // referências do dia: até o MESMO minuto (o dia do Pulse ainda aberto compara até a última coleta)
-      const refsDia = comRef ? Hs.referencias(hist, iso, evo.cmp).map(r => { const dR = Hs.diaComoDados(hist, r, dados.trad), coR = filtroEvo(dR, 'CO'), telR = filtroEvo(dR, 'TEL');
-        const e = dR.temFila ? D.espera(dR.leituras, -1, Ld.m, coR) : null;
-        return { diaC: D.agregarEm(dR, Ld.m, coR), diaT: D.agregarEm(dR, Ld.m, telR), espP: e ? e.pico : null }; }) : [];
-      const base = { ini: iso, acum: true, andamento, perTx: `${DS_CURTO[w]}, ${dm}${andamento ? ' · até ' + Ld.horario : ''}`, rotTab: `${DS_CURTO[w]} ${dm.slice(0, 5)}`, dom: w === 0, refsDia };
+      const base = { ini: iso, acum: true, andamento, perTx: `${DS_CURTO[w]}, ${dm}${andamento ? ' · até ' + Ld.horario : ''}`, rotTab: `${DS_CURTO[w]} ${dm.slice(0, 5)}`, dom: w === 0 };
       ivC.push(Object.assign({}, base, { v: aC, esp }));
       ivT.push(Object.assign({}, base, { v: aT }));
       somaC.push(aC); somaT.push(aT);
@@ -555,14 +552,17 @@
       arr.forEach(a => ['ofer', 'atend', 'aband', 'a300', 'a60', 'tmaS', 'tmeS', 'espTot'].forEach(k => { r[k] += a[k] || 0; })); return D.derivar(r); };
     const iSel = evo.sel == null ? -1 : ivC.findIndex(c => c.ini === evo.sel);
     if (iSel < 0) evo.sel = null;
-    const temRefs = ivC.some(c => c.refsDia.length);
-    const cmp = comRef ? { porDia: true, porRef: temRefs ? [1] : [], nome: evo.cmp === 'sem' ? '7 mesmos dias da semana' : '7 dias anteriores', curto: 'med.',
-      notaTx: `<span><i class="ref"></i>área clara: o previsto de cada dia — mediana ${evo.cmp === 'sem' ? 'dos 7 mesmos dias da semana anteriores a ele' : 'dos 7 dias anteriores a ele'}, até o mesmo horário</span>` } : null;
+    // previsto da vista por dia: uma LINHA RETA na mediana dos dias visíveis (cada gráfico com os seus valores).
+    // A mediana não se deixa puxar por dias extremos (feriado, pico); o dia ainda em andamento fica de fora da conta.
+    const fechados = ivC.map((c, i) => ({ c, t: ivT[i] })).filter(x => !x.c.andamento);
+    const cmp = comRef ? { porDia: true, porRef: fechados.length ? [1] : [], nome: `dos ${fechados.length} dias`, curto: 'por dia',
+      linha: f => Hs.mediana(fechados.map(x => f(x.c.v, x.t.v))), linhaEsp: () => Hs.mediana(fechados.map(x => x.c.esp ? x.c.esp.pico : null)),
+      notaTx: `<span><i class="ref"></i>linha: mediana dos ${fechados.length} dias ${evo.cmp === 'sem' ? 'da semana ' : ''}no gráfico${ivC.some(c => c.andamento) ? ' (sem o dia em andamento)' : ''} — dias extremos não puxam a linha</span>` } : null;
     return {
       ivC, ivT, iSel, cmp, acum: true, porDia: true, suf: ' <small>· por dia</small>',
       rot: c => c.rotTab.slice(4), tit: c => c.perTx,
-      per: { aC: soma(somaC), aT: soma(somaT), esp: maior, parcial: false, onde: '', med: null, medEsp: null },
-      dica: `<div class="cap">Cada coluna é um dia inteiro${dias.some(usaPulse) ? ' (o dia do Pulse vai até a última coleta)' : ''}: ${evo.cmp === 'sem' ? `os ${DS_PLURAL[Hs.diaSemana(A)]} até ${ddmmaaaa(A).slice(0, 5)}` : `os dias seguidos até ${ddmmaaaa(A).slice(0, 5)}`}. Embaixo do título, o total desses dias. Toque numa coluna para ver o dia.</div>`
+      per: { aC: soma(somaC), aT: soma(somaT), esp: maior, parcial: false, onde: '', soMed: true, med: cmp ? cmp.linha : null, medEsp: cmp ? cmp.linhaEsp : null },
+      dica: `<div class="cap">Cada coluna é um dia inteiro${dias.some(usaPulse) ? ' (o dia do Pulse vai até a última coleta)' : ''}: ${evo.cmp === 'sem' ? `os ${DS_PLURAL[Hs.diaSemana(A)]} até ${ddmmaaaa(A).slice(0, 5)}` : `os dias seguidos até ${ddmmaaaa(A).slice(0, 5)}`}. Embaixo do título, o total desses dias; no rodapé, a mediana por dia. Toque numa coluna para ver o dia.</div>`
     };
   }
 
@@ -665,7 +665,9 @@
       <div class="evo-ctl fixo">
       ${navDia(ctx)}
       <div class="card topbar">
-        <div class="ctl-l">${menuCtl('dir', resumoCtl[0], [['TODOS', 'Total URA'], ['CO', 'CO'], ['TEL', 'TEL']], dir, 'Atendimento')}${menuCtl('modo', resumoCtl[1], [['int', 'Por intervalo'], ['acum', 'Acumulado']], evo.modo, 'Modo', vistaDia)}${menuCtl('passo', resumoCtl[2], ['auto', 15, 30, 60, 120].map(v => [v, v === 'auto' ? 'Auto · ' + PASSO_NOME[D.passoAuto(d, maxColunas(el))] : PASSO_NOME[v]]), evo.passo, 'Intervalo do eixo', vistaDia)}</div>
+        <div class="ctl-l">${menuCtl('dir', resumoCtl[0], [['TODOS', 'Total URA'], ['CO', 'CO'], ['TEL', 'TEL']], dir, 'Atendimento')}${vistaDia
+          ? menuCtl('ndias', evo.ndias + ' dias', [7, 8, 9, 10, 11, 12, 13].map(n => [n, n + ' dias']), evo.ndias, 'Quantidade de dias')
+          : menuCtl('modo', resumoCtl[1], [['int', 'Por intervalo'], ['acum', 'Acumulado']], evo.modo, 'Modo') + menuCtl('passo', resumoCtl[2], ['auto', 15, 30, 60, 120].map(v => [v, v === 'auto' ? 'Auto · ' + PASSO_NOME[D.passoAuto(d, maxColunas(el))] : PASSO_NOME[v]]), evo.passo, 'Intervalo do eixo')}</div>
         ${gr.iSel >= 0 ? `<button class="selchip" data-act="limpar"><span>Selecionado: <b>${gr.tit(gr.ivC[gr.iSel])}</b> · toque para limpar</span><span aria-hidden="true">✕</span></button>` : ''}
       </div>
       <div class="chips${iSel >= 0 ? ' per' : ''}" role="group" aria-label="Grupo (oferecidas ${esc(ondeChip)})">${[null, ...grpsDisp].map(g => {
@@ -747,6 +749,7 @@
     const detH = (f, fmt, atual, pp) => {
       if (!P || !temCmp || !P.med) return '';
       const r = P.med(f);
+      if (P.soMed) return `mediana por dia: <b>${r == null ? '—' : fmt(r)}</b>`;
       return `med. ${esc(cmp.curto)}${P.onde ? ' ' + esc(P.onde) : ''}: <b>${r == null ? '—' : fmt(r)}</b>${r == null ? '' : ' ' + difTx(atual, r, pp)}`;
     };
     const pC = P && P.aC, pT = P && P.aT;
@@ -822,19 +825,23 @@
         if (c.futuro) return vaz(c);
         const base = { rot: rot(c), and: c.andamento, titulo: tit(c) };
         if (!c.esp) return Object.assign(base, { sd: true });
-        return Object.assign(base, { segs: [{ v: c.esp.pico, cor: corEspera(c.esp.espMax) }], lab: c.esp.pico ? fI(c.esp.pico) : '', ok: c.esp.pico === 0 });
+        // rótulo: % das oferecidas do CO que enfrentaram fila (atendidas depois de 1 min) em cima; o pico embaixo
+        const pf = c.v && c.v.ofer ? Math.max(0, c.v.atend - c.v.a60) / c.v.ofer * 100 : null;
+        return Object.assign(base, { segs: [{ v: c.esp.pico, cor: corEspera(c.esp.espMax) }], ok: c.esp.pico === 0,
+          lab: !c.esp.pico ? '' : pf == null ? fI(c.esp.pico) : Math.round(pf) + '%', lab2: !c.esp.pico || pf == null ? '' : fI(c.esp.pico) });
       });
       // total: maior fila do período e quantos ENFRENTARAM fila: atendidas depois de 1 min ÷ oferecidas do CO
       const pE = P && P.esp, pctFila = P && pC.ofer ? Math.max(0, pC.atend - pC.a60) / pC.ofer * 100 : null;
       const rEsp = P && temCmp && P.medEsp ? P.medEsp() : null;
       const totEsp = P ? totH(pE ? fI(pE.pico) : '—', `${pE && pE.pico ? (pE.picoTx || 'pico às ' + D.hhmm(pE.picoM)) + ' · ' : ''}${pctFila == null ? '' : `<b>${fP(pctFila)}</b> das oferecidas enfrentaram fila`}`) : '';
-      const detEsp = P && temCmp && P.medEsp ? `med. ${esc(cmp.curto)}${P.onde ? ' ' + esc(P.onde) : ''}: <b>${rEsp == null ? '—' : fI(rEsp)}</b>${rEsp == null || !pE ? '' : ' ' + difTx(pE.pico, rEsp)}` : '';
+      const detEsp = P && temCmp && P.medEsp && P.soMed ? `maior fila, mediana por dia: <b>${rEsp == null ? '—' : fI(rEsp)}</b>` : P && temCmp && P.medEsp ? `med. ${esc(cmp.curto)}${P.onde ? ' ' + esc(P.onde) : ''}: <b>${rEsp == null ? '—' : fI(rEsp)}</b>${rEsp == null || !pE ? '' : ' ' + difTx(pE.pico, rEsp)}` : '';
       html += graf('Técnicos em espera' + (dir === 'TODOS' ? ' · CO' : '') + (porDia ? ' <small>· maior fila de cada dia</small>' : acum ? ' <small>· maior fila do dia até o horário</small>' : ''),
         G.barras({ ...gopt, cols: colsEsp, sel: iSel, ref: temCmp ? ivC.map(c => medEsp(cmp, c)) : null, refCor: 'var(--p500)', aria: 'Técnicos em espera por intervalo' }),
         `<span><i style="background:var(--okc);border-radius:50%"></i>sem fila</span><span><i style="background:var(--p300)"></i>espera mais longa até 2 min</span><span><i style="background:var(--laranja)"></i>2 a 5 min</span><span><i style="background:var(--rosa)"></i>acima de 5 min</span>` +
         (acum ? '<span>maior número de técnicos esperando ao mesmo tempo, do início do dia até o horário da coluna (a fila é um retrato: não se soma ao longo do tempo)</span>'
           : `<span>maior número de técnicos esperando ao mesmo tempo nas coletas do intervalo (${passo < 15 ? 'de 5 em 5 min' : 'horas fechadas: uma coleta a cada 15 min'})</span>`) +
-        '<span>embaixo do título: a maior fila do período e quantos enfrentaram fila — atendidas depois de 1&nbsp;min ÷ oferecidas do CO</span>' +
+        '<span>rótulo: % das oferecidas do CO que enfrentaram fila — atendidas depois de 1&nbsp;min (em cima) e o maior número de técnicos esperando ao mesmo tempo (embaixo)</span>' +
+        '<span>embaixo do título: a maior fila do período e quantos enfrentaram fila no período</span>' +
         (vivo ? '' : '<span>dia do histórico: fila refeita chamada a chamada pelo Genesys (quem passou dos 120 s de URA e ainda não tinha sido atendido nem desistido), no mesmo retrato de 15 em 15 min do Pulse</span>'), 'esp',
         { refHtml: temCmp && iSel >= 0 && ivC[iSel].esp ? (() => { const r = medEsp(cmp, ivC[iSel]); return `mediana ${esc(cmp.nome)}${ivC[iSel].andamento ? ' até ' + D.hhmm(ivC[iSel].ateM) : ''}: <b>${r == null ? '—' : fI(r)}</b>${r == null ? '' : ' ' + difTx(ivC[iSel].esp.pico, r)}`; })() : null },
         totEsp, detEsp);
@@ -1108,6 +1115,7 @@
     if (b.dataset.fechaAviso != null) { avisosFechados.add(b.dataset.fechaAviso); return renderBanners(); }
     if (b.dataset.info) return alternarInfo(b.dataset.info);
     if (b.dataset.act === 'fechar') return fecharSheet();
+    if (b.dataset.ndias) { evo.menu = null; evo.ndias = +b.dataset.ndias; gravarPref('ndias', evo.ndias); evo.sel = null; return redesenhar(); }
     if (b.dataset.vis) { evo.vista = b.dataset.vis; evo.sel = null; evo.menu = null; toast(evo.vista === 'dia' ? 'Eixo por dia' : 'Eixo por horas'); return redesenhar(); }
     if (b.dataset.menu) { evo.menu = evo.menu === b.dataset.menu ? null : b.dataset.menu; return redesenhar(); }
     if (b.dataset.act === 'limpar') { evo.sel = null; return redesenhar(); }

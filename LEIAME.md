@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.19.0)
+# URA · Suporte B2C (v1.20.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -91,10 +91,15 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 
 ## Gráficos sem cards (Evolução e Agora)
 - **Horas | Dia** (botão à direita na barra de data): em "Horas", o dia em horários (como sempre). Em "Dia", o eixo
-  recebe dias — cada coluna é um dia inteiro (o dia do Pulse vai até a última coleta). A chave Previsto escolhe os dias:
-  **Corridos** (dias seguidos até a data escolhida) ou **dom a dom** (só o mesmo dia da semana, ex.: sábado com sábado);
-  o previsto de cada coluna é a mediana dos 7 dias de referência DELA. **Desligado**: dias seguidos, sem previsto.
-  Embaixo do título, o total desses dias; modo e eixo não se aplicam (ficam apagados); a tabela vira "Dias".
+  recebe dias — cada coluna é um dia inteiro (o dia do Pulse vai até a última coleta).
+  - Controles: atendimento e **quantidade de dias** (7 a 13; começa em 7 e a escolha fica lembrada no aparelho).
+  - A chave Previsto escolhe os dias: **Corridos** (dias seguidos até a data escolhida) ou **dom a dom** (só o mesmo dia
+    da semana, ex.: sábado com sábado). **Desligado**: dias seguidos, sem a linha.
+  - Previsto = **linha reta na mediana dos dias do gráfico** (cada gráfico com os seus valores; sem o dia em andamento).
+    A mediana não se deixa puxar por dias extremos. No rodapé, "mediana por dia"; embaixo do título, o total dos dias.
+  - A tabela vira "Dias".
+- **Técnicos em espera** (todas as vistas): em cada coluna, o % das oferecidas do CO que enfrentaram fila (em cima) e o
+  pico de técnicos esperando (embaixo).
 - **Controles** (Evolução): três botões sempre à vista e presos no topo com a data e os grupos — atendimento ·
   modo · eixo. Cada um abre um menu suspenso com as opções (a atual marcada); escolher aplica e fecha; tocar fora ou
   Esc fecha sem mudar. Não há mais abrir/recolher nem alfinete.
@@ -191,6 +196,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.20.0:** vista por dia com botão de quantidade de dias (7 a 13, lembrada) no lugar dos botões apagados; previsto por dia vira linha reta na mediana dos dias do gráfico; % que enfrentou fila em cada coluna dos técnicos em espera.
 - **1.19.0:** botão Horas | Dia na barra de data: eixo por dia (dias corridos ou o mesmo dia da semana, pela chave Previsto), com previsto por dia e tabela de dias.
 - **1.18.0:** controles em três botões com menu suspenso, sempre presos no topo (sem abrir/recolher e sem alfinete); domingo na cor do NS crítico; total dos gráficos menor, mais perto do título e em roxo.
 - **1.17.0:** sem cards: total do período embaixo do título de cada gráfico e a mediana no rodapé; gráficos Oferecidas TEL e Oferecidas CO no Total URA; % que enfrentou fila; visto no abandono zero; títulos centralizados e curtos (TME/TMA). Na Agora fica só o card do NS.
