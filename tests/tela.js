@@ -17,6 +17,8 @@ require('fs').mkdirSync(OUT, { recursive: true });
     await p.goto(URL);
     await p.waitForFunction(() => window.__ura && window.__ura.estado().dados);
     await p.waitForTimeout(300);
+    await p.screenshot({ path: `${OUT}/${tema}-0-alarmes.png`, fullPage: true });
+    await p.click('nav.tabs button[data-v="agora"]'); await p.waitForTimeout(200);
     await p.screenshot({ path: `${OUT}/${tema}-1-agora.png`, fullPage: true });
     await p.click('nav.tabs button[data-v="evo"]'); await p.waitForTimeout(200);
     await p.screenshot({ path: `${OUT}/${tema}-2-evo.png`, fullPage: true });

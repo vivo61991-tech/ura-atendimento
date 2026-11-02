@@ -10,6 +10,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await p.clock.install({ time: new Date('2026-10-31T09:15:00') });
   await p.goto(URL);
   await p.waitForFunction(() => window.__ura.estado().dados);
+  await p.click('nav.tabs button[data-v="agora"]');   // o app abre em Alarmes
   const txt = await p.evaluate(() => document.body.innerText);
   ok(!/300s/.test(txt), 'nenhum "300s" na tela Agora');
   ok(/NS 5 min · CO/.test(txt), 'destaque: "NS 5 min · CO"');

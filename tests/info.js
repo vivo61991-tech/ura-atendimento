@@ -9,6 +9,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await p.clock.install({ time: new Date('2026-10-30T19:17:30') });
   await p.goto(URL);
   await p.waitForFunction(() => window.__ura.estado().dados);
+  await p.click('nav.tabs button[data-v="agora"]');   // o app abre em Alarmes
   const abertos = () => p.evaluate(() => [...document.querySelectorAll('.ch-info')].filter(x => !x.hidden && x.offsetParent).map(x => x.id));
   ok((await abertos()).length === 0, 'Agora: explicação escondida ao abrir');
   ok(await p.$$eval('#pgAgora .chart .legend', ls => ls.length >= 7 && ls.every(l => !l.offsetParent)), 'Agora: legendas não aparecem sem tocar no (i)');

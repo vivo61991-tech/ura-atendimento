@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.24.0';
+  const APP_VERSION = '1.25.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -26,7 +26,7 @@
   let erroFonte = null;        // falha ao ler do site (rede/HTTP)
   let erroDados = null;        // arquivo recebido com problema (estrutura)
   let carregando = false;
-  let pagina = 'agora';
+  let pagina = 'alarmes';
   let hist = null;             // histórico lido (Historico.parse) — o último VÁLIDO
   let histErro = null;         // falha ao ler/entender o historico.csv
   let histCarregando = false;
@@ -49,7 +49,7 @@
   const sk = { dir: 'TODOS', q: '', zeros: false };
   // aba Agora: filtro do painel de grupos (grupo/skill), grupos abertos e coluna selecionada nos gráficos da hora
   // dir: atendimento escolhido nos botões do topo (começa sempre em Total URA, como a Evolução)
-  const ag = { alAberto: null, tabTudo: false, dir: 'TODOS', grupo: null, skill: null, abertos: new Set(), sel: null };
+  const ag = { tabTudo: false, dir: 'TODOS', grupo: null, skill: null, abertos: new Set(), sel: null };
   let agCols = [];
   let evoCols = [];  // colunas em exibição na Evolução (horários ou dias), para o toque nas colunas e na tabela   // colunas da hora em exibição na aba Agora (para o toque nas colunas)
 
@@ -203,10 +203,15 @@
   // ---------------------------------------------------------------- render geral
   function render() {
     renderSync(); renderBanners(); medirTopo();
-    ['agora', 'evo', 'skills'].forEach(p => { $('#pg' + p[0].toUpperCase() + p.slice(1)).hidden = p !== pagina; });
+    ['alarmes', 'agora', 'evo', 'skills'].forEach(p => { $('#pg' + p[0].toUpperCase() + p.slice(1)).hidden = p !== pagina; });
     document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === pagina));
-    if (!dados) { $('#pg' + pagina[0].toUpperCase() + pagina.slice(1)).innerHTML = vazio(); return; }
-    if (pagina === 'agora') renderAgora();
+    if (!dados) { renderBadge(null); $('#pg' + pagina[0].toUpperCase() + pagina.slice(1)).innerHTML = vazio(); return; }
+    // alarmes: avaliados em todo desenho (a bolinha da aba fica sempre em dia), desenhados só na página deles
+    let resAl = null;
+    try { resAl = avaliarAlarmes(); } catch (e) { console.warn('alarmes:', e); }
+    renderBadge(resAl);
+    if (pagina === 'alarmes') renderAlarmes(resAl);
+    else if (pagina === 'agora') renderAgora();
     else if (pagina === 'evo') {
       // a faixa de grupos é redesenhada a cada atualização: guarda a rolagem para não "pular" para o início
       const fx = $('#pgEvo .chips'), antes = fx ? fx.scrollLeft : 0;
@@ -286,34 +291,77 @@
   const medAg = (cmp, f) => cmp ? Hs.mediana(cmp.porRef.map(f)) : null;
   const linhaMed = (cmp, r, fmt, atual, pp) => !cmp ? '' : `med. ${esc(cmp.curto)}: <b>${r == null ? '—' : fmt(r)}</b> <span class="df">${r == null ? '' : difTx(atual, r, pp)}</span>`;
 
-  // ---------------------------------------------------------------- ALARMES (aba Agora, acima do NS)
-  // Os números são sempre do Total URA, sem os filtros da aba Agora (o painel vê tudo). O previsto usa a mesma chave
-  // da Evolução; com o previsto desligado, os alarmes usam os mesmos dias da semana (eles não podem desligar).
-  // A hora é a mesma dos gráficos da hora (de HH:00 até a última coleta; na virada da hora, a hora anterior).
+  // ---------------------------------------------------------------- ALARMES (página própria, a primeira)
+  // Duas visões, na chave do topo: Agora (a hora aberta — a mesma janela dos gráficos da hora) e Hoje (o dia até a
+  // última coleta). Sempre o Total URA. O previsto usa a mesma chave da Evolução; com o previsto desligado, os alarmes
+  // usam os mesmos dias da semana (eles não podem desligar). A página sempre abre em Agora.
+  // aberto: alarme com o detalhe aberto · a configuração (alarmes desligados por visão) fica guardada no aparelho
+  const al = { vista: 'agora', aberto: null };
+  const VISTAS_AL = [['agora', 'Agora'], ['dia', 'Hoje']];
+  let alCache = null;
   function metricasAlarme() {
     const d = dados, L = ultima();
-    const co = D.filtro(d, { dir: 'CO' }), tel = D.filtro(d, { dir: 'TEL' });
-    const aC = D.agregar(L, co), aT = D.agregar(L, tel);
     const tipo = evo.cmp === 'off' ? 'sem' : evo.cmp;
+    const chave = [d.dia, L.m, L.col, d.leituras.length, nomeArq, origem, hist ? hist.lista.length + ':' + hist.inicio + ':' + hist.fim + ':' + histOrigem : '-', tipo].join('|');
+    let m;
+    if (alCache && alCache.k === chave && alCache.d === d && alCache.h === hist) m = alCache.m;
+    else { m = calcularMetricasAlarme(d, L, tipo); alCache = { k: chave, d, h: hist, m }; }
+    const n = new Date(), mm = n.getHours() * 60 + n.getMinutes();
+    m.vivo = d.dia === hojeISO() && mm >= D.INICIO && mm <= D.FIM + 10;
+    m.atrasoMin = m.vivo ? Math.max(0, minutosDesde(L.col) || 0) : 0;
+    return m;
+  }
+  function calcularMetricasAlarme(d, L, tipo) {
+    const co = D.filtro(d, { dir: 'CO' }), tel = D.filtro(d, { dir: 'TEL' });
     const refs = hist ? Hs.referencias(hist, d.dia, tipo) : [];
     const porRef = refs.map(r => { const dR = Hs.diaComoDados(hist, r, d.trad); return { dR, coR: D.filtro(dR, { dir: 'CO' }), telR: D.filtro(dR, { dir: 'TEL' }) }; });
     const med = f => porRef.length ? Hs.mediana(porRef.map(f)) : null;
-    const dC = r => D.agregarEm(r.dR, L.m, r.coR), dT = r => D.agregarEm(r.dR, L.m, r.telR);
-    const telPct = (c, t) => c.ofer + t.ofer > 0 ? t.ofer / (c.ofer + t.ofer) * 100 : null;
     const cmpNome = refs.length ? refs.length + ' ' + (tipo === 'dias' ? 'dias' : DS_CURTO[Hs.diaSemana(d.dia)]) : '';
-    // hora: mesma janela dos gráficos da hora
-    let desde = Math.floor(L.m / 60) * 60; if (desde === L.m) desde -= 60; if (desde < D.INICIO) desde = D.INICIO;
-    const lDe = [...d.leituras].reverse().find(x => x.m <= desde) || null;
-    const naHora = ss => D.delta(D.agregar(L, ss), D.agregar(lDe, ss));
-    const hC = naHora(co), hT = naHora(tel);
-    const urA = (r, i, f) => D.intervaloEm(r.dR, i, f, r.coR).ofer + D.intervaloEm(r.dR, i, f, r.telR).ofer;
-    const skR = (dR, ss) => { const nomes = new Set(ss.map(s => d.trad[s].SKILL_SIMPLIFICADO)); return dR.skills.filter(s => dR.trad[s] && nomes.has(dR.trad[s].SKILL_SIMPLIFICADO)); };
-    // grupos: oferecidas da hora contra o previsto do mesmo trecho
+    // grupos (todos os atendimentos)
     const gmap = new Map();
     d.skills.forEach(s => { const t = d.trad[s], g = t.SKILL_GRUPO; if (!g) return; if (!gmap.has(g)) gmap.set(g, { ss: [], dirs: new Set() }); gmap.get(g).ss.push(s); gmap.get(g).dirs.add(t.DIRECIONAMENTO); });
-    const grupos = [...gmap.entries()].map(([g, x]) => ({ g, dir: x.dirs.size === 1 ? [...x.dirs][0] : 'TODOS', v: naHora(x.ss).ofer,
-      prev: med(r => D.intervaloEm(r.dR, desde, L.m, D.filtro(r.dR, { grupo: g })).ofer) }));
-    // skills paradas: nenhuma chamada na última hora (só depois da primeira hora do expediente)
+    // fila agora (CO), por skill
+    const filas = [...porSimpl(d, 'CO').entries()].map(([nome, ss]) => ({ nome, a: D.agregar(L, ss) })).filter(x => x.a.fila > 0).sort((x, y) => y.a.espMax - x.a.espMax || y.a.fila - x.a.fila);
+    const ondeFila = filas.map(x => ({ nome: x.nome, tx: fI(x.a.fila) + ' esperando, ' + fS(x.a.espMax) }));
+    // maior fila (técnicos em espera) no trecho: retratos depois do início até o fim (no histórico, o retrato no fim é proporcional)
+    const picoHoje = ini => Math.max(0, ...d.leituras.filter(l => l.m > ini && l.m <= L.m).map(l => D.agregar(l, co).fila));
+    const picoRef = (r, ini) => !r.dR.temFila ? null : Math.max(filaEm(r.dR, L.m, r.coR), ...r.dR.leituras.filter(l => l.m > ini && l.m <= L.m).map(l => D.agregar(l, r.coR).fila));
+    // um trecho do dia: ini < 0 = o dia até a última coleta; senão de ini até a última coleta (a hora aberta)
+    function periodo(ini) {
+      const lDe = ini < 0 ? null : [...d.leituras].reverse().find(x => x.m <= ini) || null;
+      const hoje = ss => ini < 0 ? D.agregar(L, ss) : D.delta(D.agregar(L, ss), D.agregar(lDe, ss));
+      const ref = (dR, ss) => ini < 0 ? D.agregarEm(dR, L.m, ss) : D.intervaloEm(dR, ini, L.m, ss);
+      const fin = x => x.fin != null ? x.fin : x.atend + x.aband;
+      const cC = hoje(co), cT = hoje(tel);
+      const telPct = (c, t) => c.ofer + t.ofer > 0 ? t.ofer / (c.ofer + t.ofer) * 100 : null;
+      const grupos = [...gmap.entries()].map(([g, x]) => ({ g, dir: x.dirs.size === 1 ? [...x.dirs][0] : 'TODOS', v: hoje(x.ss).ofer,
+        prev: med(r => ref(r.dR, D.filtro(r.dR, { grupo: g })).ofer) }));
+      const porGrupo = f => [...gmap.entries()].map(([g, x]) => ({ g, v: f(x.ss.filter(s => d.trad[s].DIRECIONAMENTO === 'CO')) })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+      const picos = porRef.map(r => picoRef(r, ini));
+      return {
+        ini: ini < 0 ? null : ini, ate: L.m, fecha: ini >= 0 && L.m >= ini + 60,
+        ofer: cC.ofer + cT.ofer, oferPrev: med(r => ref(r.dR, r.coR).ofer + ref(r.dR, r.telR).ofer),
+        oferPrevHora: ini < 0 ? null : med(r => D.intervaloEm(r.dR, ini, ini + 60, r.coR).ofer + D.intervaloEm(r.dR, ini, ini + 60, r.telR).ofer),
+        co: { ofer: cC.ofer, fin: fin(cC), a300: cC.a300, ns: cC.ns, aband: cC.aband, abandPct: cC.abandPct, tme: cC.tme, tma: cC.tma, dir60: cC.dir60 },
+        prev: { ns: med(r => ref(r.dR, r.coR).ns), aband: med(r => ref(r.dR, r.coR).aband), tme: med(r => ref(r.dR, r.coR).tme), tma: med(r => ref(r.dR, r.coR).tma),
+          dir60: cC.dir60 == null ? null : med(r => ref(r.dR, r.coR).dir60) },
+        telPct: telPct(cC, cT), telPctPrev: med(r => telPct(ref(r.dR, r.coR), ref(r.dR, r.telR))),
+        filaPico: picoHoje(ini), filaPicoPrev: picos.some(x => x != null) ? Hs.mediana(picos) : null,
+        filaDiasRef: picos.filter(x => x != null && x > 0).length, filaRefs: picos.filter(x => x != null).length,
+        grupos: porRef.length ? grupos : null,
+        onde: {
+          ns: porGrupo(ss => { const x = hoje(ss); return (ini < 0 ? x.ofer : fin(x)) - x.a300; }).map(x => ({ nome: x.g, tx: fI(x.v) + ' fora dos 5 min' })),
+          aband: porGrupo(ss => hoje(ss).aband).map(x => ({ nome: x.g, tx: fI(x.v) + (x.v === 1 ? ' abandono' : ' abandonos') })),
+          vol: grupos.filter(x => x.prev != null).map(x => Object.assign({ dv: x.v - x.prev }, x)).filter(x => Math.abs(x.dv) >= 1).sort((a, b) => Math.abs(b.dv) - Math.abs(a.dv))
+            .map(x => ({ nome: x.g, tx: (x.dv > 0 ? '+' : '−') + fI(Math.abs(x.dv)) + ' vs. previsto' })),
+          fila: ondeFila
+        }
+      };
+    }
+    // hora aberta: a mesma janela dos gráficos da hora (na virada da hora, a hora anterior)
+    let desde = Math.floor(L.m / 60) * 60; if (desde === L.m) desde -= 60; if (desde < D.INICIO) desde = D.INICIO;
+    // skills paradas: nenhuma chamada nos últimos 60 min (só depois da primeira hora do expediente)
+    const skR = (dR, ss) => { const nomes = new Set(ss.map(s => d.trad[s].SKILL_SIMPLIFICADO)); return dR.skills.filter(s => dR.trad[s] && nomes.has(dR.trad[s].SKILL_SIMPLIFICADO)); };
     let paradas = null;
     if (porRef.length && L.m - 60 >= D.INICIO) {
       paradas = [];
@@ -323,52 +371,60 @@
         if (prev != null) paradas.push({ nome, prev, dir: d.trad[ss[0]].DIRECIONAMENTO });
       });
     }
-    // fila agora (CO), por skill
-    const filas = [...porSimpl(d, 'CO').entries()].map(([nome, ss]) => ({ nome, a: D.agregar(L, ss) })).filter(x => x.a.fila > 0).sort((x, y) => y.a.espMax - x.a.espMax || y.a.fila - x.a.fila);
-    // onde mais pesa (por grupo)
-    const porGrupo = (dir, f) => [...gmap.entries()].map(([g, x]) => ({ g, v: f(x.ss.filter(s => d.trad[s].DIRECIONAMENTO === dir || dir === 'TODOS')) })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
-    const nsHora = hC.ns;
-    const tudoVivo = d.dia === hojeISO() && (() => { const n = new Date(), mm = n.getHours() * 60 + n.getMinutes(); return mm >= D.INICIO && mm <= D.FIM + 10; })();
-    return {
-      horario: L.horario, cmpNome, vivo: tudoVivo, atrasoMin: tudoVivo ? Math.max(0, minutosDesde(L.col) || 0) : 0,
-      dia: { ofer: aC.ofer, ns: aC.ns, nsPrev: med(r => dC(r).ns), aband: aC.aband, abandPrev: med(r => dC(r).aband), abandPct: aC.abandPct,
-        tme: aC.tme, tmePrev: med(r => dC(r).tme), tma: aC.tma, tmaPrev: med(r => dC(r).tma), dir60: aC.dir60, dir60Prev: aC.dir60 == null ? null : med(r => dC(r).dir60),
-        telPct: telPct(aC, aT), telPctPrev: med(r => telPct(dC(r), dT(r))) },
-      hora: { ini: desde, ate: L.m, fecha: L.m >= desde + 60, ofer: hC.ofer + hT.ofer, oferPrev: med(r => urA(r, desde, L.m)), oferPrevHora: med(r => urA(r, desde, desde + 60)),
-        ns: nsHora, fin: hC.fin, a300: hC.a300 },
-      fila: { total: aC.fila, espMax: aC.espMax, skillMax: filas.length ? filas[0].nome : '', semAgente: filas.filter(x => x.a.dispMax === 0).map(x => x.nome) },
-      grupos: porRef.length ? grupos : null, paradas,
-      onde: {
-        ns: porGrupo('CO', ss => { const a = D.agregar(L, ss); return a.ofer - a.a300; }).map(x => ({ nome: x.g, tx: fI(x.v) + ' fora dos 5 min' })),
-        aband: porGrupo('CO', ss => D.agregar(L, ss).aband).map(x => ({ nome: x.g, tx: fI(x.v) + (x.v === 1 ? ' abandono' : ' abandonos') })),
-        vol: grupos.filter(x => x.prev != null).map(x => Object.assign({ dv: x.v - x.prev }, x)).filter(x => Math.abs(x.dv) >= 1).sort((a, b) => Math.abs(b.dv) - Math.abs(a.dv))
-          .map(x => ({ nome: x.g, tx: (x.dv > 0 ? '+' : '−') + fI(Math.abs(x.dv)) + ' vs. previsto' })),
-        fila: filas.map(x => ({ nome: x.nome, tx: fI(x.a.fila) + ' esperando, ' + fS(x.a.espMax) }))
-      }
-    };
+    const aC = D.agregar(L, co);
+    return { horario: L.horario, cmpNome, agora: periodo(desde), dia: periodo(-1), paradas,
+      fila: { total: aC.fila, espMax: aC.espMax, skillMax: filas.length ? filas[0].nome : '', semAgente: filas.filter(x => x.a.dispMax === 0).map(x => x.nome) } };
+  }
+  // alarmes desligados na configuração: { agora: [tipos], dia: [tipos] }
+  function alDesligados() { const c = lerPref('alarmesDesl', null) || {}; return { agora: new Set(c.agora || []), dia: new Set(c.dia || []) }; }
+  function gravarDesligados(c) { gravarPref('alarmesDesl', { agora: [...c.agora], dia: [...c.dia] }); }
+  // as duas visões, avaliadas a cada desenho; o histórico do aparelho (desde, último, silenciados) é separado por visão
+  function avaliarAlarmes() {
+    const A = window.Alarmes;
+    if (!A || !dados || !dados.leituras.length) return null;
+    const L = ultima(), m = metricasAlarme(), desl = alDesligados(), out = {};
+    VISTAS_AL.forEach(([v]) => {
+      const lista = A.avaliar(m, v, A.LIM);
+      const h = A.registrar(lerPref('alarmes:' + v, null), dados.dia, L.horario, lista, Date.now());
+      gravarPref('alarmes:' + v, h);
+      const ligados = lista.filter(x => !desl[v].has(x.tipo));
+      const ativos = ligados.filter(x => x.nivel === 'crit' || x.nivel === 'aten');
+      const vis = ativos.filter(x => !h.sil[x.id]);
+      out[v] = { lista, ligados, ativos, vis, sil: ativos.filter(x => h.sil[x.id]), h, desl: desl[v],
+        nC: vis.filter(x => x.nivel === 'crit').length, nA: vis.filter(x => x.nivel === 'aten').length };
+    });
+    return out;
+  }
+  // bolinha na aba Alarmes: alarmes ativos da visão escolhida (rosa se houver crítico, laranja se só atenção)
+  function renderBadge(res) {
+    const b = $('#alBadge'); if (!b) return;
+    const r = res && res[al.vista], n = r ? r.vis.length : 0;
+    b.hidden = !n; b.textContent = n > 99 ? '99+' : String(n);
+    b.classList.toggle('aten', !!r && !r.nC);
+    const bt = b.closest('button'); if (bt) bt.setAttribute('aria-label', 'Alarmes' + (n ? ` (${n} ${n === 1 ? 'ativo' : 'ativos'})` : ''));
   }
   const ICO_AL = {
     crit: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="var(--rosa)"/><path d="M12 6.5v7" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="17.2" r="1.5" fill="#fff"/></svg>',
     aten: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2 23 21.5H1z" fill="var(--laranja)" stroke="var(--laranja)" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 9v6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="18.2" r="1.35" fill="#fff"/></svg>',
     ok: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="var(--okc)"/><path d="m6.8 12.4 3.4 3.4 7-7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    sil: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-9.3-5M6.3 6.3A6 6 0 0 0 6 8c0 7-3 9-3 9h14M13.7 21a2 2 0 0 1-3.4 0M2 2l20 20"/></svg>'
+    sil: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-9.3-5M6.3 6.3A6 6 0 0 0 6 8c0 7-3 9-3 9h14M13.7 21a2 2 0 0 1-3.4 0M2 2l20 20"/></svg>',
+    cfg: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
   };
   const hhmmMs = ms => { const t = new Date(ms); return String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0'); };
-  let alUltimos = [];   // alarmes da última verificação (para os botões)
-  function cartaoAlarmes() {
-    const A = window.Alarmes;
-    if (!A || !dados || !dados.leituras.length) return '';
-    const L = ultima(), lista = A.avaliar(metricasAlarme(), A.LIM);
-    const h = A.registrar(lerPref('alarmes', null), dados.dia, L.horario, lista, Date.now());
-    gravarPref('alarmes', h);
-    alUltimos = lista;
-    const ativos = lista.filter(x => x.nivel === 'crit' || x.nivel === 'aten');
-    const vis = ativos.filter(x => !h.sil[x.id]), sil = ativos.filter(x => h.sil[x.id]);
-    const oks = lista.filter(x => x.nivel === 'ok'), nas = lista.filter(x => x.nivel === 'na');
-    const nC = vis.filter(x => x.nivel === 'crit').length, nA = vis.length - nC;
-    if (ag.alAberto && !vis.some(x => x.id === ag.alAberto)) ag.alAberto = null;
+  let alUltimos = [];   // alarmes da visão em exibição (para os botões)
+  const contagem = (r, curto) => r.vis.length ? [r.nC ? `${r.nC} ${r.nC === 1 ? 'crítico' : 'críticos'}` : '', r.nA ? `${r.nA} em atenção` : ''].filter(Boolean).join(curto ? ', ' : ' · ') : 'tudo normal';
+  function renderAlarmes(res) {
+    const pg = $('#pgAlarmes');
+    if (!res) { pg.innerHTML = '<div class="card"><p class="nota">Os alarmes aparecem assim que houver a primeira coleta do dia.</p></div>'; return; }
+    const v = al.vista, r = res[v], outra = VISTAS_AL.find(x => x[0] !== v), ro = res[outra[0]];
+    const L = ultima(), m = metricasAlarme(), P = m[v];
+    alUltimos = r.ligados;
+    if (al.aberto && !r.vis.some(x => x.id === al.aberto)) al.aberto = null;
+    const botoes = `<div class="seg alvista" role="tablist" aria-label="Visão dos alarmes">${VISTAS_AL.map(([k, tx]) => `<button data-alvista="${k}" class="${v === k ? 'on' : ''}" aria-pressed="${v === k}">${tx}</button>`).join('')}</div>`;
+    const resumoOutra = `<button class="al-outra${ro.nC ? ' c' : ro.nA ? ' a' : ''}" data-alvista="${outra[0]}"><span>${outra[1]}:</span> <b>${contagem(ro, true)}</b><i>›</i></button>`;
+    const h = r.h;
     const linha = x => {
-      const ab = ag.alAberto === x.id, c = x.nivel === 'crit' ? 'c' : 'a';
+      const ab = al.aberto === x.id, c = x.nivel === 'crit' ? 'c' : 'a';
       const mais = !ab ? '' : `<div class="al-mais"><p><b>Regra:</b> ${esc(x.regra)}</p>${x.onde ? `<p>Onde mais pesa: ${x.onde}</p>` : ''}
         <div class="al-bts">${x.alvo ? `<button class="al-bt" data-alver="${esc(x.id)}">Ver na Evolução ›</button>` : ''}<button class="al-bt" data-alsil="${esc(x.id)}">${ICO_AL.sil}Silenciar 1 h</button></div></div>`;
       return `<div class="al al-${c}${ab ? ' aberto' : ''}" data-anc="al:${esc(x.id)}" data-al-id="${esc(x.id)}">
@@ -379,28 +435,54 @@
         </button>${mais}</div>`;
     };
     const pill = (n, cls, ic, um, varios) => n ? `<span class="al-pill ${cls}">${ICO_AL[ic]}${n} ${n === 1 ? um : varios}</span>` : '';
-    const chips = xs => xs.map(x => `<span>${esc(x.chip)}</span>`).join('');
+    const oks = r.ligados.filter(x => x.nivel === 'ok'), nas = r.ligados.filter(x => x.nivel === 'na');
+    const chips = xs => xs.filter((x, i, a) => a.findIndex(y => y.tipo === x.tipo) === i).map(x => `<span>${esc(A_NOME(x.tipo))}</span>`).join('');
     let corpo;
-    if (vis.length) {
-      corpo = `<div class="al-res">${pill(nC, 'c', 'crit', 'crítico', 'críticos')}${pill(nA, 'a', 'aten', 'em atenção', 'em atenção')}${pill(oks.length, 'o', 'ok', 'normal', 'normais')}</div>
-        ${vis.map(linha).join('')}
+    if (r.vis.length) {
+      corpo = `<div class="al-res">${pill(r.nC, 'c', 'crit', 'crítico', 'críticos')}${pill(r.nA, 'a', 'aten', 'em atenção', 'em atenção')}${pill(oks.length, 'o', 'ok', 'normal', 'normais')}</div>
+        ${r.vis.map(linha).join('')}
         ${oks.length ? `<div class="al-okg"><div class="al-okt">${ICO_AL.ok}${oks.length} ${oks.length === 1 ? 'verificação normal' : 'verificações normais'}</div><div class="al-ch">${chips(oks)}</div></div>` : ''}`;
     } else {
-      corpo = `<div class="al-tudo">${ICO_AL.ok}<div><b>Tudo dentro do normal</b><small>${oks.length} ${oks.length === 1 ? 'verificação' : 'verificações'} · ${sil.length ? 'só os silenciados abaixo' : 'nenhum desvio agora'}</small></div></div>
+      corpo = `<div class="al-tudo">${ICO_AL.ok}<div><b>Tudo dentro do normal</b><small>${oks.length} ${oks.length === 1 ? 'verificação' : 'verificações'} · ${r.sil.length ? 'só os silenciados abaixo' : 'nenhum desvio ' + (v === 'agora' ? 'agora' : 'no dia')}</small></div></div>
         ${oks.length ? `<div class="al-okg"><div class="al-ch">${chips(oks)}</div></div>` : ''}`;
     }
-    if (sil.length) corpo += `<div class="al-silx">${ICO_AL.sil}<span>${sil.length === 1 ? 'Silenciado' : sil.length + ' silenciados'} até ${esc(hhmmMs(Math.max(...sil.map(x => h.sil[x.id]))))}: ${sil.map(x => esc(x.titulo)).join(', ')}</span><button class="lnk" data-alreat>reativar</button></div>`;
-    if (nas.length) corpo += `<div class="al-na">sem dado para avaliar agora: ${nas.map(x => esc(x.chip)).join(', ')}</div>`;
-    const pe = h.ult && !vis.length ? `último alarme: ${esc(/^.[a-zà-ú]/.test(h.ult.titulo) ? h.ult.titulo.charAt(0).toLowerCase() + h.ult.titulo.slice(1) : h.ult.titulo)}${h.ult.mais ? ` (e mais ${h.ult.mais})` : ''}, ${h.ult.mais ? 'encerrados' : 'encerrado'} às ${esc(h.ult.fim)}` : vis.length ? 'toque num alarme para ver a regra e o gráfico' : '';
+    if (r.sil.length) corpo += `<div class="al-silx">${ICO_AL.sil}<span>${r.sil.length === 1 ? 'Silenciado' : r.sil.length + ' silenciados'} até ${esc(hhmmMs(Math.max(...r.sil.map(x => h.sil[x.id]))))}: ${r.sil.map(x => esc(x.titulo)).join(', ')}</span><button class="lnk" data-alreat>reativar</button></div>`;
+    if (nas.length) corpo += `<div class="al-na">sem dado para avaliar agora: ${[...new Set(nas.map(x => A_NOME(x.tipo)))].map(esc).join(', ')}</div>`;
+    if (r.desl.size) corpo += `<button class="al-desl" data-alcfg>${r.desl.size} ${r.desl.size === 1 ? 'alarme desligado' : 'alarmes desligados'} nesta visão · configurar</button>`;
+    const pe = h.ult && !r.vis.length ? `último alarme: ${esc(/^.[a-zà-ú]/.test(h.ult.titulo) ? h.ult.titulo.charAt(0).toLowerCase() + h.ult.titulo.slice(1) : h.ult.titulo)}${h.ult.mais ? ` (e mais ${h.ult.mais})` : ''}, ${h.ult.mais ? 'encerrados' : 'encerrado'} às ${esc(h.ult.fim)}` : r.vis.length ? 'toque num alarme para ver a regra e o gráfico' : '';
     const ab = infoAberto === 'alarmes';
-    const info = `<p>Verificado a cada coleta, sempre no Total URA (sem os filtros da tela). O previsto é a mediana ${evo.cmp === 'dias' ? 'dos 7 dias anteriores' : 'dos 7 mesmos dias da semana'} até o mesmo horário${evo.cmp === 'off' ? ' (com o previsto desligado, os alarmes usam os mesmos dias da semana)' : ''}.</p>
-      <ul>${lista.filter((x, i, a) => a.findIndex(y => y.chip === x.chip) === i).map(x => `<li><b>${esc(x.chip)}:</b> ${esc(x.regra)}</li>`).join('')}</ul>
-      <p>"Desde" e o último alarme encerrado ficam guardados neste aparelho e recomeçam a cada dia. Silenciar esconde o alarme por 1 h.</p>`;
-    return `<div class="card alarmes" data-ch="alarmes">
-      <div class="al-cab"><h2>Alarmes</h2><span class="t">verificado às ${esc(L.horario)}</span></div>
-      ${corpo}
-      <div class="al-pe"><span>${pe}</span><button class="info" data-info="alarmes" aria-expanded="${ab}" aria-controls="inf-alarmes" aria-label="${ab ? 'Esconder' : 'Mostrar'} a explicação dos alarmes" title="Como os alarmes funcionam">${ICONE_INFO}</button></div>
-      <div class="ch-info al-info" id="inf-alarmes"${ab ? '' : ' hidden'}>${info}</div></div>`;
+    const periodo = v === 'agora' ? `hora aberta ${D.hhmm(P.ini)}–${D.hhmm(P.ate)}` : `dia até ${esc(L.horario)}`;
+    const info = `<p><b>${v === 'agora' ? 'Agora' : 'Hoje'}:</b> ${v === 'agora' ? 'a hora aberta (de HH:00 até a última coleta; na virada da hora, a hora anterior) — mostra se o problema continua e quando volta ao normal.' : 'o dia inteiro até a última coleta — mostra como o dia está no acumulado.'}
+      Sempre no Total URA. O previsto é a mediana ${evo.cmp === 'dias' ? 'dos 7 dias anteriores' : 'dos 7 mesmos dias da semana'} no mesmo trecho do dia${evo.cmp === 'off' ? ' (com o previsto desligado, os alarmes usam os mesmos dias da semana)' : ''}.</p>
+      <ul>${r.lista.filter((x, i, a) => a.findIndex(y => y.tipo === x.tipo) === i).map(x => `<li><b>${esc(A_NOME(x.tipo))}:</b> ${esc(x.regra)}</li>`).join('')}</ul>
+      <p>"Desde", o último alarme encerrado e os silenciados ficam guardados neste aparelho, separados por visão, e recomeçam a cada dia. Silenciar esconde o alarme por 1 h. A engrenagem liga e desliga cada alarme em cada visão.</p>`;
+    pg.innerHTML = `${botoes}${resumoOutra}
+      <div class="card alarmes" data-ch="alarmes">
+        <div class="al-cab"><h2>Alarmes</h2><span class="t">${periodo}${m.cmpNome ? ' · med. ' + esc(m.cmpNome) : ''}</span></div>
+        <button class="al-cfg" data-alcfg aria-label="Configurar alarmes" title="Configurar alarmes">${ICO_AL.cfg}</button>
+        ${corpo}
+        <div class="al-pe"><span>${pe}</span><button class="info" data-info="alarmes" aria-expanded="${ab}" aria-controls="inf-alarmes" aria-label="${ab ? 'Esconder' : 'Mostrar'} a explicação dos alarmes" title="Como os alarmes funcionam">${ICONE_INFO}</button></div>
+        <div class="ch-info al-info" id="inf-alarmes"${ab ? '' : ' hidden'}>${info}</div></div>`;
+  }
+  const A_NOME = t => { const x = window.Alarmes && window.Alarmes.TIPOS.find(y => y.id === t); return x ? x.nome : t; };
+  // configuração: liga/desliga cada tipo de alarme em cada visão (Agora e Hoje), com "Todos" por coluna
+  function abrirCfgAlarmes() {
+    const sh = $('#sheet'), A = window.Alarmes; if (!A) return;
+    desenharCfg();
+    sh.scrollTop = 0;
+    sh.classList.add('show'); $('#sheetBg').classList.add('show');
+  }
+  function desenharCfg() {
+    const sh = $('#sheet'), A = window.Alarmes, c = alDesligados();
+    const caixa = (v, t) => `<label class="alc-cx"><input type="checkbox" data-cfg="${v}" data-tipo="${t}"${c[v].has(t) ? '' : ' checked'} aria-label="${esc(A_NOME(t))} · ${v === 'agora' ? 'Agora' : 'Hoje'}"></label>`;
+    const todos = v => { const n = A.TIPOS.filter(t => !c[v].has(t.id)).length; return `<label class="alc-cx"><input type="checkbox" data-cfgtodos="${v}"${n === A.TIPOS.length ? ' checked' : ''}${n && n < A.TIPOS.length ? ' data-meio="1"' : ''} aria-label="Todos · ${v === 'agora' ? 'Agora' : 'Hoje'}"></label>`; };
+    sh.innerHTML = `<button class="fechar" data-act="fechar" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+      <h3>Configurar alarmes</h3><p class="alc-sub">Escolha quais alarmes aparecem em cada visão. Fica guardado neste aparelho.</p>
+      <div class="card alc"><table class="alc-t"><thead><tr><th>Alarme</th><th>Agora</th><th>Hoje</th></tr></thead><tbody>
+        <tr class="alc-todos"><td>Todos</td><td>${todos('agora')}</td><td>${todos('dia')}</td></tr>
+        ${A.TIPOS.map(t => `<tr><td><b>${esc(t.nome)}</b><small>${esc(t.desc)}</small></td><td>${caixa('agora', t.id)}</td><td>${caixa('dia', t.id)}</td></tr>`).join('')}
+      </tbody></table></div>`;
+    sh.querySelectorAll('input[data-meio]').forEach(i => { i.indeterminate = true; });
   }
   // "Ver na Evolução": o gráfico do alarme, já no atendimento (e grupo) dele, no dia de hoje por horas
   function verAlarme(id) {
@@ -462,7 +544,6 @@
     const titulo = { TODOS: 'URA · Suporte B2C', CO: 'CO · Centro de Operações', TEL: 'TEL · Parceira' }[dir];
     $('#pgAgora').innerHTML = `
       ${botoes}
-      ${cartaoAlarmes()}
       <h2 class="sec">${titulo}<span class="sp"></span><span class="rt">acumulado do dia</span></h2>
       ${dir === 'TEL' ? telNota : hero}
       ${dir === 'TEL' ? '' : `<h2 class="sec">Fila agora <span class="ct num">${fI(a.fila)}</span><span class="sp"></span><span class="rt">${esc(L.horario)} · ${fI(a.dispMax)} ${a.dispMax === 1 ? 'agente disponível' : 'agentes disponíveis'}</span></h2>${filaHtml}`}
@@ -1267,7 +1348,7 @@
   // Agora ⇄ Evolução ⇄ Skills. A tela acompanha o dedo; soltando depois de ~70 px (ou num arrasto rápido) entra a aba
   // vizinha deslizando do lado certo; antes disso, volta para o lugar. Não vale quando o gesto começa em algo que já
   // rola para o lado (faixa de grupos, tabelas largas), num menu aberto ou com o detalhe da skill aberto.
-  const ORDEM_ABAS = ['agora', 'evo', 'skills'];
+  const ORDEM_ABAS = ['alarmes', 'agora', 'evo', 'skills'];
   const elAba = p => $('#pg' + p[0].toUpperCase() + p.slice(1));
   const semMovimento = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   let arr = null;
@@ -1321,14 +1402,16 @@
     if (b.dataset.ndias) { evo.menu = null; evo.ndias = +b.dataset.ndias; gravarPref('ndias', evo.ndias); evo.sel = null; return redesenhar(); }
     if (b.dataset.vis) { evo.vista = b.dataset.vis; evo.sel = null; evo.menu = null; toast(evo.vista === 'dia' ? 'Eixo por dia' : 'Eixo por horas'); return redesenhar(); }
     if (b.dataset.menu) { evo.menu = evo.menu === b.dataset.menu ? null : b.dataset.menu; return redesenhar(); }
-    if (b.dataset.al != null) { ag.alAberto = ag.alAberto === b.dataset.al ? null : b.dataset.al; return redesenhar(b); }
+    if (b.dataset.alvista) { al.vista = b.dataset.alvista; al.aberto = null; renderBadge(avaliarAlarmes()); return redesenhar(); }
+    if (b.dataset.al != null) { al.aberto = al.aberto === b.dataset.al ? null : b.dataset.al; return redesenhar(b); }
+    if (b.dataset.alcfg != null) return abrirCfgAlarmes();
     if (b.dataset.alver != null) return verAlarme(b.dataset.alver);
     if (b.dataset.alsil != null) {
-      const h = lerPref('alarmes', null); if (!h) return;
-      h.sil = h.sil || {}; h.sil[b.dataset.alsil] = Date.now() + 3600000; gravarPref('alarmes', h); ag.alAberto = null;
+      const k = 'alarmes:' + al.vista, h = lerPref(k, null); if (!h) return;
+      h.sil = h.sil || {}; h.sil[b.dataset.alsil] = Date.now() + 3600000; gravarPref(k, h); al.aberto = null;
       toast('Alarme silenciado por 1 h.'); return redesenhar();
     }
-    if (b.dataset.alreat != null) { const h = lerPref('alarmes', null); if (h) { h.sil = {}; gravarPref('alarmes', h); } toast('Alarmes reativados.'); return redesenhar(); }
+    if (b.dataset.alreat != null) { const k = 'alarmes:' + al.vista, h = lerPref(k, null); if (h) { h.sil = {}; gravarPref(k, h); } toast('Alarmes reativados.'); return redesenhar(); }
     if (b.dataset.act === 'tabtudo') { ag.tabTudo = !ag.tabTudo; return redesenhar(b); }
     if (b.dataset.act === 'limpar') { evo.sel = null; return redesenhar(); }
     if (b.dataset.act === 'zeros') { sk.zeros = true; return render(); }
@@ -1409,6 +1492,14 @@
   }
   // seletor de data: escolher um dia sem dados avisa e não muda
   document.addEventListener('change', e => {
+    const cx = e.target;
+    if (cx.dataset && (cx.dataset.cfg || cx.dataset.cfgtodos)) {
+      const c = alDesligados(), v = cx.dataset.cfg || cx.dataset.cfgtodos;
+      const tipos = cx.dataset.cfgtodos ? window.Alarmes.TIPOS.map(t => t.id) : [cx.dataset.tipo];
+      tipos.forEach(t => { if (cx.checked) c[v].delete(t); else c[v].add(t); });
+      gravarDesligados(c); desenharCfg(); render();
+      return;
+    }
     if (e.target.id !== 'dnData') return;
     const v = e.target.value, lista = diasDisp();
     if (!v) return;
@@ -1447,5 +1538,5 @@
   setInterval(() => { if (!document.hidden) carregarHist(false); }, 5 * 60000);
 
   // para testes
-  window.__ura = { versao: APP_VERSION, estado: () => ({ dados, origem, erroFonte, erroDados, pagina, evo, ag, sk, hist, histErro, histOrigem }) };
+  window.__ura = { versao: APP_VERSION, estado: () => ({ dados, origem, erroFonte, erroDados, pagina, evo, ag, sk, al, hist, histErro, histOrigem }) };
 })();
