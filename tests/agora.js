@@ -127,6 +127,8 @@ const AGORA = 19 * 60 + 15;
   const dd = D.normalizar(require('./amostra.json')), l19 = dd.leituras.find(x => x.m === 1140), l1915 = dd.leituras.find(x => x.m === 1155);
   const ssBL = D.filtro(dd, { dir: 'TODOS', grupo: 'SUPORTE BANDA LARGA' });
   ok(qBL === fI(D.agregar(l1915, ssBL).ofer - D.agregar(l19, ssBL).ofer), `SUPORTE BANDA LARGA na hora: ${qBL}`);
+  const qsH = await p.$$eval(`${pn} .gks > .gk .gk-q`, xs => xs.map(x => +x.textContent.replace(/\./g, '')));
+  ok(qsH.every((x, i) => i === 0 || qsH[i - 1] >= x), 'Agora: grupos do maior para o menor número de oferecidas da hora: ' + qsH.join(', '));
   await p.evaluate(sel => { const r = document.querySelector(sel); scrollBy(0, r.getBoundingClientRect().top - 380); }, `${pn} .gks > .gk`);
   await p.waitForTimeout(80);
   const yA = await p.$eval(`${pn} .gks > .gk`, l => Math.round(l.getBoundingClientRect().top));

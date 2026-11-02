@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.22.2';
+  const APP_VERSION = '1.22.3';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -940,7 +940,9 @@
       const aC = co.length ? per(co) : null, aT = tel.length ? per(tel) : null;
       return { co, tel, aC, aT, q: lFim ? (aC ? aC.ofer : 0) + (aT ? aT.ofer : 0) : null, dia: (co.length ? D.agregar(L, co).ofer : 0) + (tel.length ? D.agregar(L, tel).ofer : 0) };
     };
-    const lista = [...grupos.entries()].map(([g, ss]) => Object.assign({ g, ss }, info(ss))).sort((a, b) => b.dia - a.dia || a.g.localeCompare(b.g));
+    const lista = [...grupos.entries()].map(([g, ss]) => Object.assign({ g, ss }, info(ss)))
+      // do maior para o menor número de oferecidas MOSTRADO (da hora na Agora; do dia ou da coluna selecionada na Evolução)
+      .sort((a, b) => (b.q == null ? -1 : b.q) - (a.q == null ? -1 : a.q) || b.dia - a.dia || a.g.localeCompare(b.g));
     const total = lista.reduce((t, x) => t + (x.q || 0), 0);
     const met = x => {
       const vT = x.aT ? x.aT.ofer : 0;
@@ -972,7 +974,7 @@
       if (st.abertos.has(x.g)) {
         const m = new Map();
         x.ss.forEach(s => { const k = d.trad[s].SKILL_SIMPLIFICADO; if (!m.has(k)) m.set(k, []); m.get(k).push(s); });
-        const sk = [...m.entries()].map(([nome, ss]) => Object.assign({ nome, ss, ref: x.q }, info(ss))).sort((a, b) => b.dia - a.dia || a.nome.localeCompare(b.nome));
+        const sk = [...m.entries()].map(([nome, ss]) => Object.assign({ nome, ss, ref: x.q }, info(ss))).sort((a, b) => (b.q == null ? -1 : b.q) - (a.q == null ? -1 : a.q) || b.dia - a.dia || a.nome.localeCompare(b.nome));
         h += `<div class="gk-sub">${sk.map(y => linha(y, true, x.g)).join('')}</div>`;
       }
       return h;
@@ -980,7 +982,7 @@
     const onde = !c ? (desde != null ? D.hhmm(desde) + '–' + L.horario : 'no dia') : acum ? 'até ' + D.hhmm(c.andamento ? c.ateM : c.fim) : D.hhmm(c.ini) + '–' + D.hhmm(c.andamento ? c.ateM : c.fim);
     const titulo = `Grupos e skills <small>· oferecidas ${esc(onde)}</small>`;
     const leg = `<div class="legend"><span><i style="background:var(--sCO)"></i>CO</span><span><i style="background:var(--sTEL)"></i>TEL</span></div>
-      <div class="cap">Grupos do maior para o menor volume do dia (a ordem não muda ao filtrar). Barra do grupo: parte das oferecidas ${esc(onde)}; barra da skill: parte do grupo.
+      <div class="cap">Grupos e skills do maior para o menor número de oferecidas ${esc(onde)} (filtrar não muda a ordem). Barra do grupo: parte das oferecidas ${esc(onde)}; barra da skill: parte do grupo.
       Embaixo: NS (5 min), abandonadas, TME e TMA do CO ${parcial ? esc(onde) + ' (÷ finalizadas)' : esc(onde)}. Toque no nome para filtrar a tela (de novo para limpar); em “skills” para abrir as skills do grupo.</div>`;
     return cartaoGraf(opt.id || 'evo-grupos', titulo, `<div class="gks">${corpo}</div>`, leg, '', '', 'painel');
   }

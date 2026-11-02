@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.22.2)
+# URA · Suporte B2C (v1.22.3)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -144,8 +144,8 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 ## Painel "Grupos e skills" (Evolução, depois dos gráficos)
 - Um grupo por linha: nome e quantidade (oferecidas, CO + TEL) na mesma linha; barra com a parte do volume
   (CO roxo, TEL azul); embaixo, em letra pequena e itálico: **N skills** (negrito), NS (5 min), abandonadas, TME e TMA do CO.
-- Ordem: maior volume DO DIA primeiro — não muda ao filtrar nem ao selecionar coluna. Números: do dia, ou da coluna
-  selecionada (no intervalo ou acumulado até ela), como os botões de grupo.
+- Ordem: do maior para o menor número de oferecidas MOSTRADO — do dia (ou da coluna selecionada) na Evolução; da hora
+  na aba Agora. Filtrar não muda a ordem (o painel não se filtra).
 - "N skills" abre as skills do grupo (fundo mais escuro; barra = parte do grupo). Skill = nome simplificado da tradutora.
 - Tocar na faixa de cima da linha (nome, número ou barra) do grupo ou da skill filtra a tela inteira (gráficos, cards, previsto, tabela); de novo, limpa.
   O painel não se filtra (continua mostrando tudo e marca o escolhido) e a linha tocada não sai do lugar na tela.
@@ -202,6 +202,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.22.3:** painel Grupos e skills ordenado pelas oferecidas mostradas (da hora na Agora; do dia ou da coluna selecionada na Evolução).
 - **1.22.2:** listrado da linha aberta preso à própria linha (sem impressão de movimento ao rolar) e contínuo entre as células.
 - **1.22.1:** a 1ª linha da tabela de 15 min fica listrada enquanto a HORA dela não fechou (não só o intervalo de 15 min).
 - **1.22.0:** tabela de 15 min da aba Agora com as 9 linhas mais recentes e botão para ver o dia todo; intervalo ainda aberto com listrado bem claro.

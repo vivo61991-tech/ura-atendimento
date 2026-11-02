@@ -26,7 +26,7 @@ const ofer = ss => D.agregar(L, ss).ofer;
   const linhas = () => p.$$eval(`${pn} .gks > .gk`, ls => ls.map(l => ({ g: l.querySelector('.gk-n').textContent, q: l.querySelector('.gk-q').textContent, n: l.querySelector('.gk-x b').textContent,
     w: l.querySelectorAll('.gk-bar i')[0].style.width, w2: l.querySelectorAll('.gk-bar i')[1].style.width, m: l.querySelector('.gk-m').textContent.replace(/\s+/g, ' ') })));
   let ls = await linhas();
-  ok(ls.map(x => x.g).join('|') === esp.map(x => x.g).join('|'), 'ordem: maior volume do dia primeiro: ' + ls.map(x => x.g).join(', '));
+  ok(ls.map(x => x.g).join('|') === esp.map(x => x.g).join('|'), 'ordem: maior número de oferecidas (do dia) primeiro: ' + ls.map(x => x.g).join(', '));
   ok(ls.every((x, i) => x.q === fI(esp[i].q)), 'quantidade de cada grupo = oferecidas do dia (CO + TEL)');
   ok(ls.every((x, i) => x.n === `${esp[i].n} ${esp[i].n === 1 ? 'skill' : 'skills'}`), '1ª informação: quantidade de skills (negrito e itálico)');
   const tot = esp.reduce((t, x) => t + x.q, 0);
@@ -98,15 +98,18 @@ const ofer = ss => D.agregar(L, ss).ofer;
   const y2 = await topo('g:' + g0.g);
   await p.click(`${pn} .gks > .gk .gk-x`); await p.waitForTimeout(150);
   ok(Math.abs(await topo('g:' + g0.g) - y2) <= 1 && await p.locator(`${pn} .gk-sub`).count() === 0, 'fechar as skills: linha parada');
-  // 6) coluna selecionada: números da coluna, mesma ordem
+  // 6) coluna selecionada: números da coluna, do maior para o menor (a ordem segue o que está sendo mostrado)
   await p.evaluate(() => window.scrollTo(0, 0));
   await p.locator('#pgEvo .chart').first().locator('rect.hit').nth(3).click(); await p.waitForTimeout(150);
   const c11 = D.intervalos(d, 60, todas).find(i => i.rot === '11:00');
   const l12 = d.leituras.find(x => x.m === c11.ateM), l11 = d.leituras.find(x => x.m === c11.baseM);
   const q11 = ss => D.agregar(l12, ss).ofer - D.agregar(l11, ss).ofer;
   ls = await linhas();
-  ok(/11:00–12:00/.test(await p.$eval(`${pn} h2`, h => h.textContent)) && ls.map(x => x.g).join('|') === esp.map(x => x.g).join('|') && ls[0].q === fI(q11(grp.get(g0.g))),
-    `coluna 11h: números da coluna (${g0.g} ${ls[0].q}), mesma ordem`);
+  const esp11 = [...grp.entries()].map(([g, ss]) => ({ g, q: q11(ss) })).sort((a, b) => b.q - a.q || esp.findIndex(x => x.g === a.g) - esp.findIndex(x => x.g === b.g));
+  ok(/11:00–12:00/.test(await p.$eval(`${pn} h2`, h => h.textContent)) && ls.map(x => x.g).join('|') === esp11.map(x => x.g).join('|') && ls.every((x, i) => x.q === fI(esp11[i].q)),
+    `coluna 11h: números da coluna, do maior para o menor: ${ls.map(x => x.g + ' ' + x.q).join(', ')}`);
+  const qs11 = ls.map(x => +x.q.replace(/\./g, ''));
+  ok(qs11.every((x, i) => i === 0 || qs11[i - 1] >= x), 'ordem decrescente pelas oferecidas mostradas');
   // 7) 360 px escuro, dia do histórico
   const q = await b.newPage({ viewport: { width: 360, height: 800 }, colorScheme: 'dark' });
   q.on('pageerror', e => erros.push(e.message));
