@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.26.0)
+# URA · Suporte B2C (v1.26.1)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -128,8 +128,9 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 
 ## Página Alarmes (a primeira aba)
 **Nomes padronizados** (iguais nos gráficos, tabelas, cartões e alarmes): Oferecidas · Em espera · Atendidos direto ·
-NS · Abandonadas · TME · TMA. Cada alarme mostra o nome do indicador e o número na mesma linha, na cor do nível
-(rosa = crítico, laranja = em atenção, verde = normal); embaixo, menor e em negrito, o que aconteceu e o detalhe.
+NS · Abandonadas · TME · TMA. Cada alarme mostra o nome do indicador e o número na mesma linha, os dois na cor do nível
+(rosa = crítico, laranja = em atenção, verde = normal); embaixo, nas cores normais do texto, o que aconteceu (menor,
+em negrito) e o detalhe.
 
 Junta num cartão só o que está fora do normal, **sempre no Total URA**. O app abre nesta página. A aba tem uma
 bolinha no canto do ícone com a quantidade de alarmes ativos da visão escolhida (rosa se houver crítico, laranja se
@@ -253,6 +254,7 @@ Limites iniciais (modelo para ajustar; ficam todos em `LIM` no começo do `alarm
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.26.1:** só o nome do indicador e o número ficam na cor do nível; o texto de baixo volta às cores normais.
 - **1.26.0:** alarmes críticos e em atenção no formato das normais (nome e número na cor do nível, complemento menor em negrito na mesma cor); nomes padronizados em gráficos, tabelas, cartões e alarmes: Oferecidas, Em espera, Atendidos direto, NS, Abandonadas, TME, TMA.
 - **1.25.1:** verificações normais em lista, uma cápsula por linha, com o número atual e a referência (meta, mediana ou limite) que mostra que está normal.
 - **1.25.0:** alarmes numa página própria, a primeira (bolinha com a quantidade no ícone); chave Agora (hora aberta) · Hoje (dia) com regras próprias, incluindo "fila fora do comum para o horário"; engrenagem para ligar/desligar cada alarme em cada visão.

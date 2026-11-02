@@ -43,12 +43,12 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   ok(nsOk && nsOk.v === '100,0%' && /meta 90%/.test(nsOk.ref) && /med\. 100,0%/.test(nsOk.ref), `NS normal: ${nsOk && nsOk.v} (${nsOk && nsOk.ref})`);
   const tmeOk = lista.find(x => x.n === 'TME');
   ok(tmeOk && tmeOk.v === '55s' && /\+42s \(alarma a partir de \+1min 00s\)/.test(tmeOk.ref), `TME normal mostra a diferença em segundos: ${tmeOk && tmeOk.ref}`);
-  // linhas de alarme: nome padronizado e número na cor do nível; complemento menor, em negrito, na mesma cor
+  // linhas de alarme: só o nome padronizado e o número na cor do nível; embaixo, o que aconteceu (negrito, menor) e o detalhe nas cores normais
   const fmt = await p.$eval('#pgAlarmes .al[data-al-id="vol"]', x => { const c = e => getComputedStyle(x.querySelector(e)); return { nome: x.querySelector('.al-tt').textContent, st: x.querySelector('.al-st').textContent,
     cN: c('.al-tt').color, cV: c('.al-vl').color, cS: c('.al-st').color, cD: c('.al-dt').color, wS: +c('.al-st').fontWeight, wD: +c('.al-dt').fontWeight, fN: parseFloat(c('.al-tt').fontSize), fS: parseFloat(c('.al-st').fontSize),
     linha: Math.abs(x.querySelector('.al-tt').getBoundingClientRect().top - x.querySelector('.al-vl').getBoundingClientRect().top) < 4 }; });
   ok(fmt.nome === 'Oferecidas' && fmt.st === 'acima do previsto na hora' && fmt.linha, `nome e número na mesma linha: "${fmt.nome}" · "${fmt.st}"`);
-  ok(fmt.cN === fmt.cV && fmt.cS === fmt.cV && fmt.cD === fmt.cV && fmt.wS >= 700 && fmt.wD >= 700 && fmt.fS < fmt.fN, `mesma cor do número (${fmt.cV}), complemento em negrito e menor`);
+  ok(fmt.cN === fmt.cV && fmt.cS !== fmt.cV && fmt.cD !== fmt.cV && fmt.wS >= 700 && fmt.fS < fmt.fN, `só o nome e o número na cor do nível (${fmt.cV}); o texto de baixo na cor normal (${fmt.cS} / ${fmt.cD})`);
   ok(/Hoje: 2 críticos/.test(await p.$eval('#pgAlarmes .al-outra', x => x.textContent)), 'resumo da outra visão: "Hoje: 2 críticos"');
   // Hoje
   await p.click('#pgAlarmes .al-outra'); await p.waitForTimeout(100);
