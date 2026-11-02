@@ -52,7 +52,7 @@ const AGORA = 19 * 60 + 15;
   const telM = med('sem', (d, co, tel) => D.intervaloEm(d, 1140, AGORA, tel).ofer);
   const kTel = await p.$eval(`${pg} .chart[data-ch="agora-of"]`, c => c.querySelector('.ch-v').textContent + ' | ' + c.querySelector('.ch-det').textContent);
   ok(kTel.startsWith('19 | ') && kTel.includes(fI(telM)), `TEL: total da hora 19 e mediana ${fI(telM)} (${kTel})`);
-  const telTela = await p.evaluate(() => ({ hero: !!document.querySelector('#pgAgora .hero'), fila: /Fila agora/i.test(document.querySelector('#pgAgora').textContent), graf: [...document.querySelectorAll('#pgAgora .chart')].map(c => c.dataset.ch) }));
+  const telTela = await p.evaluate(() => ({ hero: !!document.querySelector('#pgAgora .hero'), fila: /Em espera agora/i.test(document.querySelector('#pgAgora').textContent), graf: [...document.querySelectorAll('#pgAgora .chart')].map(c => c.dataset.ch) }));
   ok(!telTela.hero && !telTela.fila && telTela.graf.join() === 'agora-of', 'TEL: sem NS, sem fila; na hora só o gráfico de oferecidas: ' + telTela.graf.join());
   await p.click(`${pg} button[data-agdir="TODOS"]`); await p.waitForTimeout(150);
   // tabela de intervalos de 15 min do dia, igual à da Evolução
@@ -72,7 +72,7 @@ const AGORA = 19 * 60 + 15;
   await p.evaluate(() => document.querySelector('#pgAgora .tab-mais').click()); await p.waitForTimeout(150);
   ok(await p.$$eval(`${pg} #tIvAg tbody tr`, r => r.length) === 9, 'recolher: volta para 9');
   await p.evaluate(() => scrollTo(0, 0));
-  ok(/Fila agora\s*0.*19:15 · 11 agentes disponíveis/.test(await p.$$eval(`${pg} h2.sec`, hs => hs.map(h => h.textContent).join(' | '))), 'agentes disponíveis na linha da "Fila agora"');
+  ok(/Em espera agora\s*0.*19:15 · 11 agentes disponíveis/.test(await p.$$eval(`${pg} h2.sec`, hs => hs.map(h => h.textContent).join(' | '))), 'agentes disponíveis na linha do "Em espera agora"');
   // técnicos em espera: pico da hora, % que enfrentou fila (atendidas depois de 1 min ÷ oferecidas CO) e a mediana do pico
   const co19 = D.filtro(D.normalizar(require('./amostra.json')), { dir: 'CO' }), dd0 = D.normalizar(require('./amostra.json'));
   const hC = D.delta(D.agregar(dd0.leituras.find(x => x.m === AGORA), co19), D.agregar(dd0.leituras.find(x => x.m === 1140), co19));

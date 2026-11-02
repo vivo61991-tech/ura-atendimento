@@ -31,7 +31,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   // maior fila na hora (19:05–19:15): o original tem 1 técnico às 19:10, num horário em que quase nunca há fila
   const picoHora = await p.evaluate(() => { const d = window.__ura.estado().dados; return Math.max(0, ...d.leituras.filter(l => l.m > 1140).map(l => d.skills.filter(s => d.trad[s].DIRECIONAMENTO === 'CO').reduce((t, s) => t + ((l.v[s] || {}).Current_Calls || 0), 0))); });
   ok(agoraIds.join() === 'vol,fila' && picoHora > 0, `Agora (hora 19:00–19:15): ${agoraIds.join(', ')} (maior fila na hora: ${picoHora})`);
-  if (!nFila) ok(/Fila fora do comum para o horário/.test(await p.$eval('#pgAlarmes .al[data-al-id="fila"]', x => x.textContent)) && /ninguém esperando agora · maior fila 19:00–19:15: 1/.test(await p.$eval('#pgAlarmes .al[data-al-id="fila"]', x => x.textContent)), 'fila vazia agora, mas 1 técnico às 19:10: "Fila fora do comum para o horário"');
+  if (!nFila) ok(/Em espera\s*fora do comum para o horário/.test(await p.$eval('#pgAlarmes .al[data-al-id="fila"]', x => x.textContent)) && /ninguém esperando agora · maior fila 19:00–19:15: 1/.test(await p.$eval('#pgAlarmes .al[data-al-id="fila"]', x => x.textContent)), 'fila vazia agora, mas 1 técnico às 19:10: "Fila fora do comum para o horário"');
   ok(/hora aberta 19:00–19:15/.test(await p.$eval('#pgAlarmes .al-cab', x => x.textContent)), 'cabeçalho: "hora aberta 19:00–19:15"');
   const bol = await p.$eval('#alBadge', x => ({ t: x.textContent, h: x.hidden, aten: x.classList.contains('aten'), dentro: (() => { const i = x.closest('.ico').getBoundingClientRect(), r = x.getBoundingClientRect(); return r.left > i.left && r.top < i.top; })() }));
   ok(!bol.h && +bol.t === agoraIds.length && bol.aten && bol.dentro, `bolinha no canto superior direito do ícone: ${bol.t} (laranja: só em atenção)`);
@@ -43,6 +43,12 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   ok(nsOk && nsOk.v === '100,0%' && /meta 90%/.test(nsOk.ref) && /med\. 100,0%/.test(nsOk.ref), `NS normal: ${nsOk && nsOk.v} (${nsOk && nsOk.ref})`);
   const tmeOk = lista.find(x => x.n === 'TME');
   ok(tmeOk && tmeOk.v === '55s' && /\+42s \(alarma a partir de \+1min 00s\)/.test(tmeOk.ref), `TME normal mostra a diferença em segundos: ${tmeOk && tmeOk.ref}`);
+  // linhas de alarme: nome padronizado e número na cor do nível; complemento menor, em negrito, na mesma cor
+  const fmt = await p.$eval('#pgAlarmes .al[data-al-id="vol"]', x => { const c = e => getComputedStyle(x.querySelector(e)); return { nome: x.querySelector('.al-tt').textContent, st: x.querySelector('.al-st').textContent,
+    cN: c('.al-tt').color, cV: c('.al-vl').color, cS: c('.al-st').color, cD: c('.al-dt').color, wS: +c('.al-st').fontWeight, wD: +c('.al-dt').fontWeight, fN: parseFloat(c('.al-tt').fontSize), fS: parseFloat(c('.al-st').fontSize),
+    linha: Math.abs(x.querySelector('.al-tt').getBoundingClientRect().top - x.querySelector('.al-vl').getBoundingClientRect().top) < 4 }; });
+  ok(fmt.nome === 'Oferecidas' && fmt.st === 'acima do previsto na hora' && fmt.linha, `nome e número na mesma linha: "${fmt.nome}" · "${fmt.st}"`);
+  ok(fmt.cN === fmt.cV && fmt.cS === fmt.cV && fmt.cD === fmt.cV && fmt.wS >= 700 && fmt.wD >= 700 && fmt.fS < fmt.fN, `mesma cor do número (${fmt.cV}), complemento em negrito e menor`);
   ok(/Hoje: 2 críticos/.test(await p.$eval('#pgAlarmes .al-outra', x => x.textContent)), 'resumo da outra visão: "Hoje: 2 críticos"');
   // Hoje
   await p.click('#pgAlarmes .al-outra'); await p.waitForTimeout(100);
@@ -60,15 +66,16 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await p.click('#pgAlarmes .al-top[data-al="aband"]'); await p.waitForTimeout(100);
   const mais = await p.$eval('#pgAlarmes .al[data-al-id="aband"] .al-mais', x => x.innerText);
   ok(/Regra:/.test(mais) && /Onde mais pesa: SUPORTE/.test(mais) && /Ver na Evolução/.test(mais) && /Silenciar 1 h/.test(mais), 'tocar abre a regra, onde mais pesa e os botões');
-  ok(Math.abs(await p.$eval('#pgAlarmes .al[data-al-id="aband"]', x => x.getBoundingClientRect().top) - y0) <= 1, 'a linha tocada fica parada');
+  const y1 = await p.$eval('#pgAlarmes .al[data-al-id="aband"]', x => x.getBoundingClientRect().top);
+  ok(Math.abs(y1 - y0) <= 1, `a linha tocada fica parada (${Math.round(y0)} → ${Math.round(y1)}, rolagem ${await p.evaluate(() => scrollY)})`);
   // silenciar (só nesta visão)
   await p.click('#pgAlarmes [data-alsil="aband"]'); await p.waitForTimeout(100);
-  ok(!(await ids()).includes('aband') && /Silenciado até 20:17: Abandono do dia acima do normal/.test(await p.$eval('#pgAlarmes .al-silx', x => x.textContent)), 'silenciado: some da lista, "Silenciado até 20:17"');
+  ok(!(await ids()).includes('aband') && /Silenciado até 20:17: Abandonadas · acima do normal no dia/.test(await p.$eval('#pgAlarmes .al-silx', x => x.textContent)), 'silenciado: some da lista, "Silenciado até 20:17"');
   await reabrir(); await p.click('#pgAlarmes [data-alvista="dia"]'); await p.waitForTimeout(80);
   ok(!(await ids()).includes('aband'), 'continua silenciado depois de reabrir o app');
   await p.clock.runFor(61 * 60000); await p.click('#pgAlarmes [data-alvista="dia"]'); await p.waitForTimeout(100);
   ok((await ids()).includes('aband'), 'depois de 1 h volta sozinho');
-  ok(/Coleta atrasada/.test(await p.$eval('#pgAlarmes .al[data-al-id="coleta"]', x => x.textContent)) && /há 63 min/.test(await p.$eval('#pgAlarmes .al[data-al-id="coleta"]', x => x.textContent)), '1 h sem coleta nova: "Coleta atrasada" (há 63 min)');
+  ok(await p.$eval('#pgAlarmes .al[data-al-id="coleta"] .al-st', x => x.textContent) === 'atrasada' && /há 63 min/.test(await p.$eval('#pgAlarmes .al[data-al-id="coleta"]', x => x.textContent)), '1 h sem coleta nova: "Coleta atrasada" (há 63 min)');
   await p.click('#pgAlarmes .al-top[data-al="ns"]'); await p.click('#pgAlarmes [data-alsil="ns"]'); await p.waitForTimeout(80);
   await p.click('#pgAlarmes [data-alvista="agora"]'); await p.waitForTimeout(80);
   ok(await p.locator('#pgAlarmes .al-silx').count() === 0, 'o silêncio do Hoje não vale no Agora');
@@ -117,9 +124,9 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await q.click('#pgAlarmes [data-alvista="dia"]'); await q.waitForTimeout(100);
   const tudo = await q.$eval('#pgAlarmes .alarmes', x => x.innerText.replace(/\s+/g, ' '));
   ok(/Tudo dentro do normal/.test(tudo) && await q.locator('#pgAlarmes .al').count() === 0, 'tudo normal: "Tudo dentro do normal"');
-  ok(/último alarme: NS do dia abaixo de 70% \(e mais 1\), encerrados às 19:15/.test(tudo), 'rodapé: "último alarme: NS do dia abaixo de 70% (e mais 1), encerrados às 19:15"');
+  ok(/último alarme: NS · abaixo de 70% no dia \(e mais 1\), encerrados às 19:15/.test(tudo), 'rodapé: "último alarme: NS · abaixo de 70% no dia (e mais 1), encerrados às 19:15"');
   await q.click('#pgAlarmes .alarmes button.info');
-  ok(await q.$eval('#inf-alarmes', x => !x.hidden && /Abandono:/.test(x.textContent) && /Coleta:/.test(x.textContent)), '(i) explica as regras');
+  ok(await q.$eval('#inf-alarmes', x => !x.hidden && /Abandonadas:/.test(x.textContent) && /Coleta:/.test(x.textContent)), '(i) explica as regras');
   await q.close();
 
   // 360 px escuro

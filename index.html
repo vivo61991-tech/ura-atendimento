@@ -395,22 +395,24 @@ table.conf tr.aberto td{--lst:color-mix(in srgb,var(--p500) 9%,var(--card));back
 .al-pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:4px 9px 4px 5px;font-size:12px;font-weight:750;white-space:nowrap}
 .al-pill svg{width:16px;height:16px}
 .al-pill.c{background:var(--badbg);color:var(--bad)}.al-pill.a{background:var(--warnbg);color:var(--warn)}.al-pill.o{background:var(--okbg);color:var(--ok)}
-.al{border-radius:14px;margin-bottom:8px}
-.al-c{background:color-mix(in srgb,var(--badbg) 70%,var(--card))}
-.al-a{background:color-mix(in srgb,var(--warnbg) 75%,var(--card))}
-.al-top{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;border:0;background:none;padding:10px 10px 10px 8px;cursor:pointer;border-radius:14px}
-.al-ic{flex:none;width:28px;height:28px;display:grid;place-items:center}
-.al-ic svg{width:25px;height:25px}
+.al{border-radius:18px;margin-bottom:6px;border:1px solid transparent;--alc:var(--ink)}
+.al-c{background:color-mix(in srgb,var(--badbg) 55%,var(--card));border-color:color-mix(in srgb,var(--rosa) 35%,var(--card));--alc:var(--bad)}
+.al-a{background:color-mix(in srgb,var(--warnbg) 60%,var(--card));border-color:color-mix(in srgb,var(--laranja) 40%,var(--card));--alc:var(--warn)}
+.al-top{display:flex;gap:9px;align-items:flex-start;width:100%;text-align:left;border:0;background:none;padding:8px 12px 8px 9px;cursor:pointer;border-radius:18px}
+.al-ic{flex:none;width:24px;height:24px;display:grid;place-items:center;margin-top:1px}
+.al-ic svg{width:22px;height:22px}
 .al-tx{flex:1;min-width:0;display:flex;flex-direction:column}
-.al-tt{font-weight:750;font-size:14px;line-height:1.25}
-.al-dt{font-size:12px;color:var(--ink2);margin-top:2px;line-height:1.4;overflow-wrap:anywhere}
-.al-dt b{color:var(--ink)}
+.al-tt{font-weight:750;font-size:13.5px;line-height:1.25;color:var(--alc)}
+.al-st{font-size:11.5px;font-weight:750;color:var(--alc);line-height:1.3;margin-top:1px}
+.al-dt{font-size:11px;font-weight:700;color:var(--alc);opacity:.85;margin-top:1px;line-height:1.35;overflow-wrap:anywhere}
+.al-dt b{color:var(--alc);font-weight:800}
 .al-tg{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.3px;border-radius:6px;padding:0 5px;margin-right:5px;background:var(--card);color:var(--p700);border:1px solid var(--p200);vertical-align:1px}
-.al-vl{flex:none;text-align:right;font-weight:800;font-size:16px;line-height:1.1;display:flex;flex-direction:column;align-items:flex-end;max-width:34%}
-.al-c .al-vl{color:var(--bad)}.al-a .al-vl{color:var(--warn)}
+.al-vl{flex:none;text-align:right;font-weight:800;font-size:15px;line-height:1.15;display:flex;flex-direction:column;align-items:flex-end;max-width:34%}
+.al-vl{color:var(--alc)}
+.al .al-tg{color:var(--alc);border-color:color-mix(in srgb,var(--alc) 40%,var(--card))}
 .al-vl small{font-size:10.5px;font-weight:600;color:var(--ink3)}
 .al-sp{font-style:normal;font-size:10.5px;font-weight:600;color:var(--ink3);margin-top:5px;white-space:nowrap}
-.al-mais{padding:0 12px 12px 46px;font-size:12.5px;color:var(--ink2)}
+.al-mais{padding:0 12px 12px 42px;font-size:12.5px;color:var(--ink2)}
 .al-mais p{margin:0 0 6px;line-height:1.4}
 .al-mais b{color:var(--ink)}
 .al-bts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
@@ -508,10 +510,10 @@ nav.tabs .nb[hidden]{display:none}
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Detalhe"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="dados.js?v=1.25.1"></script>
-<script src="graf.js?v=1.25.1"></script>
-<script src="historico.js?v=1.25.1"></script>
-<script src="alarmes.js?v=1.25.1"></script>
-<script src="app.js?v=1.25.1"></script>
+<script src="dados.js?v=1.26.0"></script>
+<script src="graf.js?v=1.26.0"></script>
+<script src="historico.js?v=1.26.0"></script>
+<script src="alarmes.js?v=1.26.0"></script>
+<script src="app.js?v=1.26.0"></script>
 </body>
 </html>

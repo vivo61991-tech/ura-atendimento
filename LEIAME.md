@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.25.1)
+# URA · Suporte B2C (v1.26.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -109,7 +109,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Previsto = **linha reta na mediana dos dias do gráfico** (cada gráfico com os seus valores; sem o dia em andamento).
     A mediana não se deixa puxar por dias extremos. No rodapé, "mediana por dia"; embaixo do título, o total dos dias.
   - A tabela vira "Dias".
-- **Técnicos em espera** (todas as vistas): em cada coluna, o % das oferecidas do CO que enfrentaram fila (em cima) e o
+- **Em espera** (todas as vistas): em cada coluna, o % das oferecidas do CO que enfrentaram fila (em cima) e o
   pico de técnicos esperando (embaixo).
 - **Controles** (Evolução): três botões sempre à vista e presos no topo com a data e os grupos — atendimento ·
   modo · eixo. Cada um abre um menu suspenso com as opções (a atual marcada); escolher aplica e fecha; tocar fora ou
@@ -121,12 +121,16 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   grupo/skill fica embaixo dela.
 - No Total URA, depois das oferecidas: **Oferecidas TEL** e **Oferecidas CO** — o do CO encabeça os gráficos que só o
   CO tem (fila, atendidos direto, NS, abandono, TME, TMA).
-- Técnicos em espera: maior fila do período e **% que enfrentou fila** = atendidas depois de 1 min ÷ oferecidas do CO.
+- Em espera: maior fila do período e **% que enfrentou fila** = atendidas depois de 1 min ÷ oferecidas do CO.
 - Abandono zero na coluna: o mesmo visto verde da fila zerada.
 - Títulos curtos (numa linha só em 360 px): "TME por intervalo", "TMA por intervalo", "NS (5 min) por intervalo".
-- Aba Agora: fica só o card do **NS do dia**; os agentes disponíveis foram para a linha da "Fila agora".
+- Aba Agora: fica só o card do **NS do dia**; os agentes disponíveis foram para a linha da "Em espera agora".
 
 ## Página Alarmes (a primeira aba)
+**Nomes padronizados** (iguais nos gráficos, tabelas, cartões e alarmes): Oferecidas · Em espera · Atendidos direto ·
+NS · Abandonadas · TME · TMA. Cada alarme mostra o nome do indicador e o número na mesma linha, na cor do nível
+(rosa = crítico, laranja = em atenção, verde = normal); embaixo, menor e em negrito, o que aconteceu e o detalhe.
+
 Junta num cartão só o que está fora do normal, **sempre no Total URA**. O app abre nesta página. A aba tem uma
 bolinha no canto do ícone com a quantidade de alarmes ativos da visão escolhida (rosa se houver crítico, laranja se
 só houver em atenção; some quando não há nenhum).
@@ -249,6 +253,7 @@ Limites iniciais (modelo para ajustar; ficam todos em `LIM` no começo do `alarm
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.26.0:** alarmes críticos e em atenção no formato das normais (nome e número na cor do nível, complemento menor em negrito na mesma cor); nomes padronizados em gráficos, tabelas, cartões e alarmes: Oferecidas, Em espera, Atendidos direto, NS, Abandonadas, TME, TMA.
 - **1.25.1:** verificações normais em lista, uma cápsula por linha, com o número atual e a referência (meta, mediana ou limite) que mostra que está normal.
 - **1.25.0:** alarmes numa página própria, a primeira (bolinha com a quantidade no ícone); chave Agora (hora aberta) · Hoje (dia) com regras próprias, incluindo "fila fora do comum para o horário"; engrenagem para ligar/desligar cada alarme em cada visão.
 - **1.24.0:** painel de alarmes (na aba Agora, acima do NS; passou para a página própria na 1.25.0) (13 verificações, detalhe ao tocar, Ver na Evolução, silenciar 1 h, "desde" e último alarme guardados no aparelho).
@@ -271,7 +276,7 @@ Limites iniciais (modelo para ajustar; ficam todos em `LIM` no começo do `alarm
 - **1.12.0:** um SELECT só: a fila virou duas colunas do historico.csv (FILA, ESPERA_MAX_S); sai o historico_fila.sql/csv. Mesmo resultado do formato separado (conferido nos 139 dias: zero diferenças).
 - **1.11.0:** fila do histórico (historico_fila.csv, refeita pelo Genesys e calibrada contra o Pulse): gráfico de técnicos em espera nos dias do histórico, previsto na fila e mediana no "Pico em espera" e no "Em espera agora".
 - **1.10.0:** previsto proporcional até o minuto da última coleta: coluna em andamento da Evolução, cards do dia; aba Agora com chave Previsto, "med." nos cards e área do previsto na hora atual inteira, com resumo até agora × previsto e previsto da hora.
-- **1.9.4:** num dia do histórico, o cartão "Técnicos em espera" continua no lugar explicando que o Genesys não guarda a fila, com botão para ir ao dia do Pulse (antes o gráfico simplesmente sumia).
+- **1.9.4:** num dia do histórico, o cartão "Em espera" continua no lugar explicando que o Genesys não guarda a fila, com botão para ir ao dia do Pulse (antes o gráfico simplesmente sumia).
 - **1.9.3:** Evolução abre sempre em Total URA · Por intervalo · Auto; botões na ordem Total URA, CO, TEL (o eixo não fica mais lembrado).
 - **1.9.2:** sem a linha do NS acumulado no gráfico de NS; trocar a data (ou o previsto, ou tocar numa coluna) não mexe na rolagem; chave Previsto com 3 botões iguais: 7 dias · 7 dom/seg… · Desligado; barra de data do histórico em roxo (sem o azul).
 - **1.9.1:** dia do Pulse sempre do Pulse (histórico só para trás); previsto como área clara atrás das barras; chave "Previsto" (7 dias corridos / 7 mesmos dias da semana) acima do primeiro gráfico, fora dos controles.

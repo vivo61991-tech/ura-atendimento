@@ -40,7 +40,7 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   ok(await toastTx() === 'Ao vivo · Pulse', 'ao entrar: aviso no rodapé "Ao vivo · Pulse"');
   const fs18 = await p.$eval('#pgEvo .dn-t b', b => parseFloat(getComputedStyle(b).fontSize));
   ok(fs18 >= 18, `data com mais destaque (${fs18}px)`);
-  ok((await titulos()).some(t => /TÉCNICOS EM ESPERA/i.test(t)), 'ao vivo: tem o gráfico de técnicos em espera');
+  ok((await titulos()).some(t => /^EM ESPERA/i.test(t)), 'ao vivo: tem o gráfico "Em espera"');
   // 2) dia anterior = histórico
   await p.click('#pgEvo [data-navdia="-1"]'); await p.waitForTimeout(150);
   n = await nav();
@@ -174,7 +174,7 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   await v.click('#pgEvo [data-menu="dir"]'); await v.click('#pgEvo button[data-dir="CO"]'); // a Evolução abre no Total URA: estes testes usam o CO
   const nv = await v.$eval('#pgEvo .dnav', x => x.innerText.replace(/\s+/g, ' '));
   ok(/sex, 30\/10\/2026/.test(nv) && await v.$eval('#toast', t => t.textContent) === 'Pulse', 'Pulse de 30/10 aberto em 31/10: 30/10 continua do Pulse, aviso "Pulse" (' + nv.trim() + ')');
-  ok(await v.locator('#pgEvo .chart h2:has-text("TÉCNICOS EM ESPERA")').count() === 1, 'continua com a fila do Pulse');
+  ok(await v.locator('#pgEvo .chart[data-ch="evo-esp"] h2:has-text("Em espera")').count() === 1, 'continua com a fila do Pulse');
   ok(await v.$eval('#dnData', i => i.max) === '2026-10-30', 'não há dia depois do dia do Pulse');
   await v.click('#pgEvo [data-navdia="-1"]');
   await v.waitForTimeout(100);

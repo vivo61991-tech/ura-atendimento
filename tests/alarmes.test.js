@@ -18,7 +18,7 @@ t('tudo normal nas duas visões: 12 verificações ok, todas com número e refer
 t('as duas visões olham trechos diferentes (NS do dia ruim, NS da hora bom)', () => {
   const m = base(); m.dia.co.ns = 61;
   assert.strictEqual(nv(m, 'dia', 'ns'), 'crit'); assert.strictEqual(nv(m, 'agora', 'ns'), 'ok');
-  assert.strictEqual(por(A.avaliar(m, 'dia'), 'ns').titulo, 'NS do dia abaixo de 70%');
+  assert.strictEqual(por(A.avaliar(m, 'dia'), 'ns').titulo, 'NS · abaixo de 70% no dia');
 });
 t('NS: 85% atenção; da hora só a partir de 15 finalizadas', () => {
   const m = base(); m.agora.co.ns = 85; assert.strictEqual(nv(m, 'agora', 'ns'), 'aten');
@@ -27,7 +27,7 @@ t('NS: 85% atenção; da hora só a partir de 15 finalizadas', () => {
 t('volume: hora +25%/+50%, dia +15%/+30%; previsto pequeno não avalia', () => {
   const m = base(); m.agora.oferPrev = 40; m.agora.ofer = 50; assert.strictEqual(nv(m, 'agora', 'vol'), 'aten');
   m.agora.ofer = 60; assert.strictEqual(nv(m, 'agora', 'vol'), 'crit');
-  m.agora.ofer = 28; const x = por(A.avaliar(m, 'agora'), 'vol'); assert.strictEqual(x.titulo, 'Volume da hora abaixo do previsto'); assert.strictEqual(x.valor, '−30%');
+  m.agora.ofer = 28; const x = por(A.avaliar(m, 'agora'), 'vol'); assert.strictEqual(x.titulo, 'Oferecidas · abaixo do previsto na hora'); assert.strictEqual(x.valor, '−30%');
   m.agora.oferPrev = 19; assert.strictEqual(nv(m, 'agora', 'vol'), 'na');
   m.dia.ofer = 1725; assert.strictEqual(nv(m, 'dia', 'vol'), 'aten'); m.dia.ofer = 1950; assert.strictEqual(nv(m, 'dia', 'vol'), 'crit');
 });
@@ -41,17 +41,17 @@ t('abandono da hora: conta os abandonos A MAIS (previsto 0 → 3 atenção, 6 cr
 t('abandono do dia: +20% atenção, +40% crítico, 10% das oferecidas crítico', () => {
   const m = base(); m.dia.prev.aband = 100; m.dia.co.aband = 125; assert.strictEqual(nv(m, 'dia', 'aband'), 'aten');
   m.dia.co.aband = 140; assert.strictEqual(nv(m, 'dia', 'aband'), 'crit');
-  m.dia.co.aband = 100; m.dia.co.abandPct = 10; const x = por(A.avaliar(m, 'dia'), 'aband'); assert.strictEqual(x.nivel, 'crit'); assert.strictEqual(x.titulo, 'Abandono de 10% ou mais');
+  m.dia.co.aband = 100; m.dia.co.abandPct = 10; const x = por(A.avaliar(m, 'dia'), 'aband'); assert.strictEqual(x.nivel, 'crit'); assert.strictEqual(x.titulo, 'Abandonadas · 10% ou mais das oferecidas');
 });
 t('fila agora: espera 2 min atenção, 5 min crítico, 15 esperando "Fila grande"', () => {
   const m = base(); m.fila = { total: 2, espMax: 120, skillMax: 'X', semAgente: [] }; m.agora.filaPico = 2; m.agora.filaPicoPrev = 2; m.agora.filaDiasRef = 5;
   assert.strictEqual(nv(m, 'agora', 'fila'), 'aten');
   m.fila.espMax = 300; assert.strictEqual(nv(m, 'agora', 'fila'), 'crit');
-  m.fila = { total: 15, espMax: 30, semAgente: [] }; const x = por(A.avaliar(m, 'agora'), 'fila'); assert.strictEqual(x.nivel, 'crit'); assert.strictEqual(x.titulo, 'Fila grande');
+  m.fila = { total: 15, espMax: 30, semAgente: [] }; const x = por(A.avaliar(m, 'agora'), 'fila'); assert.strictEqual(x.nivel, 'crit'); assert.strictEqual(x.titulo, 'Em espera · fila grande');
 });
 t('fila fora do comum: alguém esperando num horário em que quase nunca há fila', () => {
   const m = base(); m.fila = { total: 1, espMax: 30, semAgente: [] }; m.agora.filaPico = 1; m.agora.filaPicoPrev = 0; m.agora.filaDiasRef = 1;
-  let x = por(A.avaliar(m, 'agora'), 'fila'); assert.strictEqual(x.nivel, 'aten'); assert.strictEqual(x.titulo, 'Fila fora do comum para o horário'); assert(/fila em 1 de 7 dias/.test(x.det));
+  let x = por(A.avaliar(m, 'agora'), 'fila'); assert.strictEqual(x.nivel, 'aten'); assert.strictEqual(x.titulo, 'Em espera · fora do comum para o horário'); assert.strictEqual(x.status, 'fora do comum para o horário'); assert(/fila em 1 de 7 dias/.test(x.det));
   m.agora.filaDiasRef = 3; assert.strictEqual(nv(m, 'agora', 'fila'), 'ok', 'fila em 3 de 7 dias: comum');
   m.agora.filaPicoPrev = 2; m.agora.filaPico = 5; m.fila.total = 0; assert.strictEqual(nv(m, 'agora', 'fila'), 'aten', 'maior fila 3 acima da mediana');
 });
