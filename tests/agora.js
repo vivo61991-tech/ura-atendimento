@@ -161,8 +161,12 @@ const AGORA = 19 * 60 + 15;
   await ab.route('**/pulse.json*', async rt => { const r = await rt.fetch(); const j = await r.json(); j.leituras = j.leituras.filter(l => l.horario <= '19:10'); await rt.fulfill({ response: r, json: j }); });
   await ab.goto(URL); await ab.waitForFunction(() => window.__ura.estado().dados); await ab.waitForTimeout(150);
   const lin = await ab.$$eval('#tIvAg tbody tr', rs => rs.map(r => r.className));
-  const bg = await ab.$eval('#tIvAg tr.aberto td', td => getComputedStyle(td).backgroundImage);
-  ok(lin[0] === 'aberto' && lin.slice(1).every(c => c !== 'aberto') && /repeating-linear-gradient/.test(bg), '1ª linha (19:00, ainda aberta) com o listrado; as outras não');
+  const bg = await ab.$eval('#tIvAg tr.aberto td', td => { const cs = getComputedStyle(td); return { img: cs.backgroundImage, fixo: cs.backgroundAttachment }; });
+  ok(lin[0] === 'aberto' && lin.slice(1).every(c => c !== 'aberto') && /linear-gradient/.test(bg.img), '1ª linha (19:00, ainda aberta) com o listrado; as outras não');
+  ok(bg.fixo !== 'fixed', 'listrado preso à linha (não à tela): não dá impressão de movimento ao rolar');
+  const ali = await ab.$$eval('#tIvAg tr.aberto td', tds => { const x0 = tds[0].closest('tr').getBoundingClientRect().left;
+    return tds.every(td => Math.abs(parseFloat(getComputedStyle(td).backgroundPositionX) + (td.getBoundingClientRect().left - x0)) < 0.6); });
+  ok(ali, 'cada célula continua o listrado da anterior (sem degrau)');
   await ab.close();
   // virada da hora (última coleta às 19:00): a hora 18h fechou — a 1ª linha (18:45) sem listrado
   const vh = await b.newPage({ viewport: { width: 390, height: 844 } });

@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.22.1';
+  const APP_VERSION = '1.22.2';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -337,6 +337,14 @@
       ${dir === 'TEL' ? '' : `<h2 class="sec">Fila agora <span class="ct num">${fI(a.fila)}</span><span class="sp"></span><span class="rt">${esc(L.horario)} · ${fI(a.dispMax)} ${a.dispMax === 1 ? 'agente disponível' : 'agentes disponíveis'}</span></h2>${filaHtml}`}
       ${hora}
       ${tab}`;
+    alinharListras();
+  }
+  // listrado da linha ainda aberta: cada célula começa o desenho onde a anterior parou (sem degrau entre células)
+  function alinharListras() {
+    document.querySelectorAll('table.conf tr.aberto').forEach(tr => {
+      const x0 = tr.getBoundingClientRect().left;
+      tr.querySelectorAll('td').forEach(td => { td.style.backgroundPosition = `${(x0 - td.getBoundingClientRect().left).toFixed(2)}px 0`; });
+    });
   }
 
   function horaAgora(d) {
@@ -1235,7 +1243,7 @@
   $('#arq').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) abrirArquivo(f); e.target.value = ''; });
   let largAnt = window.innerWidth;
   window.addEventListener('resize', () => {
-    medirTopo(); if (Math.abs(window.innerWidth - largAnt) > 40 && dados && pagina === 'evo') { largAnt = window.innerWidth; redesenhar(); } });
+    medirTopo(); alinharListras(); if (Math.abs(window.innerWidth - largAnt) > 40 && dados && pagina === 'evo') { largAnt = window.innerWidth; redesenhar(); } });
 
   // atualização automática: a cada 1 min (a coleta é de 5 em 5) e ao voltar para o app
   setInterval(() => { if (origem !== 'arquivo' && !document.hidden) carregar(false); }, 60000);
