@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.22.0';
+  const APP_VERSION = '1.22.1';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -327,7 +327,7 @@
     // hora atual (gráficos + painel de grupos e skills) e a tabela do dia de 15 em 15 min, com o filtro da aba Agora
     const hora = horaAgora(d);
     const fC = filtroEvo(d, 'CO', ag), fT = filtroEvo(d, 'TEL', ag);
-    const tab = tabelaIntervalos(D.intervalos(d, 15, fC), D.intervalos(d, 15, fT), dir, 15, -1, false, { id: 'tIvAg', filtro: textoFiltro(d, dir, ag), limite: 9, tudo: ag.tabTudo, acao: 'tabtudo', anc: 'tabAg', marcaAberto: true });
+    const tab = tabelaIntervalos(D.intervalos(d, 15, fC), D.intervalos(d, 15, fT), dir, 15, -1, false, { id: 'tIvAg', filtro: textoFiltro(d, dir, ag), limite: 9, tudo: ag.tabTudo, acao: 'tabtudo', anc: 'tabAg', marcaAberto: true, ateM: L.m });
 
     const titulo = { TODOS: 'URA · Suporte B2C', CO: 'CO · Centro de Operações', TEL: 'TEL · Parceira' }[dir];
     $('#pgAgora').innerHTML = `
@@ -981,8 +981,11 @@
     opt = opt || {};
     const linhas = ivC.map((c, i) => {
       const t = ivT[i], r = opt.rot ? opt.rot(c) : `${D.hhmm(acum ? (c.andamento ? c.ateM : c.fim) : c.ini)}${c.andamento ? '*' : ''}`;
-      // opt.marcaAberto: o intervalo ainda aberto (em andamento) ganha um listrado bem claro no fundo
-      const cl = [i === iSel ? 'sel' : '', opt.marcaAberto && c.andamento ? 'aberto' : ''].filter(Boolean).join(' ');
+      // opt.marcaAberto: a linha mais recente ganha um listrado bem claro no fundo enquanto a HORA dela não fechou
+      // (ex.: coleta das 19:15 → a linha das 19:00 faz parte da hora 19h, que só fecha às 20:00) ou enquanto o próprio
+      // intervalo está em andamento
+      const aberto = opt.marcaAberto && i === ivC.length - 1 && !c.semColeta && (c.andamento || Math.floor(c.ini / 60) * 60 + 60 > opt.ateM);
+      const cl = [i === iSel ? 'sel' : '', aberto ? 'aberto' : ''].filter(Boolean).join(' ');
       const cls = cl ? ` class="${cl}"` : '';
       if (c.semColeta) return `<tr data-i="${i}"${cls}><td>${r}</td><td class="nd" colspan="${dir === 'TEL' ? 1 : dir === 'CO' ? 6 : 4}">sem coleta</td></tr>`;
       if (dir === 'TEL') return `<tr data-i="${i}"${cls}><td>${r}</td><td>${fI(t && t.v ? t.v.ofer : 0)}</td></tr>`;

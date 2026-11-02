@@ -67,7 +67,8 @@ const AGORA = 19 * 60 + 15;
   ok(tb2.length === iv15.length && tb2[tb2.length - 1][0] === '08:00' && await p.$eval(`${pg} .tab-mais`, x => x.textContent.trim()) === 'Mostrar só os 9 mais recentes', `ver o dia todo: ${tb2.length} linhas, até 08:00; o botão vira "Mostrar só os 9 mais recentes"`);
   ok(Math.abs(await p.$eval(`${pg} #tIvAg`, t => Math.round(t.closest('.card').getBoundingClientRect().top)) - yTab) <= 1, 'abrir a tabela não mexe na rolagem (a tabela fica no lugar)');
   ok(tb2.find(r => r[0] === '11:00')[1] === String(iv15.find(i => i.rot === '11:00').v.ofer), 'tabela: CO das 11:00 confere com as contas');
-  ok(await p.locator(`${pg} #tIvAg tr.aberto`).count() === 0, 'sem intervalo aberto (o das 19:00 fechou na coleta das 19:15): sem listrado');
+  const ab1915 = await p.$$eval(`${pg} #tIvAg tbody tr`, rs => rs.map(r => r.className));
+  ok(ab1915[0] === 'aberto' && ab1915.slice(1).every(c => c !== 'aberto'), 'coleta das 19:15: a 1ª linha (19:00) listrada — a hora 19h ainda não fechou; as outras não');
   await p.evaluate(() => document.querySelector('#pgAgora .tab-mais').click()); await p.waitForTimeout(150);
   ok(await p.$$eval(`${pg} #tIvAg tbody tr`, r => r.length) === 9, 'recolher: volta para 9');
   await p.evaluate(() => scrollTo(0, 0));
@@ -163,6 +164,14 @@ const AGORA = 19 * 60 + 15;
   const bg = await ab.$eval('#tIvAg tr.aberto td', td => getComputedStyle(td).backgroundImage);
   ok(lin[0] === 'aberto' && lin.slice(1).every(c => c !== 'aberto') && /repeating-linear-gradient/.test(bg), '1ª linha (19:00, ainda aberta) com o listrado; as outras não');
   await ab.close();
+  // virada da hora (última coleta às 19:00): a hora 18h fechou — a 1ª linha (18:45) sem listrado
+  const vh = await b.newPage({ viewport: { width: 390, height: 844 } });
+  await vh.clock.install({ time: new Date('2026-10-30T19:02:00') });
+  await vh.route('**/pulse.json*', async rt => { const r = await rt.fetch(); const j = await r.json(); j.leituras = j.leituras.filter(l => l.horario <= '19:00'); await rt.fulfill({ response: r, json: j }); });
+  await vh.goto(URL); await vh.waitForFunction(() => window.__ura.estado().dados); await vh.waitForTimeout(150);
+  const lv = await vh.$$eval('#tIvAg tbody tr', rs => rs.map(r => r.children[0].textContent + ':' + r.className));
+  ok(lv[0] === '18:45:' && !lv.some(x => /aberto/.test(x)), 'coleta das 19:00: a hora 18h fechou — nenhuma linha listrada (' + lv[0] + ')');
+  await vh.close();
   // 360 px escuro sem estouro
   const q = await b.newPage({ viewport: { width: 360, height: 800 }, colorScheme: 'dark' });
   q.on('pageerror', e => erros.push(e.message));

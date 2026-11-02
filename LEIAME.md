@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.22.0)
+# URA · Suporte B2C (v1.22.1)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -125,8 +125,8 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - CO: os cards do CO. TEL: só o volume (sem NS, fila ou tempos — a TEL é atendida em outro sistema).
 - Embaixo da hora atual, a **tabela de intervalos** igual à da Evolução, de 15 em 15 min, mais recente primeiro; segue o
   atendimento escolhido e o filtro do painel de grupos (escrito em cima da tabela). Mostra as **9 mais recentes**; o
-  botão "Ver o dia todo · mais N intervalos" abre o resto (e "Mostrar só os 9 mais recentes" recolhe). O intervalo ainda
-  aberto (em andamento) fica com um listrado bem claro no fundo.
+  botão "Ver o dia todo · mais N intervalos" abre o resto (e "Mostrar só os 9 mais recentes" recolhe). A 1ª linha fica com
+  um listrado bem claro no fundo enquanto a hora dela não fechou (coleta das 19:15 → a linha das 19:00, da hora 19h).
 - Saíram as tabelas "CO por grupo"/"TEL por grupo" e a parte "TEL · Parceira" (o painel "Grupos e skills" e os botões
   do topo cobrem o mesmo).
 
@@ -202,6 +202,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.22.1:** a 1ª linha da tabela de 15 min fica listrada enquanto a HORA dela não fechou (não só o intervalo de 15 min).
 - **1.22.0:** tabela de 15 min da aba Agora com as 9 linhas mais recentes e botão para ver o dia todo; intervalo ainda aberto com listrado bem claro.
 - **1.21.0:** Total URA · CO · TEL sincronizado entre Agora, Evolução e Skills; na Skills, Total URA primeiro e padrão.
 - **1.20.1:** painel Grupos e skills: a faixa de cima inteira da linha (nome, número e barra) filtra; "N skills" continua só abrindo a lista.
