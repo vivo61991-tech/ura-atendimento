@@ -386,6 +386,56 @@ table.conf tr.aberto td{--lst:color-mix(in srgb,var(--p500) 9%,var(--card));back
 .avisos{margin-top:18px}
 .avisos:empty{display:none}
 .foot{color:var(--ink3);font-size:12px;text-align:center;margin:18px 0 0}
+/* painel de alarmes (aba Agora, acima do NS) */
+.card.alarmes{padding:14px}
+.al-cab{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}
+.al-cab h2{margin:0}
+.al-cab .t{margin-left:auto;font-size:11.5px;color:var(--ink3);white-space:nowrap}
+.al-res{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.al-pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:4px 9px 4px 5px;font-size:12px;font-weight:750;white-space:nowrap}
+.al-pill svg{width:16px;height:16px}
+.al-pill.c{background:var(--badbg);color:var(--bad)}.al-pill.a{background:var(--warnbg);color:var(--warn)}.al-pill.o{background:var(--okbg);color:var(--ok)}
+.al{border-radius:14px;margin-bottom:8px}
+.al-c{background:color-mix(in srgb,var(--badbg) 70%,var(--card))}
+.al-a{background:color-mix(in srgb,var(--warnbg) 75%,var(--card))}
+.al-top{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;border:0;background:none;padding:10px 10px 10px 8px;cursor:pointer;border-radius:14px}
+.al-ic{flex:none;width:28px;height:28px;display:grid;place-items:center}
+.al-ic svg{width:25px;height:25px}
+.al-tx{flex:1;min-width:0;display:flex;flex-direction:column}
+.al-tt{font-weight:750;font-size:14px;line-height:1.25}
+.al-dt{font-size:12px;color:var(--ink2);margin-top:2px;line-height:1.4;overflow-wrap:anywhere}
+.al-dt b{color:var(--ink)}
+.al-tg{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.3px;border-radius:6px;padding:0 5px;margin-right:5px;background:var(--card);color:var(--p700);border:1px solid var(--p200);vertical-align:1px}
+.al-vl{flex:none;text-align:right;font-weight:800;font-size:16px;line-height:1.1;display:flex;flex-direction:column;align-items:flex-end;max-width:34%}
+.al-c .al-vl{color:var(--bad)}.al-a .al-vl{color:var(--warn)}
+.al-vl small{font-size:10.5px;font-weight:600;color:var(--ink3)}
+.al-sp{font-style:normal;font-size:10.5px;font-weight:600;color:var(--ink3);margin-top:5px;white-space:nowrap}
+.al-mais{padding:0 12px 12px 46px;font-size:12.5px;color:var(--ink2)}
+.al-mais p{margin:0 0 6px;line-height:1.4}
+.al-mais b{color:var(--ink)}
+.al-bts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.al-bt{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--p200);background:var(--card);color:var(--p700);border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer}
+.al-bt svg{width:14px;height:14px}
+.al-okg{border:1px dashed color-mix(in srgb,var(--okc) 45%,var(--card));background:color-mix(in srgb,var(--okbg) 60%,var(--card));border-radius:14px;padding:10px}
+.al-okt{display:flex;align-items:center;gap:8px;font-weight:750;font-size:13.5px;color:var(--ok);margin-bottom:8px}
+.al-okt svg{width:20px;height:20px}
+.al-ch{display:flex;flex-wrap:wrap;gap:5px}
+.al-ch span{font-size:11.5px;background:var(--card);border:1px solid color-mix(in srgb,var(--okc) 30%,var(--card));color:var(--ok);border-radius:999px;padding:2px 8px}
+.al-tudo{display:flex;gap:12px;align-items:center;padding:2px 2px 10px}
+.al-tudo>svg{width:40px;height:40px;flex:none}
+.al-tudo b{font-size:16.5px;color:var(--ok);display:block}
+.al-tudo small{display:block;color:var(--ink2);font-size:12.5px}
+.al-silx{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--ink2)}
+.al-silx svg{width:15px;height:15px;flex:none;color:var(--ink3)}
+.al-silx span{flex:1;min-width:0}
+.al-na{margin-top:8px;font-size:11.5px;color:var(--ink3)}
+.al-pe{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:11.5px;color:var(--ink3)}
+.al-pe span{flex:1}
+.al-info ul{margin:6px 0;padding-left:18px;font-size:12.5px;color:var(--ink2)}
+.al-info li{margin-bottom:4px}
+.al-info p{font-size:12.5px;color:var(--ink2);margin:0 0 6px}
+.card.chart.al-alvo{outline:2px solid var(--p300);outline-offset:2px;transition:outline-color 1.2s}
+@media (prefers-color-scheme: dark){.al-tg,.al-bt{color:#d3b5f0;border-color:#4a3466}}
 </style>
 </head>
 <body>
@@ -424,9 +474,10 @@ table.conf tr.aberto td{--lst:color-mix(in srgb,var(--p500) 9%,var(--card));back
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Detalhe"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="dados.js?v=1.23.0"></script>
-<script src="graf.js?v=1.23.0"></script>
-<script src="historico.js?v=1.23.0"></script>
-<script src="app.js?v=1.23.0"></script>
+<script src="dados.js?v=1.24.0"></script>
+<script src="graf.js?v=1.24.0"></script>
+<script src="historico.js?v=1.24.0"></script>
+<script src="alarmes.js?v=1.24.0"></script>
+<script src="app.js?v=1.24.0"></script>
 </body>
 </html>

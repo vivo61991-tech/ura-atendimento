@@ -1,8 +1,8 @@
 /* URA · Suporte B2C — service worker (cache só deste app) */
-const VERSION = '1.23.0';
+const VERSION = '1.24.0';
 const PREFIXO = 'ura-b2c-v';
 const CACHE = PREFIXO + VERSION;
-const CORE = ['./', 'index.html', 'dados.js', 'graf.js', 'historico.js', 'app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CORE = ['./', 'index.html', 'dados.js', 'graf.js', 'historico.js', 'alarmes.js', 'app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));

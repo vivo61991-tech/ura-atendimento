@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.23.0)
+# URA · Suporte B2C (v1.24.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -125,6 +125,38 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 - Títulos curtos (numa linha só em 360 px): "TME por intervalo", "TMA por intervalo", "NS (5 min) por intervalo".
 - Aba Agora: fica só o card do **NS do dia**; os agentes disponíveis foram para a linha da "Fila agora".
 
+## Painel de alarmes (aba Agora, acima do NS)
+Junta num cartão só o que está fora do normal. Verificado a cada coleta, **sempre no Total URA** (os botões e filtros da
+aba Agora não mudam os alarmes). Críticos primeiro (rosa), depois em atenção (laranja); as verificações normais ficam
+num grupo verde de etiquetas. Sem nenhum alarme: "Tudo dentro do normal" e, no rodapé, o último alarme encerrado.
+
+- **Previsto** = mediana dos dias da chave Previsto (7 mesmos dias da semana ou 7 dias corridos), até o mesmo minuto.
+  Com o previsto desligado, os alarmes usam os mesmos dias da semana. Sem histórico, as regras que precisam do
+  previsto aparecem como "sem dado para avaliar".
+- **Hora** = a mesma janela dos gráficos da hora (de HH:00 até a última coleta; na virada, a hora anterior).
+- **Tocar num alarme** abre a regra, "onde mais pesa" (os grupos/skills que mais contribuem) e os botões
+  **Ver na Evolução ›** (abre o gráfico do alarme já no CO/TEL e no grupo dele) e **Silenciar 1 h**.
+- **Guardado no aparelho** (recomeça a cada dia): desde quando cada alarme está ativo ("desde HH:MM", a partir da
+  primeira coleta em que este aparelho viu o alarme), o último encerrado e os silenciados ("reativar" traz de volta).
+
+Limites iniciais (modelo para ajustar; ficam todos em `LIM`, no começo do `alarmes.js`):
+
+| Verificação | Em atenção | Crítico |
+|---|---|---|
+| NS do dia (CO) | abaixo de 90% | abaixo de 70% (a partir de 20 oferecidas) |
+| NS da hora (CO, ÷ finalizadas) | abaixo de 90% | abaixo de 70% (a partir de 15 finalizadas) |
+| Volume da hora (URA) × previsto | +25% ou −30% | +50% ou −50% (previsto ≥ 20) |
+| Abandono do dia (CO) × previsto | +20% | +40%, ou abandono ≥ 10% das oferecidas |
+| Fila (CO) | mais antiga ≥ 2 min | mais antiga ≥ 5 min ou 15 esperando |
+| Fila sem agente disponível | skill com espera e 0 disponível | — |
+| TME do dia (CO) × previsto | +25% (e ≥ 10 s a mais) | +50% |
+| TMA do dia (CO) × previsto | +25% (e ≥ 30 s a mais) | +50% |
+| Atendidos direto (CO) × previsto | −10 p.p. | −20 p.p. |
+| Grupo na hora × previsto (um alarme por grupo) | +50% | +100% (previsto ≥ 10) |
+| Skill sem chamadas na última hora | normal ≥ 5 | — |
+| Parte da TEL nas oferecidas do dia | ±10 p.p. | ±20 p.p. |
+| Coleta atrasada (só hoje, no expediente) | 10 min | 20 min |
+
 ## Aba Agora
 - No topo, os botões **Total URA · CO · TEL** (os mesmos da aba Skills, na ordem da Evolução); começa sempre em Total URA.
   - Total URA: NS do CO, Oferecidas URA (CO e TEL), abandonadas, em espera, TME, últimos 15 min (CO + TEL), agentes.
@@ -208,6 +240,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.24.0:** painel de alarmes na aba Agora, acima do NS (13 verificações, detalhe ao tocar, Ver na Evolução, silenciar 1 h, "desde" e último alarme guardados no aparelho).
 - **1.23.0:** arrastar para o lado troca de aba (Agora ⇄ Evolução ⇄ Skills), com a tela acompanhando o dedo.
 - **1.22.4:** número embaixo do título de cada gráfico numa cápsula roxa bem clara (leve destaque).
 - **1.22.3:** painel Grupos e skills ordenado pelas oferecidas mostradas (da hora na Agora; do dia ou da coluna selecionada na Evolução).
@@ -261,12 +294,13 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 | `index.html` | estrutura e estilos (paleta, modo escuro), CSP |
 | `dados.js` | leitura, validação e contas (roda no Node para os testes) |
 | `historico.js` | leitura do `historico.csv`, dia do histórico no formato do Pulse, referências e mediana |
+| `alarmes.js` | regras e limites do painel de alarmes (roda no Node para os testes) |
 | `historico.csv` | histórico (base Genesys) — trocado uma vez por dia |
 | `graf.js` | gráfico de colunas em SVG |
 | `app.js` | telas, atualização automática, cópia no aparelho |
 | `sw.js` | cache offline só deste app (caches `ura-b2c-v…`); o `.json` de dados nunca passa pelo cache |
 | `manifest.webmanifest`, `icons/` | instalação no celular |
-| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `controles.js`, `chipsel.js`, `skills.js`, `avisos.js`, `filtro.js`, `historico.js`, `rolagem.js`, `agora.js`, `painel.js` e `titulos.js`, `dia.js`, `sincronia.js` e `arrastar.js` (Playwright), `historico.test.js` (contas do histórico) |
+| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `controles.js`, `chipsel.js`, `skills.js`, `avisos.js`, `filtro.js`, `historico.js`, `rolagem.js`, `agora.js`, `painel.js` e `titulos.js`, `dia.js`, `sincronia.js`, `arrastar.js` e `alarmes.js` (Playwright), `historico.test.js` (contas do histórico), `alarmes.test.js` (regras dos alarmes) |
 
 ## Antes de publicar
 1. **Mesma versão** em `APP_VERSION` (`app.js`), `VERSION` (`sw.js`) e nos `?v=` do `index.html`. O teste confere.

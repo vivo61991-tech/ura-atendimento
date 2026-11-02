@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.23.0';
+  const APP_VERSION = '1.24.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -49,7 +49,7 @@
   const sk = { dir: 'TODOS', q: '', zeros: false };
   // aba Agora: filtro do painel de grupos (grupo/skill), grupos abertos e coluna selecionada nos gráficos da hora
   // dir: atendimento escolhido nos botões do topo (começa sempre em Total URA, como a Evolução)
-  const ag = { tabTudo: false, dir: 'TODOS', grupo: null, skill: null, abertos: new Set(), sel: null };
+  const ag = { alAberto: null, tabTudo: false, dir: 'TODOS', grupo: null, skill: null, abertos: new Set(), sel: null };
   let agCols = [];
   let evoCols = [];  // colunas em exibição na Evolução (horários ou dias), para o toque nas colunas e na tabela   // colunas da hora em exibição na aba Agora (para o toque nas colunas)
 
@@ -286,6 +286,136 @@
   const medAg = (cmp, f) => cmp ? Hs.mediana(cmp.porRef.map(f)) : null;
   const linhaMed = (cmp, r, fmt, atual, pp) => !cmp ? '' : `med. ${esc(cmp.curto)}: <b>${r == null ? '—' : fmt(r)}</b> <span class="df">${r == null ? '' : difTx(atual, r, pp)}</span>`;
 
+  // ---------------------------------------------------------------- ALARMES (aba Agora, acima do NS)
+  // Os números são sempre do Total URA, sem os filtros da aba Agora (o painel vê tudo). O previsto usa a mesma chave
+  // da Evolução; com o previsto desligado, os alarmes usam os mesmos dias da semana (eles não podem desligar).
+  // A hora é a mesma dos gráficos da hora (de HH:00 até a última coleta; na virada da hora, a hora anterior).
+  function metricasAlarme() {
+    const d = dados, L = ultima();
+    const co = D.filtro(d, { dir: 'CO' }), tel = D.filtro(d, { dir: 'TEL' });
+    const aC = D.agregar(L, co), aT = D.agregar(L, tel);
+    const tipo = evo.cmp === 'off' ? 'sem' : evo.cmp;
+    const refs = hist ? Hs.referencias(hist, d.dia, tipo) : [];
+    const porRef = refs.map(r => { const dR = Hs.diaComoDados(hist, r, d.trad); return { dR, coR: D.filtro(dR, { dir: 'CO' }), telR: D.filtro(dR, { dir: 'TEL' }) }; });
+    const med = f => porRef.length ? Hs.mediana(porRef.map(f)) : null;
+    const dC = r => D.agregarEm(r.dR, L.m, r.coR), dT = r => D.agregarEm(r.dR, L.m, r.telR);
+    const telPct = (c, t) => c.ofer + t.ofer > 0 ? t.ofer / (c.ofer + t.ofer) * 100 : null;
+    const cmpNome = refs.length ? refs.length + ' ' + (tipo === 'dias' ? 'dias' : DS_CURTO[Hs.diaSemana(d.dia)]) : '';
+    // hora: mesma janela dos gráficos da hora
+    let desde = Math.floor(L.m / 60) * 60; if (desde === L.m) desde -= 60; if (desde < D.INICIO) desde = D.INICIO;
+    const lDe = [...d.leituras].reverse().find(x => x.m <= desde) || null;
+    const naHora = ss => D.delta(D.agregar(L, ss), D.agregar(lDe, ss));
+    const hC = naHora(co), hT = naHora(tel);
+    const urA = (r, i, f) => D.intervaloEm(r.dR, i, f, r.coR).ofer + D.intervaloEm(r.dR, i, f, r.telR).ofer;
+    const skR = (dR, ss) => { const nomes = new Set(ss.map(s => d.trad[s].SKILL_SIMPLIFICADO)); return dR.skills.filter(s => dR.trad[s] && nomes.has(dR.trad[s].SKILL_SIMPLIFICADO)); };
+    // grupos: oferecidas da hora contra o previsto do mesmo trecho
+    const gmap = new Map();
+    d.skills.forEach(s => { const t = d.trad[s], g = t.SKILL_GRUPO; if (!g) return; if (!gmap.has(g)) gmap.set(g, { ss: [], dirs: new Set() }); gmap.get(g).ss.push(s); gmap.get(g).dirs.add(t.DIRECIONAMENTO); });
+    const grupos = [...gmap.entries()].map(([g, x]) => ({ g, dir: x.dirs.size === 1 ? [...x.dirs][0] : 'TODOS', v: naHora(x.ss).ofer,
+      prev: med(r => D.intervaloEm(r.dR, desde, L.m, D.filtro(r.dR, { grupo: g })).ofer) }));
+    // skills paradas: nenhuma chamada na última hora (só depois da primeira hora do expediente)
+    let paradas = null;
+    if (porRef.length && L.m - 60 >= D.INICIO) {
+      paradas = [];
+      porSimpl(d, 'TODOS').forEach((ss, nome) => {
+        if (D.delta(D.agregar(L, ss), D.agregarEm(d, L.m - 60, ss)).ofer > 0) return;
+        const prev = med(r => D.intervaloEm(r.dR, L.m - 60, L.m, skR(r.dR, ss)).ofer);
+        if (prev != null) paradas.push({ nome, prev, dir: d.trad[ss[0]].DIRECIONAMENTO });
+      });
+    }
+    // fila agora (CO), por skill
+    const filas = [...porSimpl(d, 'CO').entries()].map(([nome, ss]) => ({ nome, a: D.agregar(L, ss) })).filter(x => x.a.fila > 0).sort((x, y) => y.a.espMax - x.a.espMax || y.a.fila - x.a.fila);
+    // onde mais pesa (por grupo)
+    const porGrupo = (dir, f) => [...gmap.entries()].map(([g, x]) => ({ g, v: f(x.ss.filter(s => d.trad[s].DIRECIONAMENTO === dir || dir === 'TODOS')) })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+    const nsHora = hC.ns;
+    const tudoVivo = d.dia === hojeISO() && (() => { const n = new Date(), mm = n.getHours() * 60 + n.getMinutes(); return mm >= D.INICIO && mm <= D.FIM + 10; })();
+    return {
+      horario: L.horario, cmpNome, vivo: tudoVivo, atrasoMin: tudoVivo ? Math.max(0, minutosDesde(L.col) || 0) : 0,
+      dia: { ofer: aC.ofer, ns: aC.ns, nsPrev: med(r => dC(r).ns), aband: aC.aband, abandPrev: med(r => dC(r).aband), abandPct: aC.abandPct,
+        tme: aC.tme, tmePrev: med(r => dC(r).tme), tma: aC.tma, tmaPrev: med(r => dC(r).tma), dir60: aC.dir60, dir60Prev: aC.dir60 == null ? null : med(r => dC(r).dir60),
+        telPct: telPct(aC, aT), telPctPrev: med(r => telPct(dC(r), dT(r))) },
+      hora: { ini: desde, ate: L.m, fecha: L.m >= desde + 60, ofer: hC.ofer + hT.ofer, oferPrev: med(r => urA(r, desde, L.m)), oferPrevHora: med(r => urA(r, desde, desde + 60)),
+        ns: nsHora, fin: hC.fin, a300: hC.a300 },
+      fila: { total: aC.fila, espMax: aC.espMax, skillMax: filas.length ? filas[0].nome : '', semAgente: filas.filter(x => x.a.dispMax === 0).map(x => x.nome) },
+      grupos: porRef.length ? grupos : null, paradas,
+      onde: {
+        ns: porGrupo('CO', ss => { const a = D.agregar(L, ss); return a.ofer - a.a300; }).map(x => ({ nome: x.g, tx: fI(x.v) + ' fora dos 5 min' })),
+        aband: porGrupo('CO', ss => D.agregar(L, ss).aband).map(x => ({ nome: x.g, tx: fI(x.v) + (x.v === 1 ? ' abandono' : ' abandonos') })),
+        vol: grupos.filter(x => x.prev != null).map(x => Object.assign({ dv: x.v - x.prev }, x)).filter(x => Math.abs(x.dv) >= 1).sort((a, b) => Math.abs(b.dv) - Math.abs(a.dv))
+          .map(x => ({ nome: x.g, tx: (x.dv > 0 ? '+' : '−') + fI(Math.abs(x.dv)) + ' vs. previsto' })),
+        fila: filas.map(x => ({ nome: x.nome, tx: fI(x.a.fila) + ' esperando, ' + fS(x.a.espMax) }))
+      }
+    };
+  }
+  const ICO_AL = {
+    crit: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="var(--rosa)"/><path d="M12 6.5v7" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="17.2" r="1.5" fill="#fff"/></svg>',
+    aten: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2 23 21.5H1z" fill="var(--laranja)" stroke="var(--laranja)" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 9v6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="18.2" r="1.35" fill="#fff"/></svg>',
+    ok: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="var(--okc)"/><path d="m6.8 12.4 3.4 3.4 7-7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    sil: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-9.3-5M6.3 6.3A6 6 0 0 0 6 8c0 7-3 9-3 9h14M13.7 21a2 2 0 0 1-3.4 0M2 2l20 20"/></svg>'
+  };
+  const hhmmMs = ms => { const t = new Date(ms); return String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0'); };
+  let alUltimos = [];   // alarmes da última verificação (para os botões)
+  function cartaoAlarmes() {
+    const A = window.Alarmes;
+    if (!A || !dados || !dados.leituras.length) return '';
+    const L = ultima(), lista = A.avaliar(metricasAlarme(), A.LIM);
+    const h = A.registrar(lerPref('alarmes', null), dados.dia, L.horario, lista, Date.now());
+    gravarPref('alarmes', h);
+    alUltimos = lista;
+    const ativos = lista.filter(x => x.nivel === 'crit' || x.nivel === 'aten');
+    const vis = ativos.filter(x => !h.sil[x.id]), sil = ativos.filter(x => h.sil[x.id]);
+    const oks = lista.filter(x => x.nivel === 'ok'), nas = lista.filter(x => x.nivel === 'na');
+    const nC = vis.filter(x => x.nivel === 'crit').length, nA = vis.length - nC;
+    if (ag.alAberto && !vis.some(x => x.id === ag.alAberto)) ag.alAberto = null;
+    const linha = x => {
+      const ab = ag.alAberto === x.id, c = x.nivel === 'crit' ? 'c' : 'a';
+      const mais = !ab ? '' : `<div class="al-mais"><p><b>Regra:</b> ${esc(x.regra)}</p>${x.onde ? `<p>Onde mais pesa: ${x.onde}</p>` : ''}
+        <div class="al-bts">${x.alvo ? `<button class="al-bt" data-alver="${esc(x.id)}">Ver na Evolução ›</button>` : ''}<button class="al-bt" data-alsil="${esc(x.id)}">${ICO_AL.sil}Silenciar 1 h</button></div></div>`;
+      return `<div class="al al-${c}${ab ? ' aberto' : ''}" data-anc="al:${esc(x.id)}" data-al-id="${esc(x.id)}">
+        <button class="al-top" data-al="${esc(x.id)}" aria-expanded="${ab}">
+          <span class="al-ic">${ICO_AL[x.nivel]}</span>
+          <span class="al-tx"><span class="al-tt">${esc(x.titulo)}</span><span class="al-dt"><span class="al-tg">${esc(x.tag)}</span>${x.det}</span></span>
+          <span class="al-vl num">${esc(x.valor)}<small>${esc(x.valorSub)}</small>${h.desde[x.id] ? `<em class="al-sp">desde ${esc(h.desde[x.id])}</em>` : ''}</span>
+        </button>${mais}</div>`;
+    };
+    const pill = (n, cls, ic, um, varios) => n ? `<span class="al-pill ${cls}">${ICO_AL[ic]}${n} ${n === 1 ? um : varios}</span>` : '';
+    const chips = xs => xs.map(x => `<span>${esc(x.chip)}</span>`).join('');
+    let corpo;
+    if (vis.length) {
+      corpo = `<div class="al-res">${pill(nC, 'c', 'crit', 'crítico', 'críticos')}${pill(nA, 'a', 'aten', 'em atenção', 'em atenção')}${pill(oks.length, 'o', 'ok', 'normal', 'normais')}</div>
+        ${vis.map(linha).join('')}
+        ${oks.length ? `<div class="al-okg"><div class="al-okt">${ICO_AL.ok}${oks.length} ${oks.length === 1 ? 'verificação normal' : 'verificações normais'}</div><div class="al-ch">${chips(oks)}</div></div>` : ''}`;
+    } else {
+      corpo = `<div class="al-tudo">${ICO_AL.ok}<div><b>Tudo dentro do normal</b><small>${oks.length} ${oks.length === 1 ? 'verificação' : 'verificações'} · ${sil.length ? 'só os silenciados abaixo' : 'nenhum desvio agora'}</small></div></div>
+        ${oks.length ? `<div class="al-okg"><div class="al-ch">${chips(oks)}</div></div>` : ''}`;
+    }
+    if (sil.length) corpo += `<div class="al-silx">${ICO_AL.sil}<span>${sil.length === 1 ? 'Silenciado' : sil.length + ' silenciados'} até ${esc(hhmmMs(Math.max(...sil.map(x => h.sil[x.id]))))}: ${sil.map(x => esc(x.titulo)).join(', ')}</span><button class="lnk" data-alreat>reativar</button></div>`;
+    if (nas.length) corpo += `<div class="al-na">sem dado para avaliar agora: ${nas.map(x => esc(x.chip)).join(', ')}</div>`;
+    const pe = h.ult && !vis.length ? `último alarme: ${esc(/^.[a-zà-ú]/.test(h.ult.titulo) ? h.ult.titulo.charAt(0).toLowerCase() + h.ult.titulo.slice(1) : h.ult.titulo)}${h.ult.mais ? ` (e mais ${h.ult.mais})` : ''}, ${h.ult.mais ? 'encerrados' : 'encerrado'} às ${esc(h.ult.fim)}` : vis.length ? 'toque num alarme para ver a regra e o gráfico' : '';
+    const ab = infoAberto === 'alarmes';
+    const info = `<p>Verificado a cada coleta, sempre no Total URA (sem os filtros da tela). O previsto é a mediana ${evo.cmp === 'dias' ? 'dos 7 dias anteriores' : 'dos 7 mesmos dias da semana'} até o mesmo horário${evo.cmp === 'off' ? ' (com o previsto desligado, os alarmes usam os mesmos dias da semana)' : ''}.</p>
+      <ul>${lista.filter((x, i, a) => a.findIndex(y => y.chip === x.chip) === i).map(x => `<li><b>${esc(x.chip)}:</b> ${esc(x.regra)}</li>`).join('')}</ul>
+      <p>"Desde" e o último alarme encerrado ficam guardados neste aparelho e recomeçam a cada dia. Silenciar esconde o alarme por 1 h.</p>`;
+    return `<div class="card alarmes" data-ch="alarmes">
+      <div class="al-cab"><h2>Alarmes</h2><span class="t">verificado às ${esc(L.horario)}</span></div>
+      ${corpo}
+      <div class="al-pe"><span>${pe}</span><button class="info" data-info="alarmes" aria-expanded="${ab}" aria-controls="inf-alarmes" aria-label="${ab ? 'Esconder' : 'Mostrar'} a explicação dos alarmes" title="Como os alarmes funcionam">${ICONE_INFO}</button></div>
+      <div class="ch-info al-info" id="inf-alarmes"${ab ? '' : ' hidden'}>${info}</div></div>`;
+  }
+  // "Ver na Evolução": o gráfico do alarme, já no atendimento (e grupo) dele, no dia de hoje por horas
+  function verAlarme(id) {
+    const x = alUltimos.find(a => a.id === id); if (!x || !x.alvo) return;
+    mudarDir(x.alvo.dir || 'TODOS');
+    evo.grupo = x.alvo.grupo || null; evo.skill = null; evo.vista = 'hora'; evo.dia = null; evo.sel = null;
+    irPara('evo');
+    const ch = $(`#pgEvo .chart[data-ch="evo-${x.alvo.ch}"]`) || $('#pgEvo .chart[data-ch="evo-of"]');
+    if (ch) {
+      const ctl = $('#pgEvo .evo-ctl.fixo'), topo = Math.max($('header.top').getBoundingClientRect().bottom, ctl ? ctl.getBoundingClientRect().bottom : 0);
+      window.scrollBy(0, ch.getBoundingClientRect().top - topo - 8);
+      ch.classList.add('al-alvo'); setTimeout(() => ch.classList.remove('al-alvo'), 1600);
+    }
+  }
+
   function renderAgora() {
     const d = dados, L = ultima(), dir = ag.dir;
     const co = D.filtro(d, { dir: 'CO' }), tel = D.filtro(d, { dir: 'TEL' });
@@ -332,6 +462,7 @@
     const titulo = { TODOS: 'URA · Suporte B2C', CO: 'CO · Centro de Operações', TEL: 'TEL · Parceira' }[dir];
     $('#pgAgora').innerHTML = `
       ${botoes}
+      ${cartaoAlarmes()}
       <h2 class="sec">${titulo}<span class="sp"></span><span class="rt">acumulado do dia</span></h2>
       ${dir === 'TEL' ? telNota : hero}
       ${dir === 'TEL' ? '' : `<h2 class="sec">Fila agora <span class="ct num">${fI(a.fila)}</span><span class="sp"></span><span class="rt">${esc(L.horario)} · ${fI(a.dispMax)} ${a.dispMax === 1 ? 'agente disponível' : 'agentes disponíveis'}</span></h2>${filaHtml}`}
@@ -1190,6 +1321,14 @@
     if (b.dataset.ndias) { evo.menu = null; evo.ndias = +b.dataset.ndias; gravarPref('ndias', evo.ndias); evo.sel = null; return redesenhar(); }
     if (b.dataset.vis) { evo.vista = b.dataset.vis; evo.sel = null; evo.menu = null; toast(evo.vista === 'dia' ? 'Eixo por dia' : 'Eixo por horas'); return redesenhar(); }
     if (b.dataset.menu) { evo.menu = evo.menu === b.dataset.menu ? null : b.dataset.menu; return redesenhar(); }
+    if (b.dataset.al != null) { ag.alAberto = ag.alAberto === b.dataset.al ? null : b.dataset.al; return redesenhar(b); }
+    if (b.dataset.alver != null) return verAlarme(b.dataset.alver);
+    if (b.dataset.alsil != null) {
+      const h = lerPref('alarmes', null); if (!h) return;
+      h.sil = h.sil || {}; h.sil[b.dataset.alsil] = Date.now() + 3600000; gravarPref('alarmes', h); ag.alAberto = null;
+      toast('Alarme silenciado por 1 h.'); return redesenhar();
+    }
+    if (b.dataset.alreat != null) { const h = lerPref('alarmes', null); if (h) { h.sil = {}; gravarPref('alarmes', h); } toast('Alarmes reativados.'); return redesenhar(); }
     if (b.dataset.act === 'tabtudo') { ag.tabTudo = !ag.tabTudo; return redesenhar(b); }
     if (b.dataset.act === 'limpar') { evo.sel = null; return redesenhar(); }
     if (b.dataset.act === 'zeros') { sk.zeros = true; return render(); }
