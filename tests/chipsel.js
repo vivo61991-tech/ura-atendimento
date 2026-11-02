@@ -2,7 +2,7 @@
 const { chromium } = require('/home/claude/.npm-global/lib/node_modules/playwright');
 const URL = process.env.URL || 'http://localhost:8765/ura/';
 const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1; } else console.log('ok  ', m); };
-const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()) await p.click('#pgEvo .ctl-seta'); };
+const abrir = async p => {};   // os controles agora ficam sempre à vista (menus suspensos)
 (async () => {
   const b = await chromium.launch();
   const p = await b.newPage({ viewport: { width: 390, height: 844 } });
@@ -11,8 +11,8 @@ const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()
   await p.goto(URL);
   await p.waitForFunction(() => window.__ura.estado().dados);
   await p.click('nav.tabs button[data-v="evo"]');
-  await p.locator('#pgEvo .topbar.fechado').count() && await p.click('#pgEvo .ctl-seta'); await p.click('#pgEvo button[data-dir="CO"]'); await p.click('#pgEvo .ctl-seta'); // a Evolução abre no Total URA: estes testes usam o CO
-  await abrir(p); await p.click('#pgEvo button[data-passo="60"]');
+  await p.click('#pgEvo [data-menu="dir"]'); await p.click('#pgEvo button[data-dir="CO"]'); // a Evolução abre no Total URA: estes testes usam o CO
+  await abrir(p); await p.click('#pgEvo [data-menu="passo"]'); await p.click('#pgEvo button[data-passo="60"]');
   const chips = () => p.$$eval('#pgEvo .chip', cs => Object.fromEntries(cs.map(c => [c.dataset.grp || 'TODOS', c.querySelector('.qt').textContent])));
   const dia = await chips();
   // esperado: oferecidas do intervalo 11:00–12:00 (leitura 12:00 − leitura 11:00) por grupo, direto dos dados
@@ -45,7 +45,7 @@ const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()
   st = await p.evaluate(() => window.__ura.estado().evo);
   ok(st.grupo === null && st.sel === 11 * 60, 'voltar para Todos os grupos: seleção continua');
   // modo acumulado: números até o fim da coluna
-  await abrir(p); await p.click('#pgEvo button[data-modo="acum"]');
+  await abrir(p); await p.click('#pgEvo [data-menu="modo"]'); await p.click('#pgEvo button[data-modo="acum"]');
   c = await chips(); e = await esperado(-1, 12 * 60);
   ok(c.TODOS === '501' && Object.keys(c).every(k => c[k] === e[k]), 'acumulado com "até 12:00" selecionado: grupos com o acumulado até 12:00 (Todos 501)');
   // limpar seleção: volta para o dia

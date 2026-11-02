@@ -2,7 +2,7 @@
 const { chromium } = require('/home/claude/.npm-global/lib/node_modules/playwright');
 const URL = process.env.URL || 'http://localhost:8765/ura/';
 const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1; } else console.log('ok  ', m); };
-const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()) await p.click('#pgEvo .ctl-seta'); };
+const abrir = async p => {};   // os controles agora ficam sempre à vista (menus suspensos)
 (async () => {
   const b = await chromium.launch();
   const p = await b.newPage({ viewport: { width: 390, height: 844 } });
@@ -11,17 +11,17 @@ const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()
   await p.goto(URL);
   await p.waitForFunction(() => window.__ura.estado().dados && window.__ura.estado().hist);
   await p.click('nav.tabs button[data-v="evo"]');
-  await p.locator('#pgEvo .topbar.fechado').count() && await p.click('#pgEvo .ctl-seta'); await p.click('#pgEvo button[data-dir="CO"]'); await p.click('#pgEvo .ctl-seta'); // a Evolução abre no Total URA: estes testes usam o CO
+  await p.click('#pgEvo [data-menu="dir"]'); await p.click('#pgEvo button[data-dir="CO"]'); // a Evolução abre no Total URA: estes testes usam o CO
   const filtros = () => p.$$eval('#pgEvo .chart', cs => cs.map(c => { const f = c.querySelector('.ch-pe > .ch-filtro'); return f ? f.textContent : ''; }));
   const um = async () => { const f = await filtros(); return new Set(f).size === 1 ? f[0] : 'DIFERENTES: ' + f.join(' | '); };
   ok(await um() === 'CO', 'CO selecionado: "CO" em todos os gráficos');
   await p.click('#pgEvo .chip[data-grp="MANOBRA"]'); await p.waitForTimeout(400);
   ok(await um() === 'CO – MANOBRA', 'CO + grupo: "CO – MANOBRA"');
-  await abrir(p); await p.click('#pgEvo button[data-dir="TEL"]');
+  await abrir(p); await p.click('#pgEvo [data-menu="dir"]'); await p.click('#pgEvo button[data-dir="TEL"]');
   ok(await um() === 'TEL', 'TEL (grupo limpo ao trocar): "TEL"');
   await p.click('#pgEvo .chip[data-grp="SUSPEITA MASSIVA"]'); await p.waitForTimeout(400);
   ok(await um() === 'TEL – SUSPEITA MASSIVA', 'TEL + grupo: "TEL – SUSPEITA MASSIVA"');
-  await p.click('#pgEvo button[data-dir="TODOS"]');
+  await p.click('#pgEvo [data-menu="dir"]'); await p.click('#pgEvo button[data-dir="TODOS"]');
   ok((await filtros()).every(f => f === ''), 'Total URA sem grupo: nada');
   await p.click('#pgEvo .chip[data-grp="MANOBRA"]'); await p.waitForTimeout(400);
   ok(await um() === 'MANOBRA', 'Total URA + grupo dos dois atendimentos: só "MANOBRA"');

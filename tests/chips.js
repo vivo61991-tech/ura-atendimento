@@ -1,7 +1,7 @@
 // Botões de grupo da Evolução: oferecidas do dia à direita do nome.
 const { chromium } = require('/home/claude/.npm-global/lib/node_modules/playwright');
 // controles da Evolução começam recolhidos: abre antes de usar
-const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()) await p.click('#pgEvo .ctl-seta'); };
+const abrir = async p => {};   // os controles agora ficam sempre à vista (menus suspensos)
 const URL = process.env.URL || 'http://localhost:8765/ura/';
 const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1; } else console.log('ok  ', m); };
 (async () => {
@@ -12,7 +12,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await p.goto(URL);
   await p.waitForFunction(() => window.__ura.estado().dados);
   await p.click('nav.tabs button[data-v="evo"]');
-  await p.locator('#pgEvo .topbar.fechado').count() && await p.click('#pgEvo .ctl-seta'); await p.click('#pgEvo button[data-dir="CO"]'); await p.click('#pgEvo .ctl-seta'); // a Evolução abre no Total URA: estes testes usam o CO
+  await p.click('#pgEvo [data-menu="dir"]'); await p.click('#pgEvo button[data-dir="CO"]'); // a Evolução abre no Total URA: estes testes usam o CO
   const ler = () => p.$$eval('#pgEvo .chip', cs => cs.map(c => ({ g: c.dataset.grp, n: +c.querySelector('.qt').textContent.replace(/\./g, ''), zero: c.classList.contains('zero') })));
   // valores esperados direto dos dados (soma das oferecidas na última coleta, por grupo)
   const esperado = dir => p.evaluate(dir => {
@@ -21,7 +21,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
     return m;
   }, dir);
   for (const dir of ['CO', 'TEL']) {
-    if (dir === 'TEL') { await abrir(p); await p.click('#pgEvo button[data-dir="TEL"]'); }
+    if (dir === 'TEL') { await abrir(p); await p.click('#pgEvo [data-menu="dir"]'); await p.click('#pgEvo button[data-dir="TEL"]'); }
     const cs = await ler(), e = await esperado(dir);
     const soma = Object.values(e).reduce((a, b) => a + b, 0);
     ok(cs[0].g === '' && cs[0].n === soma, `${dir}: "Todos os grupos" = ${soma}`);
@@ -37,7 +37,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
     ok(cor === 'rgb(255, 255, 255)', 'grupo zerado selecionado: texto branco legível');
   }
   // grupo selecionado corre para a esquerda e fica lá; tocar de novo desmarca
-  await abrir(p); await p.click('#pgEvo button[data-dir="CO"]');
+  await abrir(p); await p.click('#pgEvo [data-menu="dir"]'); await p.click('#pgEvo button[data-dir="CO"]');
   const pos = g => p.$eval('#pgEvo .chips', (fx, g) => {
     const c = g ? fx.querySelector(`.chip[data-grp="${g}"]`) : fx.querySelector('.chip[data-grp=""]');
     return { dx: Math.round(c.getBoundingClientRect().left - fx.getBoundingClientRect().left), on: c.getAttribute('aria-pressed'), sl: Math.round(fx.scrollLeft) };

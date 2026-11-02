@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.17.0)
+# URA · Suporte B2C (v1.18.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -90,7 +90,11 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   então todas as telas e contas servem para os dois. **O histórico não tem fila** (técnicos em espera): esse gráfico só aparece no dia ao vivo.
 
 ## Gráficos sem cards (Evolução e Agora)
-- Os cards saíram: cada gráfico traz, embaixo do título (centralizado), o **total do período** — o dia até agora na
+- **Controles** (Evolução): três botões sempre à vista e presos no topo com a data e os grupos — atendimento ·
+  modo · eixo. Cada um abre um menu suspenso com as opções (a atual marcada); escolher aplica e fecha; tocar fora ou
+  Esc fecha sem mudar. Não há mais abrir/recolher nem alfinete.
+- Os cards saíram: cada gráfico traz, embaixo do título (centralizado), o **total do período** (roxo, um pouco mais
+  claro que o título) — o dia até agora na
   Evolução; a hora até agora na aba Agora — e um detalhe (ex.: "CO 1.562 · TEL 2.808"). No NS, o NS do período.
 - Na linha do (i), em letra bem pequena, a **comparação com a mediana** ("med. 7 sex: 4.480 −2%"); o filtro de
   grupo/skill fica embaixo dela.
@@ -162,8 +166,8 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   As trocas valem enquanto o app está aberto; reabrir volta para esse início. (Previsto e controles fixados continuam lembrados.)
 
 ## Navegação por dia e comparação (Evolução)
-- **Barra de data** acima dos controles: ‹ dia ›, a data inteira em destaque ("qui, 29/10/2026"; domingo em vermelho
-  escuro), toque na data para escolher no calendário, botão "Hoje" para voltar.
+- **Barra de data** acima dos controles: ‹ dia ›, a data inteira em destaque ("qui, 29/10/2026"; domingo na cor do NS
+  crítico), toque na data para escolher no calendário, botão "Hoje" para voltar.
   O dia do `pulse.json` vem **sempre do Pulse**; os outros vêm do histórico (borda roxa). A origem não fica na barra:
   aparece no rodapé por alguns segundos ao entrar na Evolução e sempre que muda ("Ao vivo · Pulse", "Pulse",
   "Histórico · Genesys"). O histórico só vale para trás: dias iguais ou posteriores ao dia do Pulse ficam de fora.
@@ -182,6 +186,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.18.0:** controles em três botões com menu suspenso, sempre presos no topo (sem abrir/recolher e sem alfinete); domingo na cor do NS crítico; total dos gráficos menor, mais perto do título e em roxo.
 - **1.17.0:** sem cards: total do período embaixo do título de cada gráfico e a mediana no rodapé; gráficos Oferecidas TEL e Oferecidas CO no Total URA; % que enfrentou fila; visto no abandono zero; títulos centralizados e curtos (TME/TMA). Na Agora fica só o card do NS.
 - **1.16.0:** aba Agora com os botões Total URA · CO · TEL no topo e a tabela de intervalos de 15 min (igual à da Evolução); saem as tabelas por grupo e a parte TEL · Parceira.
 - **1.15.0:** aba Agora com os mesmos gráficos da Evolução na hora atual (previsto até o fim da hora, barras preenchendo) e o painel Grupos e skills da hora, com filtro próprio.
@@ -229,7 +234,7 @@ Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta
 | `app.js` | telas, atualização automática, cópia no aparelho |
 | `sw.js` | cache offline só deste app (caches `ura-b2c-v…`); o `.json` de dados nunca passa pelo cache |
 | `manifest.webmanifest`, `icons/` | instalação no celular |
-| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `grupos.js`, `controles.js`, `fixar.js`, `chipsel.js`, `skills.js`, `avisos.js`, `filtro.js` e `historico.js` (Playwright), `historico.test.js` (contas do histórico) |
+| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `controles.js`, `chipsel.js`, `skills.js`, `avisos.js`, `filtro.js`, `historico.js`, `rolagem.js`, `agora.js`, `painel.js` e `titulos.js` (Playwright), `historico.test.js` (contas do histórico) |
 
 ## Antes de publicar
 1. **Mesma versão** em `APP_VERSION` (`app.js`), `VERSION` (`sw.js`) e nos `?v=` do `index.html`. O teste confere.

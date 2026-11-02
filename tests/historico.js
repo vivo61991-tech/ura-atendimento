@@ -4,7 +4,7 @@ const fs = require('fs'), path = require('path');
 const D = require('../dados.js'), Hs = require('../historico.js');
 const URL = process.env.URL || 'http://localhost:8765/ura/';
 const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1; } else console.log('ok  ', m); };
-const abrir = async p => { if (await p.locator('#pgEvo .topbar.fechado').count()) await p.click('#pgEvo .ctl-seta'); };
+const abrir = async p => {};   // os controles agora ficam sempre à vista (menus suspensos)
 // valores esperados calculados aqui, direto do arquivo (mesmos módulos, sem o navegador)
 const H = Hs.parse(fs.readFileSync(path.join(__dirname, 'historico_amostra.csv'), 'utf8'));   // já traz as colunas FILA
 const trad = require('./amostra.json').skills;
@@ -25,7 +25,7 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
     await p.reload(); await p.waitForFunction(() => window.__ura.estado().dados);
     await p.waitForFunction(() => window.__ura.estado().hist || window.__ura.estado().histErro);
     await p.click('nav.tabs button[data-v="evo"]');
-    await p.locator('#pgEvo .topbar.fechado').count() && await p.click('#pgEvo .ctl-seta'); await p.click('#pgEvo button[data-dir="CO"]'); await p.click('#pgEvo .ctl-seta'); // a Evolução abre no Total URA: estes testes usam o CO
+    await p.click('#pgEvo [data-menu="dir"]'); await p.click('#pgEvo button[data-dir="CO"]'); // a Evolução abre no Total URA: estes testes usam o CO
     return p;
   };
   const p = await nova();
@@ -82,7 +82,7 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   await p.click('#pgEvo .dn-hoje'); await p.waitForTimeout(150);
   ok((await nav()).t.trim() === 'sex, 30/10/2026' && await toastTx() === 'Ao vivo · Pulse', '"Hoje" volta para o dia ao vivo e avisa "Ao vivo · Pulse"');
   // 6) comparação: ligada por padrão com as 7 sextas; chave acima do primeiro gráfico
-  await abrir(p); await p.click('#pgEvo button[data-passo="60"]');
+  await abrir(p); await p.click('#pgEvo [data-menu="passo"]'); await p.click('#pgEvo button[data-passo="60"]');
   const ch = await p.$eval('#pgEvo .cmpk', k => ({ bts: [...k.querySelectorAll('button')].map(b => b.textContent + (b.classList.contains('on') ? '*' : '')),
     antes: k.getBoundingClientRect().bottom <= document.querySelector('#pgEvo .chart').getBoundingClientRect().top, fora: !k.closest('.topbar') }));
   ok(ch.bts.join('|') === '7 dias|7 sex*|Desligado' && ch.antes && ch.fora, 'chave "Previsto" acima do 1º gráfico, fora dos controles: ' + ch.bts.join(' · '));
@@ -127,8 +127,8 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   // comparação é lembrada; controles recolhidos com 4 botões cabem em 360 px
   await p.close();
   const q = await nova(URL, 360);
-  const rec = await q.$eval('#pgEvo .ctl-res', r => [...r.querySelectorAll('.ctl-p')].map(x => ({ t: x.textContent, corta: x.scrollWidth > x.clientWidth })));
-  ok(rec.length === 3 && rec.every(x => !x.corta), '360 px, recolhido: 3 botões inteiros (a comparação não está mais nos controles)');
+  const rec = await q.$$eval('#pgEvo .ctl-p span', ps => ps.map(x => ({ t: x.textContent, corta: x.scrollWidth > x.clientWidth })));
+  ok(rec.length === 3 && rec.every(x => !x.corta), '360 px: 3 botões dos controles inteiros (a comparação não está neles)');
   const cmpk = await q.$eval('#pgEvo .cmpk', k => [...k.querySelectorAll('button')].every(b => b.scrollWidth <= b.clientWidth));
   ok(cmpk, '360 px: chave "Previsto" sem texto cortado');
   const larg = await q.$$eval('#pgEvo .cmpk button', bs => bs.map(b => Math.round(b.getBoundingClientRect().width)));
@@ -137,12 +137,12 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   await q.click('#pgEvo [data-navdia="-1"]'); await q.waitForTimeout(100);
   const cont = await q.$eval('#pgEvo .dnav.hist', x => getComputedStyle(x).boxShadow);
   ok(!/1, 100, 201|0, 100, 201/.test(cont) && /100, 42, 144|0\.392157 0\.164706 0\.564706/.test(cont), 'dia do histórico: contorno roxo: ' + cont);
-  // domingo em vermelho bem escuro
+  // domingo na mesma cor do NS crítico (o número grande da aba Agora)
   await q.$eval('#dnData', i => { i.value = '2026-10-25'; i.dispatchEvent(new Event('change', { bubbles: true })); }); await q.waitForTimeout(100);
   const dom = await q.$eval('#pgEvo .dn-t b', b => [b.textContent, getComputedStyle(b).color]);
-  ok(dom[0] === 'dom, 25/10/2026' && dom[1] === 'rgb(139, 26, 26)', 'domingo em vermelho bem escuro: ' + dom.join(' '));
+  ok(dom[0] === 'dom, 25/10/2026' && dom[1] === 'rgb(196, 26, 96)', 'domingo na cor do NS crítico: ' + dom.join(' '));
   await q.$eval('#dnData', i => { i.value = '2026-10-24'; i.dispatchEvent(new Event('change', { bubbles: true })); }); await q.waitForTimeout(100);
-  ok(await q.$eval('#pgEvo .dn-t b', b => getComputedStyle(b).color) !== 'rgb(139, 26, 26)', 'sábado na cor normal');
+  ok(await q.$eval('#pgEvo .dn-t b', b => getComputedStyle(b).color) !== 'rgb(196, 26, 96)', 'sábado na cor normal');
   const caber = await q.$eval('#pgEvo .dn-t b', b => b.scrollWidth <= b.parentElement.parentElement.clientWidth + 1);
   ok(caber, '360 px: data inteira cabe na barra (com "Último")');
   await q.click('#pgEvo .dn-hoje'); await q.waitForTimeout(100);
@@ -171,7 +171,7 @@ const fI = n => Math.round(n).toLocaleString('pt-BR');
   await v.clock.install({ time: new Date('2026-10-31T09:15:00') });
   await v.goto(URL); await v.waitForFunction(() => window.__ura.estado().dados && window.__ura.estado().hist);
   await v.click('nav.tabs button[data-v="evo"]');
-  await v.locator('#pgEvo .topbar.fechado').count() && await v.click('#pgEvo .ctl-seta'); await v.click('#pgEvo button[data-dir="CO"]'); await v.click('#pgEvo .ctl-seta'); // a Evolução abre no Total URA: estes testes usam o CO
+  await v.click('#pgEvo [data-menu="dir"]'); await v.click('#pgEvo button[data-dir="CO"]'); // a Evolução abre no Total URA: estes testes usam o CO
   const nv = await v.$eval('#pgEvo .dnav', x => x.innerText.replace(/\s+/g, ' '));
   ok(/sex, 30\/10\/2026/.test(nv) && await v.$eval('#toast', t => t.textContent) === 'Pulse', 'Pulse de 30/10 aberto em 31/10: 30/10 continua do Pulse, aviso "Pulse" (' + nv.trim() + ')');
   ok(await v.locator('#pgEvo .chart h2:has-text("TÉCNICOS EM ESPERA")').count() === 1, 'continua com a fila do Pulse');

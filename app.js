@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.17.0';
+  const APP_VERSION = '1.18.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -42,7 +42,7 @@
   // Ao abrir o app, a Evolução começa SEMPRE nas primeiras opções (as da esquerda): Total URA · Por intervalo · Auto.
   // skill: filtro por skill (nome simplificado da tradutora), escolhido no painel "Grupos e skills"
   // abertos: grupos expandidos no painel (só enquanto o app está aberto)
-  const evo = { skill: null, abertos: new Set(), dir: 'TODOS', passo: 'auto', grupo: null, sel: null, modo: 'int', ctl: false, fixo: lerPref('fixo', false) === true,
+  const evo = { skill: null, abertos: new Set(), dir: 'TODOS', passo: 'auto', grupo: null, sel: null, modo: 'int', menu: null,
     dia: null, cmp: ['dias', 'sem', 'off'].includes(lerPref('cmp', 'sem')) ? lerPref('cmp', 'sem') : 'sem' };
   const sk = { dir: 'CO', q: '', zeros: false };
   // aba Agora: filtro do painel de grupos (grupo/skill), grupos abertos e coluna selecionada nos gráficos da hora
@@ -218,11 +218,7 @@
       <button class="bt" data-act="arq">Abrir arquivo JSON</button></div>`;
   }
 
-  // seta de recolher/abrir os controles da Evolução (canto inferior direito do cartão)
-  const setaCtl = aberto => `<button class="ctl-seta" data-act="ctl" aria-expanded="${aberto}" aria-label="${aberto ? 'Recolher' : 'Mostrar'} os controles" title="${aberto ? 'Recolher' : 'Mostrar'} os controles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${aberto ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'}"/></svg></button>`;
 
-  // alfinete de fixar os controles (só aparece com os controles abertos), à esquerda da seta
-  const pinoCtl = () => `<button class="ctl-pino${evo.fixo ? ' on' : ''}" data-act="fixar" aria-pressed="${evo.fixo}" aria-label="${evo.fixo ? 'Soltar' : 'Fixar'} os controles no topo" title="${evo.fixo ? 'Soltar' : 'Fixar'} os controles no topo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="pc" d="M9 3h6l-1 6 3 3v2H7v-2l3-3z"/><path d="M12 14v7"/></svg></button>`;
   // altura do topo roxo: os controles fixados ficam presos logo abaixo dele
   function medirTopo() { const h = document.querySelector('header.top'); if (h) document.documentElement.style.setProperty('--topo', h.offsetHeight + 'px'); }
 
@@ -517,6 +513,21 @@
     </div>`;
   }
 
+  // Controles da Evolução: três botões sempre à vista (atendimento · modo · eixo); cada um abre um menu suspenso com as
+  // opções; escolher fecha o menu e aplica. Tocar fora (ou Esc) fecha sem mudar nada.
+  function menuCtl(k, rotulo, opcoes, atual, nome) {
+    const ab = evo.menu === k;
+    return `<div class="ctl-m"><button class="ctl-p" data-menu="${k}" aria-haspopup="listbox" aria-expanded="${ab}" aria-label="${nome}: ${esc(rotulo)}">` +
+      `<span>${esc(rotulo)}</span><svg class="ctl-c" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>` +
+      (ab ? `<div class="ctl-menu" role="listbox" aria-label="${nome}">${opcoes.map(([v, t]) => { const on = String(atual) === String(v);
+        return `<button role="option" data-${k}="${v}" aria-selected="${on}" class="${on ? 'on' : ''}"><span>${esc(t)}</span>${on ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : ''}</button>`; }).join('')}</div>` : '') + '</div>';
+  }
+  function fecharMenu() {
+    if (!evo.menu) return;
+    evo.menu = null;
+    document.querySelectorAll('#pgEvo .ctl-menu').forEach(m => m.remove());
+    document.querySelectorAll('#pgEvo [data-menu]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+  }
   // Origem dos dados do dia em exibição: avisa no rodapé (some sozinho) ao entrar na Evolução e sempre que mudar.
   function avisoFonte(ctx) {
     const f = ctx.vivo ? (ctx.iso === hojeISO() ? 'Ao vivo · Pulse' : 'Pulse') : 'Histórico · Genesys';
@@ -592,14 +603,10 @@
     html += tabelaIntervalos(ivC, ivT, dir, passo, iSel, acum);
 
     el.innerHTML = `
-      <div class="evo-ctl${evo.fixo ? ' fixo' : ''}">
+      <div class="evo-ctl fixo">
       ${navDia(ctx)}
-      <div class="card topbar ${evo.ctl ? 'aberto' : 'fechado'}">
-        ${evo.ctl ? `<div class="seg" role="tablist" aria-label="Atendimento">${[['TODOS', 'Total URA'], ['CO', 'CO'], ['TEL', 'TEL']].map(([v, t]) => `<button data-dir="${v}" class="${dir === v ? 'on' : ''}">${t}</button>`).join('')}</div>
-        <div class="seg sm" role="tablist" aria-label="Modo">${[['int', 'Por intervalo'], ['acum', 'Acumulado']].map(([v, t]) => `<button data-modo="${v}" class="${evo.modo === v ? 'on' : ''}" aria-pressed="${evo.modo === v}">${t}</button>`).join('')}</div>
-        <div class="seg sm" role="tablist" aria-label="Intervalo do eixo">${['auto', 15, 30, 60, 120].map(p => `<button data-passo="${p}" class="${String(evo.passo) === String(p) ? 'on' : ''}">${PASSO_NOME[p]}</button>`).join('')}</div>
-        <div class="ctl-pe"><div class="meta-line"><span>${acum ? 'Acumulado · a cada ' + PASSO_NOME[passo] : 'Intervalos de ' + PASSO_NOME[passo]}${evo.passo === 'auto' ? ' (auto)' : ''}</span><span>08:00–${esc(L.horario)}</span></div>${pinoCtl()}${setaCtl(true)}</div>`
-        : `<div class="ctl-pe"><button class="ctl-res" data-act="ctl" aria-label="Mostrar os controles: ${esc(resumoCtl.join(', '))}">${resumoCtl.map(t => `<span class="ctl-p">${esc(t)}</span>`).join('')}</button>${setaCtl(false)}</div>`}
+      <div class="card topbar">
+        <div class="ctl-l">${menuCtl('dir', resumoCtl[0], [['TODOS', 'Total URA'], ['CO', 'CO'], ['TEL', 'TEL']], dir, 'Atendimento')}${menuCtl('modo', resumoCtl[1], [['int', 'Por intervalo'], ['acum', 'Acumulado']], evo.modo, 'Modo')}${menuCtl('passo', resumoCtl[2], ['auto', 15, 30, 60, 120].map(v => [v, v === 'auto' ? 'Auto · ' + PASSO_NOME[D.passoAuto(d, maxColunas(el))] : PASSO_NOME[v]]), evo.passo, 'Intervalo do eixo')}</div>
         ${iSel >= 0 ? `<button class="selchip" data-act="limpar"><span>Selecionado: <b>${tit(ivC[iSel])}</b> · toque para limpar</span><span aria-hidden="true">✕</span></button>` : ''}
       </div>
       <div class="chips${iSel >= 0 ? ' per' : ''}" role="group" aria-label="Grupo (oferecidas ${esc(ondeChip)})">${[null, ...grpsDisp].map(g => {
@@ -1021,8 +1028,9 @@
   function fecharSheet() { $('#sheet').classList.remove('show'); $('#sheetBg').classList.remove('show'); if (infoAberto && infoAberto.startsWith('sk-')) infoAberto = null; }
 
   // ---------------------------------------------------------------- eventos
-  function irPara(p) { pagina = p; infoAberto = null; evo.ctl = false; if (p === 'evo') evo.fonteVista = null; fecharSheet(); render(); window.scrollTo(0, 0); }
+  function irPara(p) { pagina = p; infoAberto = null; evo.menu = null; if (p === 'evo') evo.fonteVista = null; fecharSheet(); render(); window.scrollTo(0, 0); }
   document.addEventListener('click', e => {
+    if (evo.menu && !e.target.closest('.ctl-m')) fecharMenu();   // tocar fora fecha o menu (o toque continua valendo)
     const b = e.target.closest('button, tr[data-i], rect.hit');
     if (!b) { if (e.target.id === 'sheetBg') fecharSheet(); return; }
     if (b.closest('nav.tabs')) return irPara(b.dataset.v);
@@ -1031,8 +1039,7 @@
     if (b.dataset.fechaAviso != null) { avisosFechados.add(b.dataset.fechaAviso); return renderBanners(); }
     if (b.dataset.info) return alternarInfo(b.dataset.info);
     if (b.dataset.act === 'fechar') return fecharSheet();
-    if (b.dataset.act === 'ctl') { evo.ctl = !evo.ctl; return redesenhar(); }
-    if (b.dataset.act === 'fixar') { evo.fixo = !evo.fixo; gravarPref('fixo', evo.fixo); toast(evo.fixo ? 'Controles fixados no topo.' : 'Controles soltos.'); return redesenhar(); }
+    if (b.dataset.menu) { evo.menu = evo.menu === b.dataset.menu ? null : b.dataset.menu; return redesenhar(); }
     if (b.dataset.act === 'limpar') { evo.sel = null; return redesenhar(); }
     if (b.dataset.act === 'zeros') { sk.zeros = true; return render(); }
     if (b.dataset.sk) return abrirSkill(b.dataset.sk, b.dataset.skd);
@@ -1046,8 +1053,8 @@
       if (c && !c.futuro) { ag.sel = ag.sel === c.ini ? null : c.ini; redesenhar(b); }
       return;
     }
-    if (b.dataset.dir && b.closest('#pgEvo')) { evo.dir = b.dataset.dir; evo.grupo = null; evo.skill = null; evo.sel = null; return redesenhar(); }
-    if (b.dataset.modo) { evo.modo = b.dataset.modo; return redesenhar(); }
+    if (b.dataset.dir && b.closest('#pgEvo')) { evo.menu = null; evo.dir = b.dataset.dir; evo.grupo = null; evo.skill = null; evo.sel = null; return redesenhar(); }
+    if (b.dataset.modo) { evo.menu = null; evo.modo = b.dataset.modo; return redesenhar(); }
     if (b.dataset.cmp) { evo.cmp = b.dataset.cmp; gravarPref('cmp', evo.cmp); return redesenhar(); }
     if (b.dataset.navdia) {
       // navegar entre os dias: a coluna selecionada continua (mesmo horário em outro dia)
@@ -1057,7 +1064,7 @@
       evo.dia = i === lista.length - 1 ? null : lista[i];
       return redesenhar();
     }
-    if (b.dataset.passo) { evo.passo = b.dataset.passo === 'auto' ? 'auto' : +b.dataset.passo; evo.sel = null; return redesenhar(); }
+    if (b.dataset.passo) { evo.menu = null; evo.passo = b.dataset.passo === 'auto' ? 'auto' : +b.dataset.passo; evo.sel = null; return redesenhar(); }
     if (b.dataset.grp != null && b.classList.contains('chip')) {
       // tocar no grupo já selecionado desmarca e volta para "Todos os grupos"
       const g = b.dataset.grp || null;
@@ -1132,7 +1139,7 @@
     }
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') fecharSheet();
+    if (e.key === 'Escape') { fecharSheet(); fecharMenu(); }
   });
   $('#arq').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) abrirArquivo(f); e.target.value = ''; });
   let largAnt = window.innerWidth;
