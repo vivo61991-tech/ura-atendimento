@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.28.2';
+  const APP_VERSION = '1.29.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -296,7 +296,8 @@
   // última coleta). Sempre o Total URA. O previsto usa a mesma chave da Evolução; com o previsto desligado, os alarmes
   // usam os mesmos dias da semana (eles não podem desligar). A página sempre abre em Agora.
   // aberto: alarme com o detalhe aberto · a configuração (alarmes desligados por visão) fica guardada no aparelho
-  const al = { vista: 'agora', aberto: null, filtroEvo: 'todos' };
+  // filEvo: níveis marcados no filtro do resumo da Evolução (vazio = lista inteira; pode combinar mais de um)
+  const al = { vista: 'agora', aberto: null, filEvo: new Set() };
   const VISTAS_AL = [['agora', 'Agora'], ['dia', 'Hoje']];
   let alCache = null;
   function metricasAlarme() {
@@ -513,17 +514,19 @@
       return { tipo: t.id, nome: t.nome, nivel: pior.nivel, valor, comp };
     });
     const n = k => linhas.filter(x => x.nivel === k).length;
-    const f = ['todos', 'crit', 'aten', 'ok'].includes(al.filtroEvo) ? al.filtroEvo : 'todos';
-    const vis = f === 'todos' ? linhas : linhas.filter(x => x.nivel === f);
-    // três cápsulas: tocar filtra; tocar de novo na mesma desmarca; com filtro, o X à direita limpa
-    const pil = (k, ic, rot) => `<button class="al-pill ${k === 'crit' ? 'c' : k === 'aten' ? 'a' : 'o'}${f === k ? ' on' : ''}" data-alfil="${f === k ? 'todos' : k}" data-alk="${k}" aria-pressed="${f === k}">${ic}${rot}</button>`;
+    const fs = al.filEvo, comFiltro = fs.size > 0;
+    const vis = comFiltro ? linhas.filter(x => fs.has(x.nivel)) : linhas;
+    // três cápsulas: tocar filtra; com uma marcada, as outras ganham o "+" no canto (somar ao filtro);
+    // tocar numa marcada tira só ela; o X à direita limpa tudo
+    const pil = (k, ic, rot) => { const on = fs.has(k), mais = comFiltro && !on;
+      return `<button class="al-pill ${k === 'crit' ? 'c' : k === 'aten' ? 'a' : 'o'}${on ? ' on' : ''}${mais ? ' mais' : ''}" data-alk="${k}" aria-pressed="${on}"${mais ? ` aria-label="${rot}: somar ao filtro"` : ''}>${ic}${rot}${mais ? '<b class="al-mais-ic" aria-hidden="true">+</b>' : ''}</button>`; };
     const nC = n('crit'), nA = n('aten'), nO = n('ok');
     const filtros = `<div class="al-res al-fil" role="group" aria-label="Filtrar alarmes do dia">
-      ${pil('crit', ICO_AL.crit, `${nC} ${nC === 1 ? 'crítico' : 'críticos'}`)}${pil('aten', ICO_AL.aten, `${nA} atenção`)}${pil('ok', ICO_AL.ok, `${nO} ${nO === 1 ? 'normal' : 'normais'}`)}${f !== 'todos' ? `<button class="al-pill al-x" data-alfil="todos" aria-label="Limpar o filtro" title="Limpar o filtro"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></svg></button>` : ''}</div>`;
+      ${pil('crit', ICO_AL.crit, `${nC} ${nC === 1 ? 'crítico' : 'críticos'}`)}${pil('aten', ICO_AL.aten, `${nA} atenção`)}${pil('ok', ICO_AL.ok, `${nO} ${nO === 1 ? 'normal' : 'normais'}`)}${comFiltro ? `<button class="al-pill al-x" data-alfil="todos" aria-label="Limpar o filtro" title="Limpar o filtro"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></svg></button>` : ''}</div>`;
     const rotulo = { crit: 'crítico', aten: 'em atenção', ok: 'normal', na: 'sem dado' };
     const corpo = vis.length ? `<ul class="al-okl alr">${vis.map(x => `<li class="alr-${x.nivel}" data-alr="${esc(x.tipo)}"><span class="alr-ic" title="${rotulo[x.nivel]}">${ICO_AL[x.nivel]}</span>` +
         `<span class="al-okx"><span class="al-okn">${esc(x.nome)}</span>${x.comp ? `<span class="al-okr">${esc(x.comp)}</span>` : ''}</span><b class="al-okv num">${esc(x.valor)}</b></li>`).join('')}</ul>`
-      : `<p class="alr-vazio">Nenhum alarme ${f === 'crit' ? 'crítico' : f === 'aten' ? 'em atenção' : 'normal'} neste dia.</p>`;
+      : `<p class="alr-vazio">Nenhum alarme ${[...fs].map(k => ({ crit: 'crítico', aten: 'em atenção', ok: 'normal' })[k]).join(' ou ')} neste dia.</p>`;
     const L = ctx.d.leituras[ctx.d.leituras.length - 1];
     const quando = ctx.vivo ? `dia até ${esc(ultima().horario)}` : 'fechamento do dia';
     return `<div class="card alarmes alresumo" data-ch="evo-alarmes">
@@ -1476,7 +1479,8 @@
     if (b.dataset.alvista) { al.vista = b.dataset.alvista; al.aberto = null; renderBadge(avaliarAlarmes()); return redesenhar(); }
     if (b.dataset.al != null) { al.aberto = al.aberto === b.dataset.al ? null : b.dataset.al; return redesenhar(b); }
     if (b.dataset.alcfg != null) return abrirCfgAlarmes();
-    if (b.dataset.alfil) { al.filtroEvo = b.dataset.alfil; return redesenhar(b); }
+    if (b.dataset.alfil) { al.filEvo.clear(); return redesenhar(b); }
+    if (b.dataset.alk) { const k = b.dataset.alk; if (al.filEvo.has(k)) al.filEvo.delete(k); else al.filEvo.add(k); return redesenhar(b); }
     if (b.dataset.alver != null) return verAlarme(b.dataset.alver);
     if (b.dataset.alsil != null) {
       const k = 'alarmes:' + al.vista, h = lerPref(k, null); if (!h) return;

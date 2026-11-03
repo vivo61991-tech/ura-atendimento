@@ -1,6 +1,6 @@
 // Resumo dos alarmes do dia na Evolução (o último item da tela): acompanha a data escolhida (fechamento do dia; no dia do Pulse, até a última
 // coleta), uma linha por tipo na ordem da configuração (fixa ao trocar de dia), ícone em cada linha, cápsulas de filtro
-// (críticos, atenção, normais; tocar de novo ou no X limpa) e configuração própria (coluna "Evolução").
+// (críticos, atenção, normais; dá para combinar pelo "+"; tocar de novo tira; o X limpa) e configuração própria (coluna "Evolução").
 const { chromium } = require('/home/claude/.npm-global/lib/node_modules/playwright');
 const A = require('../alarmes.js');
 const URL = process.env.URL || 'http://localhost:8765/ura/';
@@ -48,6 +48,8 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   ok(l.length === 1 && l[0].t === 'ns' && await p.$eval(`${R} [data-alk="aten"]`, x => x.classList.contains('on')), 'filtro "atenção": só o NS');
   const x1 = await p.$eval(`${R} .al-fil`, f => { const bs = [...f.children], x = f.querySelector('.al-x'); return { ultimo: bs[bs.length - 1] === x, linha: bs.every(b => Math.abs(b.getBoundingClientRect().top - bs[0].getBoundingClientRect().top) < 2) }; });
   ok(x1.ultimo && x1.linha, 'com filtro: cápsula com X à direita, tudo numa linha');
+  const mais = await p.$$eval(`${R} .al-fil [data-alk]`, bs => bs.map(b => b.dataset.alk + ':' + (b.querySelector('.al-mais-ic') ? '+' : '')).join());
+  ok(mais === 'crit:+,aten:,ok:+', `com uma marcada, as outras ganham o "+" no canto (${mais})`);
   await p.click(`${R} [data-alk="aten"]`); await p.waitForTimeout(120);
   ok((await linhas()).length === 12 && await p.locator(`${R} .al-x`).count() === 0, 'tocar de novo no filtro marcado desmarca (lista inteira, sem o X)');
   await p.click(`${R} [data-alk="aten"]`); await p.click(`${R} .al-x`); await p.waitForTimeout(120);
@@ -57,8 +59,13 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   await p.click('#pgEvo [data-navdia="1"]'); await p.waitForTimeout(250);
   l = await linhas();
   ok(l.map(x => x.t).join() === 'ns,aband' && l.every(x => x.n === 'crit'), 'o filtro continua ao trocar de dia: 30/10 mostra os 2 críticos');
+  // combinações: críticos + normais
   await p.click(`${R} [data-alk="ok"]`); await p.waitForTimeout(120);
-  ok((await linhas()).every(x => x.n === 'ok') && (await linhas()).length === 10, 'filtro "normais": 10');
+  l = await linhas();
+  ok(l.length === 12 && l.filter(x => x.n === 'crit').length === 2 && l.filter(x => x.n === 'ok').length === 10 && l.map(x => x.t).join() === ordem, 'tocar no "+" de normais soma: críticos + normais (na ordem da configuração)');
+  ok(await p.$$eval(`${R} .al-fil .on`, bs => bs.map(b => b.dataset.alk).join()) === 'crit,ok' && await p.locator(`${R} .al-mais-ic`).count() === 1, 'duas marcadas; só a de atenção fica com o "+"');
+  await p.click(`${R} [data-alk="crit"]`); await p.waitForTimeout(120);
+  ok((await linhas()).every(x => x.n === 'ok') && (await linhas()).length === 10, 'tocar numa marcada tira só ela: ficam as 10 normais');
   await p.click(`${R} .al-x`); await p.waitForTimeout(120);
   ok((await linhas()).length === 12, 'X: volta a lista inteira');
   // configuração própria (coluna Evolução)
