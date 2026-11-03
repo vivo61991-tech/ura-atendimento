@@ -25,8 +25,16 @@ const AGORA = 19 * 60 + 15;
   ok(ch === '7 dias|7 sex*|Desligado', 'Agora: chave Previsto acima da hora atual: ' + ch);
   // cards: mediana do dia até 19:15 (mesmo minuto da última coleta)
   const nsM = med('sem', (d, co) => D.agregarEm(d, AGORA, co).ns), ofM = med('sem', (d, co) => D.agregarEm(d, AGORA, co).ofer);
+  // cartão de NS: a hora aberta (19:00 até a coleta das 19:15), ÷ finalizadas; o NS do dia embaixo
+  const nsHM = med('sem', (d, co) => D.intervaloEm(d, 19 * 60, AGORA, co).ns);
   const hero = await p.$eval(`${pg} .hero .meta.hr`, x => x.textContent.replace(/\s+/g, ' '));
-  ok(hero.includes('med. 7 sex: ' + fP(nsM)), `NS do dia: mediana até 19:15 = ${fP(nsM)} (${hero.trim()})`);
+  ok(hero.includes('med. 7 sex: ' + fP(nsHM)), `NS da hora: mediana 19:00–19:15 = ${fP(nsHM)} (${hero.trim()})`);
+  const pv = await p.evaluate(() => { const d = window.__ura.estado().dados; return { leituras: d.leituras, skills: d.skills, trad: d.trad }; });
+  const coP = D.filtro(pv, { dir: 'CO' }), Lf = pv.leituras[pv.leituras.length - 1], L19 = pv.leituras.filter(l => l.m <= 19 * 60).pop();
+  const hh = D.delta(D.agregar(Lf, coP), D.agregar(L19, coP)), dDia = D.agregar(Lf, coP);
+  const heroTx = await p.$eval(`${pg} .hero`, x => x.innerText.replace(/\s+/g, ' '));
+  ok(heroTx.startsWith('NS 5 min · CO ' + fP(hh.ns) + ' 19:00–19:15') && heroTx.includes(`${fI(hh.a300)} de ${fI(hh.fin)} finalizadas na hora`) && heroTx.includes(`no dia: ${fP(dDia.ns)}`),
+    `cartão de NS: a hora aberta ${fP(hh.ns)} (${fI(hh.a300)} de ${fI(hh.fin)}), e o dia ${fP(dDia.ns)} embaixo`);
   // botões do topo (iguais aos da aba Skills, na ordem da Evolução); começa em Total URA
   const bts = await p.$$eval(`${pg} .agdir button`, bs => bs.map(b => b.textContent + (b.classList.contains('on') ? '*' : '')).join('|'));
   ok(bts === 'Total URA*|CO|TEL' && await p.$eval(`${pg} > *`, x => x.classList.contains('agdir')), 'topo da Agora: Total URA (marcado) · CO · TEL: ' + bts);

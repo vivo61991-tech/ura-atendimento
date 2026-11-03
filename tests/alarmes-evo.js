@@ -68,6 +68,23 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   ok((await linhas()).every(x => x.n === 'ok') && (await linhas()).length === 10, 'tocar numa marcada tira só ela: ficam as 10 normais');
   await p.click(`${R} .al-x`); await p.waitForTimeout(120);
   ok((await linhas()).length === 12, 'X: volta a lista inteira');
+  // filtros do topo da Evolução: o resumo mostra o comportamento do grupo (e do CO/TEL) escolhido
+  const pv = await p.evaluate(() => { const d = window.__ura.estado().dados; return { leituras: d.leituras, skills: d.skills, trad: d.trad }; });
+  const D = require('../dados.js'), fP = n => n.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+  const Lp = pv.leituras[pv.leituras.length - 1], G = 'SUPORTE BANDA LARGA';
+  const aBL = D.agregar(Lp, D.filtro(pv, { dir: 'CO', grupo: G }));
+  await p.click(`#pgEvo .chips [data-grp="${G}"]`); await p.waitForTimeout(300);
+  l = await linhas();
+  ok(await p.$eval(`${R} .alr-filtro`, x => x.textContent) === G && l.find(x => x.t === 'ns').v === fP(aBL.ns) && l.find(x => x.t === 'aband').v === String(aBL.aband),
+    `grupo ${G}: o resumo mostra o grupo (NS ${fP(aBL.ns)}, abandonadas ${aBL.aband})`);
+  await p.click('#pgEvo [data-menu="dir"]'); await p.click('#pgEvo .ctl-menu button[data-dir="CO"]'); await p.waitForTimeout(300);
+  l = await linhas();
+  const aCO = D.agregar(Lp, D.filtro(pv, { dir: 'CO' }));
+  ok(/^CO$/.test(await p.$eval(`${R} .alr-filtro`, x => x.textContent)) && l.find(x => x.t === 'ns').v === fP(aCO.ns) && l.find(x => x.t === 'tel').n === 'na',
+    `CO: o resumo só do CO (NS ${fP(aCO.ns)}); CO/TEL fica sem dado`);
+  await p.click('#pgEvo [data-menu="dir"]'); await p.click('#pgEvo .ctl-menu button[data-dir="TODOS"]'); await p.waitForTimeout(300);
+  l = await linhas();
+  ok(await p.locator(`${R} .alr-filtro`).count() === 0 && l.find(x => x.t === 'ns').v === '61,2%', 'Total URA sem grupo: volta ao resumo da URA inteira (NS 61,2%)');
   // configuração própria (coluna Evolução)
   await p.click(`${R} .al-cfg`); await p.waitForTimeout(250);
   ok(await p.$eval('#sheet', s => [...s.querySelectorAll('th')].map(x => x.textContent).join('|')) === 'Alarme|Agora|Hoje|Evolução', 'configuração com a coluna "Evolução"');

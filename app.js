@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.30.0';
+  const APP_VERSION = '1.31.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -312,17 +312,19 @@
     m.atrasoMin = m.vivo ? Math.max(0, minutosDesde(L.col) || 0) : 0;
     return m;
   }
-  function calcularMetricasAlarme(d, L, tipo) {
-    const co = D.filtro(d, { dir: 'CO' }), tel = D.filtro(d, { dir: 'TEL' });
+  // sel: filtro da Evolução { dir, grupo, skill } para o resumo do dia (null = a URA inteira, como na página Alarmes)
+  function calcularMetricasAlarme(d, L, tipo, sel) {
+    const sk = (dd, dir) => !sel ? D.filtro(dd, { dir }) : sel.dir !== 'TODOS' && sel.dir !== dir ? [] : filtroEvo(dd, dir, sel);
+    const co = sk(d, 'CO'), tel = sk(d, 'TEL'), perm = new Set(co.concat(tel));
     const refs = hist ? Hs.referencias(hist, d.dia, tipo) : [];
-    const porRef = refs.map(r => { const dR = Hs.diaComoDados(hist, r, d.trad); return { dR, coR: D.filtro(dR, { dir: 'CO' }), telR: D.filtro(dR, { dir: 'TEL' }) }; });
+    const porRef = refs.map(r => { const dR = Hs.diaComoDados(hist, r, d.trad), coR = sk(dR, 'CO'), telR = sk(dR, 'TEL'); return { dR, coR, telR, todos: coR.concat(telR) }; });
     const med = f => porRef.length ? Hs.mediana(porRef.map(f)) : null;
     const cmpNome = refs.length ? refs.length + ' ' + (tipo === 'dias' ? 'dias' : DS_CURTO[Hs.diaSemana(d.dia)]) : '';
     // grupos (todos os atendimentos)
     const gmap = new Map();
-    d.skills.forEach(s => { const t = d.trad[s], g = t.SKILL_GRUPO; if (!g) return; if (!gmap.has(g)) gmap.set(g, { ss: [], dirs: new Set() }); gmap.get(g).ss.push(s); gmap.get(g).dirs.add(t.DIRECIONAMENTO); });
+    d.skills.forEach(s => { const t = d.trad[s], g = t.SKILL_GRUPO; if (!g || !perm.has(s)) return; if (!gmap.has(g)) gmap.set(g, { ss: [], dirs: new Set() }); gmap.get(g).ss.push(s); gmap.get(g).dirs.add(t.DIRECIONAMENTO); });
     // fila agora (CO), por skill
-    const filas = [...porSimpl(d, 'CO').entries()].map(([nome, ss]) => ({ nome, a: D.agregar(L, ss) })).filter(x => x.a.fila > 0).sort((x, y) => y.a.espMax - x.a.espMax || y.a.fila - x.a.fila);
+    const filas = [...porSimpl(d, 'CO').entries()].map(([nome, ss]) => ({ nome, a: D.agregar(L, ss.filter(s => perm.has(s))) })).filter(x => x.a.fila > 0).sort((x, y) => y.a.espMax - x.a.espMax || y.a.fila - x.a.fila);
     const ondeFila = filas.map(x => ({ nome: x.nome, tx: fI(x.a.fila) + ' esperando, ' + fS(x.a.espMax) }));
     // maior fila (técnicos em espera) no trecho: retratos depois do início até o fim (no histórico, o retrato no fim é proporcional)
     // dia do histórico sem a fila (fora do arquivo): sem dado de técnicos em espera
@@ -337,7 +339,7 @@
       const cC = hoje(co), cT = hoje(tel);
       const telPct = (c, t) => c.ofer + t.ofer > 0 ? t.ofer / (c.ofer + t.ofer) * 100 : null;
       const grupos = [...gmap.entries()].map(([g, x]) => ({ g, dir: x.dirs.size === 1 ? [...x.dirs][0] : 'TODOS', v: hoje(x.ss).ofer,
-        prev: med(r => ref(r.dR, D.filtro(r.dR, { grupo: g })).ofer) }));
+        prev: med(r => ref(r.dR, r.todos.filter(s => r.dR.trad[s] && r.dR.trad[s].SKILL_GRUPO === g)).ofer) }));
       const porGrupo = f => [...gmap.entries()].map(([g, x]) => ({ g, v: f(x.ss.filter(s => d.trad[s].DIRECIONAMENTO === 'CO')) })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
       const picos = porRef.map(r => picoRef(r, ini));
       return {
@@ -347,7 +349,8 @@
         co: { ofer: cC.ofer, fin: fin(cC), a300: cC.a300, ns: cC.ns, aband: cC.aband, abandPct: cC.abandPct, tme: cC.tme, tma: cC.tma, dir60: cC.dir60 },
         prev: { ns: med(r => ref(r.dR, r.coR).ns), aband: med(r => ref(r.dR, r.coR).aband), tme: med(r => ref(r.dR, r.coR).tme), tma: med(r => ref(r.dR, r.coR).tma),
           dir60: cC.dir60 == null ? null : med(r => ref(r.dR, r.coR).dir60) },
-        telPct: telPct(cC, cT), telPctPrev: med(r => telPct(ref(r.dR, r.coR), ref(r.dR, r.telR))),
+        // CO/TEL: só faz sentido com os dois atendimentos (sem o filtro de CO ou TEL)
+        telPct: sel && sel.dir !== 'TODOS' ? null : telPct(cC, cT), telPctPrev: sel && sel.dir !== 'TODOS' ? null : med(r => telPct(ref(r.dR, r.coR), ref(r.dR, r.telR))),
         filaPico: picoHoje(ini), filaPicoPrev: picos.some(x => x != null) ? Hs.mediana(picos) : null,
         filaDiasRef: picos.filter(x => x != null && x > 0).length, filaRefs: picos.filter(x => x != null).length,
         grupos: porRef.length ? grupos : null,
@@ -361,14 +364,15 @@
       };
     }
     // hora aberta: a mesma janela dos gráficos da hora (na virada da hora, a hora anterior)
-    let desde = Math.floor(L.m / 60) * 60; if (desde === L.m) desde -= 60; if (desde < D.INICIO) desde = D.INICIO;
+    const desde = inicioHora(L.m);
     // skills paradas: nenhuma chamada nos últimos 60 min (só depois da primeira hora do expediente)
     const skR = (dR, ss) => { const nomes = new Set(ss.map(s => d.trad[s].SKILL_SIMPLIFICADO)); return dR.skills.filter(s => dR.trad[s] && nomes.has(dR.trad[s].SKILL_SIMPLIFICADO)); };
     let paradas = null;
     // (retrato da última hora: só no dia do Pulse; num dia fechado do histórico não se aplica)
     if (porRef.length && L.m - 60 >= D.INICIO && !d.historico) {
       paradas = [];
-      porSimpl(d, 'TODOS').forEach((ss, nome) => {
+      porSimpl(d, 'TODOS').forEach((ss0, nome) => {
+        const ss = ss0.filter(s => perm.has(s)); if (!ss.length) return;
         if (D.delta(D.agregar(L, ss), D.agregarEm(d, L.m - 60, ss)).ofer > 0) return;
         const prev = med(r => D.intervaloEm(r.dR, L.m - 60, L.m, skR(r.dR, ss)).ofer);
         if (prev != null) paradas.push({ nome, prev, dir: d.trad[ss[0]].DIRECIONAMENTO });
@@ -483,15 +487,17 @@
   // coleta). Uma linha por tipo de alarme, sempre na ordem da configuração (a lista não muda de lugar ao trocar de dia);
   // as cápsulas do topo (Todos, críticos, em atenção, normais) filtram a lista. Não é interativo como a página Alarmes.
   let alEvoCache = null;
+  // com os filtros do topo da Evolução (Total URA/CO/TEL, grupo, skill): mostra o comportamento de cada grupo
+  const selEvo = () => evo.dir === 'TODOS' && !evo.grupo && !evo.skill ? null : { dir: evo.dir, grupo: evo.grupo, skill: evo.skill };
   function metricasDiaEvo(ctx) {
-    if (ctx.vivo) return metricasAlarme();
+    const sel = selEvo();
+    if (ctx.vivo && !sel) return metricasAlarme();
     const tipo = evo.cmp === 'off' ? 'sem' : evo.cmp;
-    const k = [ctx.iso, tipo, hist ? hist.lista.length + ':' + hist.inicio + ':' + hist.fim + ':' + histOrigem : '-'].join('|');
-    if (alEvoCache && alEvoCache.k === k && alEvoCache.h === hist && alEvoCache.d === ctx.d) return alEvoCache.m;
-    const L = ctx.d.leituras[ctx.d.leituras.length - 1];
-    const m = calcularMetricasAlarme(ctx.d, L, tipo);
-    m.vivo = false; m.atrasoMin = 0;
-    alEvoCache = { k, h: hist, d: ctx.d, m };
+    const k = [ctx.iso, tipo, ctx.vivo ? ultima().m + ':' + ultima().col : '', sel ? [sel.dir, sel.grupo, sel.skill].join('/') : '', hist ? hist.lista.length + ':' + hist.inicio + ':' + hist.fim + ':' + histOrigem : '-'].join('|');
+    let m;
+    if (alEvoCache && alEvoCache.k === k && alEvoCache.h === hist && alEvoCache.d === ctx.d) m = alEvoCache.m;
+    else { m = calcularMetricasAlarme(ctx.d, ctx.d.leituras[ctx.d.leituras.length - 1], tipo, sel); alEvoCache = { k, h: hist, d: ctx.d, m }; }
+    if (ctx.vivo) { const v = metricasAlarme(); m.vivo = v.vivo; m.atrasoMin = v.atrasoMin; } else { m.vivo = false; m.atrasoMin = 0; }
     return m;
   }
   const PESO_AL = { crit: 0, aten: 1, ok: 2, na: 3 };
@@ -532,6 +538,7 @@
     return `<div class="card alarmes alresumo" data-ch="evo-alarmes">
       <div class="al-cab"><h2>Alarmes do dia</h2><span class="t">${quando}${m.cmpNome ? ' · med. ' + esc(m.cmpNome) : ''}</span></div>
       <button class="al-cfg" data-alcfg aria-label="Configurar alarmes" title="Configurar alarmes">${ICO_AL.cfg}</button>
+      ${selEvo() ? `<div class="ch-filtro alr-filtro" title="Filtro aplicado">${esc(textoFiltro(ctx.d, evo.dir, evo))}</div>` : ''}
       ${filtros}${corpo}
       <p class="alr-pe">Regras da visão Hoje aplicadas ao dia escolhido${ctx.vivo ? '' : ' (em espera sem agente, skills sem chamadas e coleta são retratos do momento e só valem no dia de hoje)'}.${desl.size ? ` <button class="lnk" data-alcfg>${desl.size} ${desl.size === 1 ? 'desligado' : 'desligados'} · configurar</button>` : ''}</p>
     </div>`;
@@ -571,27 +578,34 @@
     }
   }
 
+  // hora aberta: de HH:00 até a última coleta; na virada da hora (coleta às HH:00), a hora anterior inteira
+  function inicioHora(m) { let h = Math.floor(m / 60) * 60; if (h === m) h -= 60; return Math.max(D.INICIO, h); }
+
   function renderAgora() {
     const d = dados, L = ultima(), dir = ag.dir;
     const co = D.filtro(d, { dir: 'CO' }), tel = D.filtro(d, { dir: 'TEL' });
     const a = D.agregar(L, co), t = D.agregar(L, tel);
-    const sit = situacao(a.ns);
-    const pctBar = a.ns == null ? 0 : Math.min(100, a.ns);
+    // cartão de NS: a HORA ABERTA (o mesmo NS do alarme na visão Agora), ÷ finalizadas na hora; o NS do dia fica embaixo
+    const hIni = inicioHora(L.m), lIni = [...d.leituras].reverse().find(x => x.m <= hIni) || null;
+    const hC = D.delta(a, D.agregar(lIni, co));
+    const sit = situacao(hC.ns);
+    const pctBar = hC.ns == null ? 0 : Math.min(100, hC.ns);
     const cmp = cmpAgora();
-    const dC = r => D.agregarEm(r.dR, L.m, r.coR), dT = r => D.agregarEm(r.dR, L.m, r.telR);
-    const mDia = f => medAg(cmp, r => f(dC(r), dT(r)));
+    const nsMedHora = medAg(cmp, r => D.intervaloEm(r.dR, hIni, L.m, r.coR).ns);
+    const faixaHora = `${D.hhmm(hIni)}–${D.hhmm(L.m)}`;
 
     // botões do topo: mesmos da aba Skills, na ordem da Evolução
     const botoes = `<div class="seg agdir" role="tablist" aria-label="Atendimento">${[['TODOS', 'Total URA'], ['CO', 'CO'], ['TEL', 'TEL']].map(([v, tx]) => `<button data-agdir="${v}" class="${dir === v ? 'on' : ''}" aria-pressed="${dir === v}">${tx}</button>`).join('')}</div>`;
 
     const hero = `<div class="card">
       <div class="hero">
-        <div><div class="lbl">NS <span class="un">5 min</span> · CO</div><div class="big num c-${sit || 'x'}">${a.ns == null ? '—' : fP(a.ns)}</div></div>
+        <div><div class="lbl">NS <span class="un">5 min</span> · CO</div><div class="big num c-${sit || 'x'}">${hC.ns == null ? '—' : fP(hC.ns)}</div><div class="lbl hr-f">${faixaHora}</div></div>
         <div class="dir">
           <div>${sit ? `<span class="pill st-${sit}">${STATUS[sit]}</span>` : '<span class="pill" style="background:var(--grid)">Sem chamadas</span>'}</div>
           <div class="prog" aria-hidden="true"><i style="width:${pctBar}%;background:${corSit(sit)}"></i><b style="left:calc(${META_NS}% - 1px)"></b></div>
-          <div class="meta">meta ${META_NS}% · ${fI(a.a300)} de ${fI(a.ofer)} oferecidas atendidas em até 5&nbsp;min</div>
-          ${cmp ? `<div class="meta hr">${linhaMed(cmp, mDia(x => x.ns), x => fP(x), a.ns, true)}</div>` : ''}
+          <div class="meta">meta ${META_NS}% · ${hC.fin ? `${fI(hC.a300)} de ${fI(hC.fin)} finalizadas na hora em até 5&nbsp;min` : 'nenhuma chamada finalizada ainda nesta hora'}</div>
+          ${cmp ? `<div class="meta hr">${linhaMed(cmp, nsMedHora, x => fP(x), hC.ns, true)}</div>` : ''}
+          <div class="meta dia">no dia: <b class="c-${situacao(a.ns) || 'x'}">${a.ns == null ? '—' : fP(a.ns)}</b> · ${fI(a.a300)} de ${fI(a.ofer)} oferecidas</div>
         </div>
       </div></div>`;
     // sem os cards (os totais ficam nos gráficos da hora); só o NS do dia, e na TEL o aviso de que ela é só volume
@@ -617,7 +631,7 @@
     const titulo = { TODOS: 'URA · Suporte B2C', CO: 'CO · Centro de Operações', TEL: 'TEL · Parceira' }[dir];
     $('#pgAgora').innerHTML = `
       ${botoes}
-      <h2 class="sec">${titulo}<span class="sp"></span><span class="rt">acumulado do dia</span></h2>
+      <h2 class="sec">${titulo}<span class="sp"></span><span class="rt">${dir === 'TEL' ? 'acumulado do dia' : 'NS da hora aberta'}</span></h2>
       ${dir === 'TEL' ? telNota : hero}
       ${dir === 'TEL' ? '' : `<h2 class="sec">Em espera agora <span class="ct num">${fI(a.fila)}</span><span class="sp"></span><span class="rt">${esc(L.horario)} · ${fI(a.dispMax)} ${a.dispMax === 1 ? 'agente disponível' : 'agentes disponíveis'}</span></h2>${filaHtml}`}
       ${hora}

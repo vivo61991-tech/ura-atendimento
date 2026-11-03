@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.30.0)
+# URA · Suporte B2C (v1.31.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -185,11 +185,17 @@ Alarmes, com o previsto da chave Previsto.
 - Três cápsulas no topo servem de filtro: **críticos**, **atenção** e **normais**. Tocar numa filtra; com uma marcada,
   as outras ganham um **+** no canto e tocar nelas soma ao filtro (ex.: críticos + atenção). Tocar numa marcada tira
   só ela; o **X** à direita limpa tudo. O filtro continua ao trocar de dia.
+- **Segue os filtros do topo da Evolução**: Total URA/CO/TEL, o grupo (faixa de grupos) e a skill (painel Grupos e skills).
+  Com um filtro, o cartão mostra qual é (ex.: "SUPORTE BANDA LARGA") e os alarmes passam a ser os daquele grupo; com CO
+  ou TEL escolhido, o alarme CO/TEL fica sem dado.
 - Engrenagem: a mesma configuração da página Alarmes, com uma coluna própria **Evolução**.
 - Em dias passados, Em espera sem agente, Skills sem chamadas e Coleta aparecem como "só vale no dia de hoje":
   são retratos do momento que o histórico não tem.
 
 ## Aba Agora
+O cartão de NS mostra o **NS da hora aberta** (de HH:00 até a última coleta, ÷ finalizadas na hora — o mesmo número do
+alarme de NS na visão Agora), com a mediana da mesma hora; embaixo, menor, o NS do dia.
+
 - No topo, os botões **Total URA · CO · TEL** (os mesmos da aba Skills, na ordem da Evolução); começa sempre em Total URA.
   - Total URA: NS do CO, Oferecidas URA (CO e TEL), abandonadas, em espera, TME, últimos 15 min (CO + TEL), agentes.
   - CO: os cards do CO. TEL: só o volume (sem NS, fila ou tempos — a TEL é atendida em outro sistema).
@@ -287,6 +293,7 @@ O WhatsApp e o Teams guardam a prévia de links já enviados; para ver a nova, e
 (ex.: `…/ura-atendimento/?v=2`).
 
 ## Versões
+- **1.31.0:** cartão de NS da aba Agora com o NS da hora aberta (o do dia fica embaixo); "Alarmes do dia" da Evolução seguem os filtros do topo (Total URA/CO/TEL, grupo e skill).
 - **1.30.0:** barra de data na aba Skills, sincronizada com a Evolução (sem o botão Horas/Dia); lista e detalhe da skill no dia escolhido; botão "Hoje" verde ("Último" continua roxo).
 - **1.29.1:** prévia do link com o ícone do app ao compartilhar no WhatsApp e no Teams (etiquetas Open Graph e imagem `icons/compartilhar.png`).
 - **1.29.0:** filtro do resumo da Evolução com combinação: "+" no canto das cápsulas não marcadas para somar ao filtro.
