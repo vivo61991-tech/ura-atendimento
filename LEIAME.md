@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.29.1)
+# URA · Suporte B2C (v1.30.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -271,6 +271,13 @@ Alarmes, com o previsto da chave Previsto.
   - A coluna em andamento não tem mediana (comparar parte do intervalo com o intervalo inteiro enganaria).
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
+## Aba Skills: data do dia
+A aba Skills tem a mesma barra de data da Evolução (‹ dia ›, seletor de data e o botão de voltar), sem o botão
+Horas/Dia. **A data é uma só para as duas abas**: trocar numa troca na outra. A lista e o detalhe da skill mostram o
+dia escolhido; num dia do histórico ficam de fora os retratos do momento (em espera agora, agentes logados, EWT), que
+o histórico não tem. O detalhe aberto pela lista "Em espera agora" da aba Agora é sempre o dia ao vivo.
+O botão de voltar fica **verde** quando diz **Hoje** e **roxo** quando diz **Último** (o último dia com dados não é hoje).
+
 ## Compartilhar o link (WhatsApp, Teams)
 O `index.html` tem as etiquetas de prévia de link (Open Graph): ao colar o endereço
 `https://vivo61991-tech.github.io/ura-atendimento/` numa conversa, aparece a imagem `icons/compartilhar.png`
@@ -280,6 +287,7 @@ O WhatsApp e o Teams guardam a prévia de links já enviados; para ver a nova, e
 (ex.: `…/ura-atendimento/?v=2`).
 
 ## Versões
+- **1.30.0:** barra de data na aba Skills, sincronizada com a Evolução (sem o botão Horas/Dia); lista e detalhe da skill no dia escolhido; botão "Hoje" verde ("Último" continua roxo).
 - **1.29.1:** prévia do link com o ícone do app ao compartilhar no WhatsApp e no Teams (etiquetas Open Graph e imagem `icons/compartilhar.png`).
 - **1.29.0:** filtro do resumo da Evolução com combinação: "+" no canto das cápsulas não marcadas para somar ao filtro.
 - **1.28.2:** resumo da Evolução só com as três cápsulas (críticos, atenção, normais), numa linha; tocar de novo desmarca e o X limpa o filtro.
@@ -350,7 +358,7 @@ O WhatsApp e o Teams guardam a prévia de links já enviados; para ver a nova, e
 | `app.js` | telas, atualização automática, cópia no aparelho |
 | `sw.js` | cache offline só deste app (caches `ura-b2c-v…`); o `.json` de dados nunca passa pelo cache |
 | `manifest.webmanifest`, `icons/` | instalação no celular; `icons/compartilhar.png` é a imagem da prévia do link |
-| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `controles.js`, `chipsel.js`, `skills.js`, `avisos.js`, `filtro.js`, `historico.js`, `rolagem.js`, `agora.js`, `painel.js` e `titulos.js`, `dia.js`, `sincronia.js`, `arrastar.js`, `alarmes.js` e `alarmes-evo.js` (Playwright), `historico.test.js` (contas do histórico), `alarmes.test.js` (regras dos alarmes), `compartilhar.test.js` (prévia do link) |
+| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `controles.js`, `chipsel.js`, `skills.js`, `avisos.js`, `filtro.js`, `historico.js`, `rolagem.js`, `agora.js`, `painel.js` e `titulos.js`, `dia.js`, `sincronia.js`, `arrastar.js`, `alarmes.js`, `alarmes-evo.js` e `skills-dia.js` (Playwright), `historico.test.js` (contas do histórico), `alarmes.test.js` (regras dos alarmes), `compartilhar.test.js` (prévia do link) |
 
 ## Antes de publicar
 1. **Mesma versão** em `APP_VERSION` (`app.js`), `VERSION` (`sw.js`) e nos `?v=` do `index.html`. O teste confere.

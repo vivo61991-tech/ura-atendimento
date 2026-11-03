@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.29.1';
+  const APP_VERSION = '1.30.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -799,7 +799,9 @@
   }
 
   // barra de data da Evolução: ‹ dia ›, seletor de data e "Hoje"/"Último"
-  function navDia(ctx) {
+  // opt.semVis: sem o botão Horas/Dia (aba Skills) · opt.idData: id do seletor de data (um por aba)
+  function navDia(ctx, opt) {
+    opt = opt || {};
     const { lista, i } = ctx, ult = lista[lista.length - 1];
     const w = Hs ? Hs.diaSemana(ctx.iso) : 0;
     // a origem dos dados (Pulse / histórico) não fica na barra: aparece no rodapé quando muda (avisoFonte).
@@ -809,10 +811,10 @@
     return `<div class="dnav${ctx.vivo ? '' : ' hist'}">
       <button class="dn-b" data-navdia="-1"${i > 0 ? '' : ' disabled'} aria-label="Dia anterior">${seta('M15 6l-6 6 6 6')}</button>
       <label class="dn-d"><span class="dn-t"><b class="${w === 0 ? 'dom' : ''}">${DS_CURTO[w]}, ${ddmmaaaa(ctx.iso)}</b>${st ? `<small>${esc(st)}</small>` : ''}</span>
-        <input type="date" id="dnData" min="${lista[0]}" max="${ult}" value="${ctx.iso}" aria-label="Escolher o dia"></label>
+        <input type="date" id="${opt.idData || 'dnData'}" class="dn-data" min="${lista[0]}" max="${ult}" value="${ctx.iso}" aria-label="Escolher o dia"></label>
       <button class="dn-b" data-navdia="1"${i < lista.length - 1 ? '' : ' disabled'} aria-label="Próximo dia">${seta('M9 6l6 6-6 6')}</button>
-      ${i < lista.length - 1 ? `<button class="dn-hoje" data-navdia="fim">${ult === hojeISO() ? 'Hoje' : 'Último'}</button>` : ''}
-      <button class="dn-vis" data-vis="${evo.vista === 'dia' ? 'hora' : 'dia'}" aria-label="Eixo: ${evo.vista === 'dia' ? 'dias' : 'horas'} — tocar para ver por ${evo.vista === 'dia' ? 'horas' : 'dia'}" title="Alternar o eixo entre horas e dias">${evo.vista === 'dia' ? 'Dia' : 'Horas'}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></button>
+      ${i < lista.length - 1 ? `<button class="dn-hoje${ult === hojeISO() ? ' hoje' : ''}" data-navdia="fim">${ult === hojeISO() ? 'Hoje' : 'Último'}</button>` : ''}
+      ${opt.semVis ? '' : `<button class="dn-vis" data-vis="${evo.vista === 'dia' ? 'hora' : 'dia'}" aria-label="Eixo: ${evo.vista === 'dia' ? 'dias' : 'horas'} — tocar para ver por ${evo.vista === 'dia' ? 'horas' : 'dia'}" title="Alternar o eixo entre horas e dias">${evo.vista === 'dia' ? 'Dia' : 'Horas'}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></button>`}
     </div>`;
   }
 
@@ -975,7 +977,7 @@
   }
   // a data da barra começa em 18 px e só diminui se não couber (tela estreita com "Último" e o botão Horas/Dia)
   function ajustarData() {
-    const b = $('#pgEvo .dn-t b'); if (!b) return;
+    const b = $(pgAtual() + ' .dn-t b'); if (!b) return;
     const caixa = b.closest('.dn-d'); let fs = 18;
     b.style.fontSize = '';
     while (fs > 12 && b.scrollWidth > caixa.clientWidth - 6) { fs -= 0.5; b.style.fontSize = fs + 'px'; }
@@ -1300,7 +1302,7 @@
 
   // ---------------------------------------------------------------- SKILLS
   function renderSkills() {
-    const d = dados, L = ultima();
+    const S = skCtx(), d = S.d, L = S.L, quando = S.vivo ? 'hoje' : 'no dia';
     const q = sk.q.trim().toLowerCase();
     const lista = [...porSimpl(d, sk.dir).entries()].filter(([nome, ss]) => {
       if (!q) return true;
@@ -1328,26 +1330,35 @@
         <span class="nv">${dir}</span></button>`;
     };
     $('#pgSkills').innerHTML = `
+      ${navDia(S.ctx, { semVis: true, idData: 'dnDataSk' })}
       <div class="tools">
         <div class="seg" role="tablist" aria-label="Atendimento">${[['TODOS', 'Total URA'], ['CO', 'CO'], ['TEL', 'TEL']].map(([v, t]) => `<button data-skdir="${v}" class="${sk.dir === v ? 'on' : ''}">${t}</button>`).join('')}</div>
         <label class="srch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="search" id="skQ" type="search" placeholder="Buscar skill, grupo, rede…" autocomplete="off" value="${esc(sk.q)}" aria-label="Buscar skill"></label>
       </div>
-      <h2 class="sec">Com chamadas hoje <span class="ct num">${com.length}</span><span class="sp"></span><span class="rt">oferecidas</span></h2>
+      <h2 class="sec">Com chamadas ${quando} <span class="ct num">${com.length}</span><span class="sp"></span><span class="rt">oferecidas</span></h2>
       <div class="fl">${com.length ? com.map(item).join('') : '<p class="nota" style="padding:4px">Nenhuma skill com chamadas.</p>'}</div>
-      ${sem.length ? (sk.zeros ? `<h2 class="sec">Sem chamadas hoje <span class="ct num">${sem.length}</span></h2><div class="fl">${sem.map(item).join('')}</div>`
-        : `<button class="zeros" data-act="zeros">Mostrar ${sem.length} skill(s) sem chamadas hoje</button>`) : ''}`;
+      ${sem.length ? (sk.zeros ? `<h2 class="sec">Sem chamadas ${quando} <span class="ct num">${sem.length}</span></h2><div class="fl">${sem.map(item).join('')}</div>`
+        : `<button class="zeros" data-act="zeros">Mostrar ${sem.length} skill(s) sem chamadas ${quando}</button>`) : ''}`;
+    ajustarData();
   }
 
+  // Dia da aba Skills = a data escolhida na Evolução (as duas andam juntas). O detalhe aberto de outra aba (a lista
+  // "Em espera agora" da Agora) é sempre o dia ao vivo.
+  function skCtx() {
+    if (pagina !== 'skills') return { d: dados, L: ultima(), vivo: true, iso: dados.dia };
+    const c = diaEvo(), L = c.d.leituras[c.d.leituras.length - 1];
+    return { d: c.d, L, vivo: c.vivo, iso: c.iso, ctx: c };
+  }
   // Peso da skill no dia: representatividade (% das oferecidas da URA, CO + TEL) e rank entre as mais acionadas.
   // O rank usa a mesma lista da aba Skills em "Total URA" (nomes simplificados); empate divide a posição (1º, 2º, 2º, 4º).
   function rankEntre(mapa, nome) {
-    const L = ultima(), vol = [...mapa.entries()].map(([n, ss]) => ({ n, v: D.agregar(L, ss).ofer }));
+    const L = skCtx().L, vol = [...mapa.entries()].map(([n, ss]) => ({ n, v: D.agregar(L, ss).ofer }));
     const meu = vol.find(x => x.n === nome);
     if (!meu) return null;
     return { pos: 1 + vol.filter(x => x.v > meu.v).length, de: vol.length, empate: vol.filter(x => x.v === meu.v).length > 1 };
   }
   function cartaoPeso(nome, ss, a, dirSk) {
-    const d = dados, L = ultima();
+    const { d, L, vivo } = skCtx();
     const tot = D.agregar(L, D.filtro(d, { dir: 'TODOS' })).ofer;
     const rep = tot ? a.ofer / tot * 100 : null;
     const rk = rankEntre(porSimpl(d, 'TODOS'), nome);
@@ -1359,13 +1370,13 @@
       <div><div class="l">Representatividade</div><div class="v num">${rep == null ? '—' : fP(rep)}</div>
         <div class="s">${fI(a.ofer)} de ${fI(tot)} oferecidas${nDir && totDir ? ` · ${fP(a.ofer / totDir * 100)} ${nDir === 'CO' ? 'do CO' : 'da TEL'}` : ''}</div></div>
       <div><div class="l">Rank</div><div class="v num">${pos(rk)}<small> de ${rk ? rk.de : '—'}</small></div>
-        <div class="s">${a.ofer ? 'mais acionadas da URA' : 'sem chamadas hoje'}${rk && rk.empate ? ' (empate)' : ''}${rkDir && a.ofer ? ` · ${pos(rkDir)} ${nDir === 'CO' ? 'no CO' : 'na TEL'}` : ''}</div></div>
+        <div class="s">${a.ofer ? 'mais acionadas da URA' : vivo ? 'sem chamadas hoje' : 'sem chamadas no dia'}${rk && rk.empate ? ' (empate)' : ''}${rkDir && a.ofer ? ` · ${pos(rkDir)} ${nDir === 'CO' ? 'no CO' : 'na TEL'}` : ''}</div></div>
     </div></div>`;
   }
 
   // detalhe de uma skill simplificada (janela de baixo): soma das skills do Pulse que têm esse nome na tradutora
   function abrirSkill(nome, dirSk) {
-    const d = dados, L = ultima();
+    const S = skCtx(), d = S.d, L = S.L;
     const ss = porSimpl(d, dirSk).get(nome);
     if (!ss) return;
     const t = d.trad[ss[0]];
@@ -1382,8 +1393,9 @@
     const kp = isCO
       ? kpi('Oferecidas', fI(a.ofer), 'atendidas ' + fI(a.atend)) + kpi('NS 5 min', nsTx(a.ns), `meta ${META_NS}%`) +
         kpi('Abandonadas', fI(a.aband), a.abandPct == null ? '' : fP(a.abandPct)) + kpi('TME', fS(a.tme), 'TMA ' + fS(a.tma)) +
-        kpi('Em espera agora', fI(a.fila), a.fila ? 'mais antiga ' + fS(a.espMax) : 'nenhuma') + kpi('Agentes logados', fI(a.agMax), fI(a.dispMax) + ' disponíveis')
-      : kpi('Oferecidas', fI(a.ofer), 'no dia') + kpi('EWT', ewtTx(ewt.length ? Math.min(...ewt) : null), 'espera estimada');
+        // retratos do momento (em espera agora, agentes, EWT): só no dia ao vivo; o histórico não tem
+        (S.vivo ? kpi('Em espera agora', fI(a.fila), a.fila ? 'mais antiga ' + fS(a.espMax) : 'nenhuma') + kpi('Agentes logados', fI(a.agMax), fI(a.dispMax) + ' disponíveis') : '')
+      : kpi('Oferecidas', fI(a.ofer), 'no dia') + (S.vivo ? kpi('EWT', ewtTx(ewt.length ? Math.min(...ewt) : null), 'espera estimada') : '');
     // campos da tradutora: os comuns a todas as skills do grupo (os que variam aparecem na tabela de skills)
     const ign = new Set(['SKILL_SIMPLIFICADO']);
     const kv = Object.keys(t).filter(k => !ign.has(k)).map(k => {
@@ -1391,15 +1403,15 @@
       return `<dt>${esc(k.replace(/^SKILL_/, '').replace(/_/g, ' ').toLowerCase())}</dt><dd>${vals.map(esc).join(' / ')}</dd>`;
     }).join('');
     const linhas = ss.map(s => ({ s, a: D.agregar(L, [s]) })).sort((x, y) => y.a.ofer - x.a.ofer).map(x =>
-      `<tr><td style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;font-weight:600;word-break:break-all">${esc(D.curto(x.s))}</td><td>${fI(x.a.ofer)}</td>${isCO ? `<td>${nsTx(x.a.ns)}</td><td>${fI(x.a.fila)}</td>` : ''}</tr>`).join('');
-    const tabSk = `<div class="card"><h2>Skills no Pulse <small>· ${ss.length}</small></h2><div class="tw"><table class="conf"><thead><tr><th>Skill</th><th>Ofer.</th>${isCO ? '<th>NS</th><th>Em esp.</th>' : ''}</tr></thead><tbody>${linhas}</tbody></table></div></div>`;
+      `<tr><td style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;font-weight:600;word-break:break-all">${esc(D.curto(x.s))}</td><td>${fI(x.a.ofer)}</td>${isCO ? `<td>${nsTx(x.a.ns)}</td>${S.vivo ? `<td>${fI(x.a.fila)}</td>` : ''}` : ''}</tr>`).join('');
+    const tabSk = `<div class="card"><h2>Skills no Pulse <small>· ${ss.length}</small></h2><div class="tw"><table class="conf"><thead><tr><th>Skill</th><th>Ofer.</th>${isCO ? '<th>NS</th>' + (S.vivo ? '<th>Em esp.</th>' : '') : ''}</tr></thead><tbody>${linhas}</tbody></table></div></div>`;
     sh.innerHTML = `<button class="fechar" data-act="fechar" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
       <h3>${esc(nome)}</h3><div class="sub">${esc(dirSk)} · ${esc(t.SKILL_GRUPO)}${ss.length > 1 ? ' · ' + ss.length + ' skills do Pulse' : ' · ' + esc(ss[0])}</div>
       ${cartaoPeso(nome, ss, a, dirSk)}
       <div class="kpis2">${kp}</div>
       ${cartaoGraf('sk-of', `Oferecidas por intervalo <small>· ${PASSO_NOME[passo]}</small>`, G.barras({ cols, aria: 'Oferecidas por intervalo da skill' }),
         `<div class="legend">${isCO ? '<span><i style="background:var(--sCO)"></i>oferecidas</span><span><i style="background:var(--sAb)"></i>parte abandonada</span>' : '<span><i style="background:var(--sTEL)"></i>oferecidas</span>'}</div>` +
-        `<div class="cap">Coleta das ${esc(L.horario)}.</div>`)}
+        `<div class="cap">${S.vivo ? `Coleta das ${esc(L.horario)}.` : `Dia ${ddmmaaaa(S.iso)} (histórico Genesys).`}</div>`)}
       ${ss.length > 1 ? tabSk : ''}
       <div class="card"><h2>Tradutora</h2><dl class="kv">${kv}</dl></div>`;
     sh.scrollTop = 0;
@@ -1576,7 +1588,7 @@
       gravarDesligados(c); desenharCfg(); render();
       return;
     }
-    if (e.target.id !== 'dnData') return;
+    if (!e.target.classList || !e.target.classList.contains('dn-data')) return;
     const v = e.target.value, lista = diasDisp();
     if (!v) return;
     if (!lista.includes(v)) { toast(`Sem dados de ${ddmmaaaa(v)}.`); return redesenhar(); }
