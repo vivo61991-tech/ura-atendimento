@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.26.1';
+  const APP_VERSION = '1.27.0';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -416,12 +416,16 @@
   function renderAlarmes(res) {
     const pg = $('#pgAlarmes');
     if (!res) { pg.innerHTML = '<div class="card"><p class="nota">Os alarmes aparecem assim que houver a primeira coleta do dia.</p></div>'; return; }
-    const v = al.vista, r = res[v], outra = VISTAS_AL.find(x => x[0] !== v), ro = res[outra[0]];
+    const v = al.vista, r = res[v];
     const L = ultima(), m = metricasAlarme(), P = m[v];
     alUltimos = r.ligados;
     if (al.aberto && !r.vis.some(x => x.id === al.aberto)) al.aberto = null;
-    const botoes = `<div class="seg alvista" role="tablist" aria-label="Visão dos alarmes">${VISTAS_AL.map(([k, tx]) => `<button data-alvista="${k}" class="${v === k ? 'on' : ''}" aria-pressed="${v === k}">${tx}</button>`).join('')}</div>`;
-    const resumoOutra = `<button class="al-outra${ro.nC ? ' c' : ro.nA ? ' a' : ''}" data-alvista="${outra[0]}"><span>${outra[1]}:</span> <b>${contagem(ro, true)}</b><i>›</i></button>`;
+    // botões Agora · Hoje com a bolinha no canto: quantos alarmes ativos em cada visão (rosa se houver crítico)
+    const bolinha = x => x.vis.length ? `<b class="nb${x.nC ? '' : ' aten'}" aria-hidden="true">${x.vis.length > 99 ? '99+' : x.vis.length}</b>` : '';
+    const botoes = `<div class="seg alvista" role="tablist" aria-label="Visão dos alarmes">${VISTAS_AL.map(([k, tx]) => `<button data-alvista="${k}" class="${v === k ? 'on' : ''}" aria-pressed="${v === k}" aria-label="${tx}: ${contagem(res[k], true)}">${tx}${bolinha(res[k])}</button>`).join('')}</div>`;
+    // título fora do cartão, com "ativos / ligados na configuração" da visão escolhida (por tipo de alarme)
+    const nTipos = window.Alarmes.TIPOS.length - r.desl.size, nAtivos = new Set(r.vis.map(x => x.tipo)).size;
+    const titulo = `<h2 class="sec al-sec">Alarmes<span class="sp"></span><span class="al-qt num${r.nC ? ' c' : r.nA ? ' a' : ''}" title="alarmes ativos / ligados na configuração (${v === 'agora' ? 'Agora' : 'Hoje'})" aria-label="${nAtivos} de ${nTipos} alarmes ligados estão ativos"><b>${nAtivos}</b>/${nTipos}</span></h2>`;
     const h = r.h;
     const linha = x => {
       const ab = al.aberto === x.id, c = x.nivel === 'crit' ? 'c' : 'a';
@@ -458,9 +462,9 @@
       Sempre no Total URA. O previsto é a mediana ${evo.cmp === 'dias' ? 'dos 7 dias anteriores' : 'dos 7 mesmos dias da semana'} no mesmo trecho do dia${evo.cmp === 'off' ? ' (com o previsto desligado, os alarmes usam os mesmos dias da semana)' : ''}.</p>
       <ul>${r.lista.filter((x, i, a) => a.findIndex(y => y.tipo === x.tipo) === i).map(x => `<li><b>${esc(A_NOME(x.tipo))}:</b> ${esc(x.regra)}</li>`).join('')}</ul>
       <p>"Desde", o último alarme encerrado e os silenciados ficam guardados neste aparelho, separados por visão, e recomeçam a cada dia. Silenciar esconde o alarme por 1 h. A engrenagem liga e desliga cada alarme em cada visão.</p>`;
-    pg.innerHTML = `${botoes}${resumoOutra}
+    pg.innerHTML = `${botoes}${titulo}
       <div class="card alarmes" data-ch="alarmes">
-        <div class="al-cab"><h2>Alarmes</h2><span class="t">${periodo}${m.cmpNome ? ' · med. ' + esc(m.cmpNome) : ''}</span></div>
+        <div class="al-cab"><h2>${v === 'agora' ? 'Agora' : 'Hoje'}</h2><span class="t">${periodo}${m.cmpNome ? ' · med. ' + esc(m.cmpNome) : ''}</span></div>
         <button class="al-cfg" data-alcfg aria-label="Configurar alarmes" title="Configurar alarmes">${ICO_AL.cfg}</button>
         ${corpo}
         <div class="al-pe"><span>${pe}</span><button class="info" data-info="alarmes" aria-expanded="${ab}" aria-controls="inf-alarmes" aria-label="${ab ? 'Esconder' : 'Mostrar'} a explicação dos alarmes" title="Como os alarmes funcionam">${ICONE_INFO}</button></div>

@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.26.1)
+# URA · Suporte B2C (v1.27.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -140,7 +140,10 @@ só houver em atenção; some quando não há nenhum).
   - **Agora** = a hora aberta (de HH:00 até a última coleta; na virada da hora, a hora anterior). Mostra se o problema
     continua e quando volta ao normal.
   - **Hoje** = o dia até a última coleta (o acumulado).
-  - Embaixo da chave, um resumo da outra visão (ex.: "Hoje: 2 críticos ›"); tocar nele troca de visão.
+  - Cada botão tem uma bolinha no canto superior direito com quantos alarmes estão ativos naquela visão (rosa se
+    houver crítico, laranja se só em atenção).
+  - Embaixo dos botões, o título **Alarmes** com "ativos/ligados" à direita (ex.: 2/12 = 2 tipos de alarme ativos
+    entre os 12 ligados na configuração da visão escolhida). Dentro do cartão, o título é **Agora** ou **Hoje**.
 - **Previsto** = mediana dos dias da chave Previsto (7 mesmos dias da semana ou 7 dias corridos) **no mesmo trecho do
   dia** (a mesma hora até o mesmo minuto, ou o dia até o mesmo horário). Com o previsto desligado, os alarmes usam os
   mesmos dias da semana. Sem previsto ou com poucas chamadas, a regra aparece como "sem dado para avaliar".
@@ -254,6 +257,7 @@ Limites iniciais (modelo para ajustar; ficam todos em `LIM` no começo do `alarm
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.27.0:** bolinhas com a quantidade nos botões Agora e Hoje; título "Alarmes" fora do cartão com ativos/ligados (ex.: 2/12); o cartão passa a se chamar Agora ou Hoje.
 - **1.26.1:** só o nome do indicador e o número ficam na cor do nível; o texto de baixo volta às cores normais.
 - **1.26.0:** alarmes críticos e em atenção no formato das normais (nome e número na cor do nível, complemento menor em negrito na mesma cor); nomes padronizados em gráficos, tabelas, cartões e alarmes: Oferecidas, Em espera, Atendidos direto, NS, Abandonadas, TME, TMA.
 - **1.25.1:** verificações normais em lista, uma cápsula por linha, com o número atual e a referência (meta, mediana ou limite) que mostra que está normal.

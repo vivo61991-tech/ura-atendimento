@@ -443,10 +443,13 @@ table.conf tr.aberto td{--lst:color-mix(in srgb,var(--p500) 9%,var(--card));back
 @media (prefers-color-scheme: dark){.al-tg,.al-bt{color:#d3b5f0;border-color:#4a3466}}
 /* página Alarmes */
 .alvista{margin-bottom:8px}
-.al-outra{display:flex;align-items:center;gap:4px;width:100%;border:0;background:none;padding:2px 6px 10px;font-size:12.5px;color:var(--ink2);cursor:pointer;text-align:left}
-.al-outra b{font-weight:750;color:var(--ok)}
-.al-outra.c b{color:var(--bad)}.al-outra.a b{color:var(--warn)}
-.al-outra i{font-style:normal;margin-left:auto;color:var(--ink3);font-size:16px;line-height:1}
+.alvista button{position:relative;overflow:visible}
+.alvista .nb{position:absolute;top:-8px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:var(--rosa);color:#fff;font-size:11px;font-weight:800;line-height:16px;text-align:center;border:2px solid var(--bg);font-variant-numeric:tabular-nums;box-shadow:0 1px 3px rgba(31,12,48,.2)}
+.alvista .nb.aten{background:var(--laranja)}
+h2.sec.al-sec{margin:16px 4px 8px}
+.al-qt{font-size:13px;letter-spacing:0;text-transform:none;font-weight:600;color:var(--ink3);white-space:nowrap}
+.al-qt b{font-size:15px;font-weight:800;color:var(--ok)}
+.al-qt.c b{color:var(--bad)}.al-qt.a b{color:var(--warn)}
 .card.alarmes{position:relative}
 .card.alarmes .al-cab{padding-right:34px}
 .al-cfg{position:absolute;top:8px;right:8px;width:34px;height:34px;border-radius:50%;border:0;background:var(--p50);color:var(--p700);display:grid;place-items:center;cursor:pointer}
@@ -509,10 +512,10 @@ nav.tabs .nb[hidden]{display:none}
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Detalhe"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="dados.js?v=1.26.1"></script>
-<script src="graf.js?v=1.26.1"></script>
-<script src="historico.js?v=1.26.1"></script>
-<script src="alarmes.js?v=1.26.1"></script>
-<script src="app.js?v=1.26.1"></script>
+<script src="dados.js?v=1.27.0"></script>
+<script src="graf.js?v=1.27.0"></script>
+<script src="historico.js?v=1.27.0"></script>
+<script src="alarmes.js?v=1.27.0"></script>
+<script src="app.js?v=1.27.0"></script>
 </body>
 </html>
