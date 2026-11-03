@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.29.0)
+# URA · Suporte B2C (v1.29.1)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -271,7 +271,16 @@ Alarmes, com o previsto da chave Previsto.
   - A coluna em andamento não tem mediana (comparar parte do intervalo com o intervalo inteiro enganaria).
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
+## Compartilhar o link (WhatsApp, Teams)
+O `index.html` tem as etiquetas de prévia de link (Open Graph): ao colar o endereço
+`https://vivo61991-tech.github.io/ura-atendimento/` numa conversa, aparece a imagem `icons/compartilhar.png`
+(1200×630, com o ícone e o nome do app), o título e a descrição. O endereço da imagem precisa ser completo: se o app
+mudar de endereço, troque nas etiquetas `og:url`, `og:image`, `og:image:secure_url`, `twitter:image` e `image_src`.
+O WhatsApp e o Teams guardam a prévia de links já enviados; para ver a nova, envie o link com algo no fim
+(ex.: `…/ura-atendimento/?v=2`).
+
 ## Versões
+- **1.29.1:** prévia do link com o ícone do app ao compartilhar no WhatsApp e no Teams (etiquetas Open Graph e imagem `icons/compartilhar.png`).
 - **1.29.0:** filtro do resumo da Evolução com combinação: "+" no canto das cápsulas não marcadas para somar ao filtro.
 - **1.28.2:** resumo da Evolução só com as três cápsulas (críticos, atenção, normais), numa linha; tocar de novo desmarca e o X limpa o filtro.
 - **1.28.1:** o resumo "Alarmes do dia" passa a ser o último item da Evolução.
@@ -340,8 +349,8 @@ Alarmes, com o previsto da chave Previsto.
 | `graf.js` | gráfico de colunas em SVG |
 | `app.js` | telas, atualização automática, cópia no aparelho |
 | `sw.js` | cache offline só deste app (caches `ura-b2c-v…`); o `.json` de dados nunca passa pelo cache |
-| `manifest.webmanifest`, `icons/` | instalação no celular |
-| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `controles.js`, `chipsel.js`, `skills.js`, `avisos.js`, `filtro.js`, `historico.js`, `rolagem.js`, `agora.js`, `painel.js` e `titulos.js`, `dia.js`, `sincronia.js`, `arrastar.js`, `alarmes.js` e `alarmes-evo.js` (Playwright), `historico.test.js` (contas do histórico), `alarmes.test.js` (regras dos alarmes) |
+| `manifest.webmanifest`, `icons/` | instalação no celular; `icons/compartilhar.png` é a imagem da prévia do link |
+| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `controles.js`, `chipsel.js`, `skills.js`, `avisos.js`, `filtro.js`, `historico.js`, `rolagem.js`, `agora.js`, `painel.js` e `titulos.js`, `dia.js`, `sincronia.js`, `arrastar.js`, `alarmes.js` e `alarmes-evo.js` (Playwright), `historico.test.js` (contas do histórico), `alarmes.test.js` (regras dos alarmes), `compartilhar.test.js` (prévia do link) |
 
 ## Antes de publicar
 1. **Mesma versão** em `APP_VERSION` (`app.js`), `VERSION` (`sw.js`) e nos `?v=` do `index.html`. O teste confere.
