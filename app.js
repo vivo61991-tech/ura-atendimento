@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.28.1';
+  const APP_VERSION = '1.28.2';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -515,10 +515,11 @@
     const n = k => linhas.filter(x => x.nivel === k).length;
     const f = ['todos', 'crit', 'aten', 'ok'].includes(al.filtroEvo) ? al.filtroEvo : 'todos';
     const vis = f === 'todos' ? linhas : linhas.filter(x => x.nivel === f);
-    const pil = (k, ic, rot) => `<button class="al-pill ${k === 'todos' ? 't' : k === 'crit' ? 'c' : k === 'aten' ? 'a' : 'o'}${f === k ? ' on' : ''}" data-alfil="${k}" aria-pressed="${f === k}">${ic}${rot}</button>`;
-    const nT = linhas.length, nC = n('crit'), nA = n('aten'), nO = n('ok');
+    // três cápsulas: tocar filtra; tocar de novo na mesma desmarca; com filtro, o X à direita limpa
+    const pil = (k, ic, rot) => `<button class="al-pill ${k === 'crit' ? 'c' : k === 'aten' ? 'a' : 'o'}${f === k ? ' on' : ''}" data-alfil="${f === k ? 'todos' : k}" data-alk="${k}" aria-pressed="${f === k}">${ic}${rot}</button>`;
+    const nC = n('crit'), nA = n('aten'), nO = n('ok');
     const filtros = `<div class="al-res al-fil" role="group" aria-label="Filtrar alarmes do dia">
-      ${pil('todos', ICO_AL.todos, `Todos ${nT}`)}${pil('crit', ICO_AL.crit, `${nC} ${nC === 1 ? 'crítico' : 'críticos'}`)}${pil('aten', ICO_AL.aten, `${nA} em atenção`)}${pil('ok', ICO_AL.ok, `${nO} ${nO === 1 ? 'normal' : 'normais'}`)}</div>`;
+      ${pil('crit', ICO_AL.crit, `${nC} ${nC === 1 ? 'crítico' : 'críticos'}`)}${pil('aten', ICO_AL.aten, `${nA} atenção`)}${pil('ok', ICO_AL.ok, `${nO} ${nO === 1 ? 'normal' : 'normais'}`)}${f !== 'todos' ? `<button class="al-pill al-x" data-alfil="todos" aria-label="Limpar o filtro" title="Limpar o filtro"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></svg></button>` : ''}</div>`;
     const rotulo = { crit: 'crítico', aten: 'em atenção', ok: 'normal', na: 'sem dado' };
     const corpo = vis.length ? `<ul class="al-okl alr">${vis.map(x => `<li class="alr-${x.nivel}" data-alr="${esc(x.tipo)}"><span class="alr-ic" title="${rotulo[x.nivel]}">${ICO_AL[x.nivel]}</span>` +
         `<span class="al-okx"><span class="al-okn">${esc(x.nome)}</span>${x.comp ? `<span class="al-okr">${esc(x.comp)}</span>` : ''}</span><b class="al-okv num">${esc(x.valor)}</b></li>`).join('')}</ul>`

@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.28.1)
+# URA · Suporte B2C (v1.28.2)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -182,7 +182,8 @@ Alarmes, com o previsto da chave Previsto.
 - Simplificado e fixo: **uma linha por tipo de alarme, sempre na ordem da configuração**, com o ícone do nível
   (crítico, em atenção, normal ou sem dado), o nome e o número na cor do nível e a referência embaixo. Ao trocar de dia
   a lista não muda de lugar, só os números e as cores: dá para ver a movimentação de um dia para o outro.
-- Cápsulas no topo servem de filtro: **Todos**, críticos, em atenção e normais (o filtro continua ao trocar de dia).
+- Três cápsulas no topo servem de filtro: **críticos**, **atenção** e **normais**. Tocar filtra; tocar de novo na
+  mesma desmarca; com um filtro ativo aparece um **X** à direita para limpar (o filtro continua ao trocar de dia).
 - Engrenagem: a mesma configuração da página Alarmes, com uma coluna própria **Evolução**.
 - Em dias passados, Em espera sem agente, Skills sem chamadas e Coleta aparecem como "só vale no dia de hoje":
   são retratos do momento que o histórico não tem.
@@ -270,6 +271,7 @@ Alarmes, com o previsto da chave Previsto.
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.28.2:** resumo da Evolução só com as três cápsulas (críticos, atenção, normais), numa linha; tocar de novo desmarca e o X limpa o filtro.
 - **1.28.1:** o resumo "Alarmes do dia" passa a ser o último item da Evolução.
 - **1.28.0:** resumo dos alarmes do dia na Evolução (acompanha a data, lista fixa com ícones, cápsulas de filtro Todos/críticos/em atenção/normais); configuração com a coluna Evolução.
 - **1.27.0:** bolinhas com a quantidade nos botões Agora e Hoje; título "Alarmes" fora do cartão com ativos/ligados (ex.: 2/12); o cartão passa a se chamar Agora ou Hoje.
