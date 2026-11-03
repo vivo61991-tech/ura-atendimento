@@ -1,4 +1,4 @@
-// Resumo dos alarmes do dia na Evolução: acompanha a data escolhida (fechamento do dia; no dia do Pulse, até a última
+// Resumo dos alarmes do dia na Evolução (o último item da tela): acompanha a data escolhida (fechamento do dia; no dia do Pulse, até a última
 // coleta), uma linha por tipo na ordem da configuração (fixa ao trocar de dia), ícone em cada linha, cápsulas de filtro
 // (Todos, críticos, em atenção, normais) e configuração própria (coluna "Evolução").
 const { chromium } = require('/home/claude/.npm-global/lib/node_modules/playwright');
@@ -17,8 +17,8 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   const linhas = () => p.$$eval(`${R} li[data-alr]`, l => l.map(x => ({ t: x.dataset.alr, n: x.className.replace('alr-', ''), nome: x.querySelector('.al-okn').textContent, v: x.querySelector('.al-okv').textContent, ref: (x.querySelector('.al-okr') || {}).textContent || '', ic: !!x.querySelector('.alr-ic svg') })));
   const pills = () => p.$$eval(`${R} .al-fil button`, bs => bs.map(x => x.textContent.trim()));
   // posição: depois da chave Previsto, antes do primeiro gráfico
-  const pos = await p.$eval('#pgEvo', pg => { const k = [...pg.children]; return [k.indexOf(pg.querySelector('.cmpk')), k.indexOf(pg.querySelector('.alresumo')), k.indexOf(pg.querySelector('.chart'))]; });
-  ok(pos[0] < pos[1] && pos[1] < pos[2], `resumo entre a chave Previsto e os gráficos (${pos})`);
+  const pos = await p.$eval('#pgEvo', pg => { const k = [...pg.children]; return { r: k.indexOf(pg.querySelector('.alresumo')), n: k.length, tab: k.indexOf(pg.querySelector('#tIv').closest('.card')) }; });
+  ok(pos.r === pos.n - 1 && pos.r > pos.tab, `resumo é o último item da Evolução, depois da tabela (${pos.r + 1} de ${pos.n})`);
   const ordem = A.TIPOS.map(t => t.id).join();
   let l = await linhas();
   ok(l.map(x => x.t).join() === ordem && l.every(x => x.ic), 'uma linha por tipo, na ordem da configuração, cada uma com o seu ícone');
@@ -31,11 +31,13 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   ok(hoje === l.filter(x => x.n === 'crit' || x.n === 'aten').map(x => x.t).join(), `mesmos alarmes da visão Hoje (${hoje})`);
   await p.click('nav.tabs button[data-v="evo"]'); await p.waitForTimeout(150);
   // trocar de dia: a lista fica no mesmo lugar e na mesma ordem
-  const y0 = await p.$eval(`${R} li[data-alr="ns"]`, x => x.getBoundingClientRect().top + scrollY);
+  // com o resumo na tela (ele é o último item), trocar de dia não tira a lista do lugar na tela
+  await p.evaluate(r => { scrollBy(0, document.querySelector(r).getBoundingClientRect().top - 300); }, R); await p.waitForTimeout(100);
+  const y0 = await p.$eval(`${R} li[data-alr="ns"]`, x => x.getBoundingClientRect().top);
   await p.click('#pgEvo [data-navdia="-1"]'); await p.waitForTimeout(250);
   l = await linhas();
-  const y1 = await p.$eval(`${R} li[data-alr="ns"]`, x => x.getBoundingClientRect().top + scrollY);
-  ok(l.map(x => x.t).join() === ordem && Math.abs(y1 - y0) <= 1, `29/10: mesma ordem e a lista no mesmo lugar (${Math.round(y0)} → ${Math.round(y1)})`);
+  const y1 = await p.$eval(`${R} li[data-alr="ns"]`, x => x.getBoundingClientRect().top);
+  ok(l.map(x => x.t).join() === ordem && Math.abs(y1 - y0) <= 1, `29/10: mesma ordem e a lista parada na tela (${Math.round(y0)} → ${Math.round(y1)} px)`);
   ok(/fechamento do dia · med\. 7 qui/.test(await p.$eval(`${R} .al-cab`, x => x.textContent)), '29/10: "fechamento do dia · med. 7 qui"');
   const ns29 = l.find(x => x.t === 'ns');
   ok(ns29.n === 'aten' && ns29.v === '70,7%', `29/10: NS ${ns29.v} em atenção`);

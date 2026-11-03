@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.28.0)
+# URA · Suporte B2C (v1.28.1)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -175,7 +175,7 @@ Limites iniciais (modelo para ajustar; ficam todos em `LIM` no começo do `alarm
 | Coleta (só hoje, no expediente) | sem coleta há 10 min atenção; 20 min crítico | igual |
 
 ## Resumo dos alarmes do dia (Evolução)
-Cartão **Alarmes do dia** logo antes dos gráficos da Evolução. Acompanha a data da barra de cima: num dia do histórico
+Cartão **Alarmes do dia**, o último item da Evolução (depois da tabela de intervalos). Acompanha a data da barra de cima: num dia do histórico
 é o **fechamento do dia**; no dia do Pulse, o dia até a última coleta. Usa as mesmas regras da visão Hoje da página
 Alarmes, com o previsto da chave Previsto.
 
@@ -270,6 +270,7 @@ Alarmes, com o previsto da chave Previsto.
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.28.1:** o resumo "Alarmes do dia" passa a ser o último item da Evolução.
 - **1.28.0:** resumo dos alarmes do dia na Evolução (acompanha a data, lista fixa com ícones, cápsulas de filtro Todos/críticos/em atenção/normais); configuração com a coluna Evolução.
 - **1.27.0:** bolinhas com a quantidade nos botões Agora e Hoje; título "Alarmes" fora do cartão com ativos/ligados (ex.: 2/12); o cartão passa a se chamar Agora ou Hoje.
 - **1.26.1:** só o nome do indicador e o número ficam na cor do nível; o texto de baixo volta às cores normais.

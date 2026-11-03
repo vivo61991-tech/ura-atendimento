@@ -1,7 +1,7 @@
 /* URA · Suporte B2C — telas (Agora, Evolução, Skills), leitura do arquivo e atualização automática. */
 (function () {
   'use strict';
-  const APP_VERSION = '1.28.0';
+  const APP_VERSION = '1.28.1';
   const D = window.Dados, G = window.Graf, Hs = window.Historico;
 
   // ---------------------------------------------------------------- configuração
@@ -477,7 +477,7 @@
         <div class="al-pe"><span>${pe}</span><button class="info" data-info="alarmes" aria-expanded="${ab}" aria-controls="inf-alarmes" aria-label="${ab ? 'Esconder' : 'Mostrar'} a explicação dos alarmes" title="Como os alarmes funcionam">${ICONE_INFO}</button></div>
         <div class="ch-info al-info" id="inf-alarmes"${ab ? '' : ' hidden'}>${info}</div></div>`;
   }
-  // ---------------------------------------------------------------- resumo dos alarmes na Evolução
+  // ---------------------------------------------------------------- resumo dos alarmes na Evolução (o último item da tela)
   // O dia escolhido na barra de data, com as regras da visão Hoje: o fechamento do dia (no dia do Pulse, até a última
   // coleta). Uma linha por tipo de alarme, sempre na ordem da configuração (a lista não muda de lugar ao trocar de dia);
   // as cápsulas do topo (Todos, críticos, em atenção, normais) filtram a lista. Não é interativo como a página Alarmes.
@@ -966,8 +966,8 @@
       </div>
       ${kBan}
       ${hist ? chaveCmp(ctx) : ''}
-      ${cartaoAlarmesEvo(ctx)}
-      ${html}`;    ajustarData();
+      ${html}
+      ${cartaoAlarmesEvo(ctx)}`;    ajustarData();
   }
   // a data da barra começa em 18 px e só diminui se não couber (tela estreita com "Último" e o botão Horas/Dia)
   function ajustarData() {
