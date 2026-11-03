@@ -95,7 +95,7 @@ const ok = (c, m) => { if (!c) { console.log('FALHOU', m); process.exitCode = 1;
   ok(eng, 'engrenagem no canto superior direito do cartão');
   await p.click('#pgAlarmes .al-cfg'); await p.waitForTimeout(250);
   const cfg = await p.$eval('#sheet', s => ({ show: s.classList.contains('show'), cab: [...s.querySelectorAll('th')].map(x => x.textContent).join('|'), n: s.querySelectorAll('tbody tr').length, todos: s.querySelector('tr.alc-todos td').textContent }));
-  ok(cfg.show && cfg.cab === 'Alarme|Agora|Hoje' && cfg.n === 13 && cfg.todos === 'Todos', `configuração: colunas ${cfg.cab}, "Todos" + 12 alarmes`);
+  ok(cfg.show && cfg.cab === 'Alarme|Agora|Hoje|Evolução' && cfg.n === 13 && cfg.todos === 'Todos', `configuração: colunas ${cfg.cab}, "Todos" + 12 alarmes`);
   await p.click('#sheet input[data-cfg="dia"][data-tipo="ns"]'); await p.waitForTimeout(100);
   ok(await p.$eval('#sheet input[data-cfgtodos="dia"]', x => !x.checked && x.indeterminate) && await p.$eval('#sheet input[data-cfgtodos="agora"]', x => x.checked), '"Todos" do Hoje fica parcial; o do Agora continua marcado');
   await p.click('#sheet [data-act="fechar"]'); await p.waitForTimeout(250);

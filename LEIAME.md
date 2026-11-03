@@ -1,4 +1,4 @@
-# URA · Suporte B2C (v1.27.0)
+# URA · Suporte B2C (v1.28.0)
 
 PWA que mostra **ao vivo** as filas do Suporte B2C na URA, a partir da coleta do Pulse feita pelo MAPI.
 Mesma identidade visual do Problemas Sistêmicos e do Nível de Serviço (paleta da empresa, topo roxo, menu de baixo, modo escuro).
@@ -174,6 +174,19 @@ Limites iniciais (modelo para ajustar; ficam todos em `LIM` no começo do `alarm
 | CO/TEL (parte da TEL) | ±10 p.p. atenção; ±20 p.p. crítico (≥ 20 oferecidas) | igual (≥ 100) |
 | Coleta (só hoje, no expediente) | sem coleta há 10 min atenção; 20 min crítico | igual |
 
+## Resumo dos alarmes do dia (Evolução)
+Cartão **Alarmes do dia** logo antes dos gráficos da Evolução. Acompanha a data da barra de cima: num dia do histórico
+é o **fechamento do dia**; no dia do Pulse, o dia até a última coleta. Usa as mesmas regras da visão Hoje da página
+Alarmes, com o previsto da chave Previsto.
+
+- Simplificado e fixo: **uma linha por tipo de alarme, sempre na ordem da configuração**, com o ícone do nível
+  (crítico, em atenção, normal ou sem dado), o nome e o número na cor do nível e a referência embaixo. Ao trocar de dia
+  a lista não muda de lugar, só os números e as cores: dá para ver a movimentação de um dia para o outro.
+- Cápsulas no topo servem de filtro: **Todos**, críticos, em atenção e normais (o filtro continua ao trocar de dia).
+- Engrenagem: a mesma configuração da página Alarmes, com uma coluna própria **Evolução**.
+- Em dias passados, Em espera sem agente, Skills sem chamadas e Coleta aparecem como "só vale no dia de hoje":
+  são retratos do momento que o histórico não tem.
+
 ## Aba Agora
 - No topo, os botões **Total URA · CO · TEL** (os mesmos da aba Skills, na ordem da Evolução); começa sempre em Total URA.
   - Total URA: NS do CO, Oferecidas URA (CO e TEL), abandonadas, em espera, TME, últimos 15 min (CO + TEL), agentes.
@@ -257,6 +270,7 @@ Limites iniciais (modelo para ajustar; ficam todos em `LIM` no começo do `alarm
   - Perto do início do histórico há menos dias de referência: a legenda mostra quantos e quais dias entraram.
 
 ## Versões
+- **1.28.0:** resumo dos alarmes do dia na Evolução (acompanha a data, lista fixa com ícones, cápsulas de filtro Todos/críticos/em atenção/normais); configuração com a coluna Evolução.
 - **1.27.0:** bolinhas com a quantidade nos botões Agora e Hoje; título "Alarmes" fora do cartão com ativos/ligados (ex.: 2/12); o cartão passa a se chamar Agora ou Hoje.
 - **1.26.1:** só o nome do indicador e o número ficam na cor do nível; o texto de baixo volta às cores normais.
 - **1.26.0:** alarmes críticos e em atenção no formato das normais (nome e número na cor do nível, complemento menor em negrito na mesma cor); nomes padronizados em gráficos, tabelas, cartões e alarmes: Oferecidas, Em espera, Atendidos direto, NS, Abandonadas, TME, TMA.
@@ -322,7 +336,7 @@ Limites iniciais (modelo para ajustar; ficam todos em `LIM` no começo do `alarm
 | `app.js` | telas, atualização automática, cópia no aparelho |
 | `sw.js` | cache offline só deste app (caches `ura-b2c-v…`); o `.json` de dados nunca passa pelo cache |
 | `manifest.webmanifest`, `icons/` | instalação no celular |
-| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `controles.js`, `chipsel.js`, `skills.js`, `avisos.js`, `filtro.js`, `historico.js`, `rolagem.js`, `agora.js`, `painel.js` e `titulos.js`, `dia.js`, `sincronia.js`, `arrastar.js` e `alarmes.js` (Playwright), `historico.test.js` (contas do histórico), `alarmes.test.js` (regras dos alarmes) |
+| `tests/` | `dados.test.js` (contas), `graf.test.js` (desenho das colunas), `tela.js`, `robustez.js`, `info.js`, `selecao.js`, `modo.js`, `chips.js`, `controles.js`, `chipsel.js`, `skills.js`, `avisos.js`, `filtro.js`, `historico.js`, `rolagem.js`, `agora.js`, `painel.js` e `titulos.js`, `dia.js`, `sincronia.js`, `arrastar.js`, `alarmes.js` e `alarmes-evo.js` (Playwright), `historico.test.js` (contas do histórico), `alarmes.test.js` (regras dos alarmes) |
 
 ## Antes de publicar
 1. **Mesma versão** em `APP_VERSION` (`app.js`), `VERSION` (`sw.js`) e nos `?v=` do `index.html`. O teste confere.
